@@ -6,6 +6,19 @@
 .env.production
 .env.development
 
+# Security and Secrets
+*.key
+*.pem
+*.crt
+secrets/
+.secrets
+
+# Debug and Test Files
+debug-*.js
+debug-*.ts
+test-*.html
+*.debug.*
+
 # Logs
 logs
 *.log

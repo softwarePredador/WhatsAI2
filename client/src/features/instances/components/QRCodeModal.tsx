@@ -23,13 +23,15 @@ export default function QRCodeModal({ instance, onClose, onRefresh }: QRCodeModa
   }, [instance?.status, onClose]);
 
   useEffect(() => {
-    if (!instance || !autoRefresh) return;
+    if (!instance || !autoRefresh || countdown <= 0) return;
 
     const timer = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
-          // Refresh QR code
-          onRefresh(instance.id);
+          // Refresh QR code only if instance is still connecting
+          if (instance.status === "connecting") {
+            onRefresh(instance.id);
+          }
           return 30; // Reset countdown
         }
         return prev - 1;
@@ -37,7 +39,7 @@ export default function QRCodeModal({ instance, onClose, onRefresh }: QRCodeModa
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [instance, autoRefresh, onRefresh]);
+  }, [instance, autoRefresh, onRefresh, countdown]);
 
   const handleRefresh = () => {
     if (instance) {

@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { authRoutes } from './auth';
 import { instanceRoutes } from './instances';
 import { webhookRoutes } from './webhooks';
+import settingsRoutes from './settings';
+import accountRoutes from './account';
 import { authMiddleware } from '@/api/middlewares/auth-middleware';
 
 const router = Router();
@@ -21,6 +23,8 @@ router.use('/auth', authRoutes);
 
 // Protected routes (require authentication)
 router.use('/instances', authMiddleware, instanceRoutes);
+router.use('/settings', authMiddleware, settingsRoutes);
+router.use('/account', authMiddleware, accountRoutes);
 router.use('/webhooks', webhookRoutes);
 
 export { router as apiRoutes };

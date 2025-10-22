@@ -193,6 +193,44 @@ export class AuthService {
 
     return { message: 'Password changed successfully' };
   }
+
+  /**
+   * Update user profile
+   */
+  async updateProfile(userId: string, data: { name: string; email: string }) {
+    // Check if email is already taken by another user
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        email: data.email,
+        NOT: { id: userId }
+      }
+    });
+
+    if (existingUser) {
+      throw new Error('Email already exists');
+    }
+
+    // Update user profile
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        name: data.name,
+        email: data.email,
+        updatedAt: new Date()
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        active: true,
+        createdAt: true,
+        updatedAt: true
+      }
+    });
+
+    return { user: updatedUser };
+  }
 }
 
 export const authService = new AuthService();

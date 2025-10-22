@@ -152,15 +152,15 @@ export class EvolutionApiService {
       const data = response.data;
       
       console.log('📦 [DEBUG EvolutionAPI getQRCode] Response keys:', Object.keys(data || {}));
-      console.log('🔍 [DEBUG EvolutionAPI getQRCode] Has qrcode?', !!data.qrcode);
-      console.log('🔍 [DEBUG EvolutionAPI getQRCode] Has qrcode.code?', !!data.qrcode?.code);
-      console.log('🔍 [DEBUG EvolutionAPI getQRCode] Has qrcode.base64?', !!data.qrcode?.base64);
+      console.log('🔍 [DEBUG EvolutionAPI getQRCode] Has code?', !!data.code);
+      console.log('🔍 [DEBUG EvolutionAPI getQRCode] Has base64?', !!data.base64);
       
-      if (data.qrcode?.code) {
+      // Evolution API returns code and base64 directly, not in a qrcode object
+      if (data.code && data.base64) {
         console.log('✅ [DEBUG EvolutionAPI getQRCode] QR Code found!');
         return {
-          code: data.qrcode.code,
-          base64: data.qrcode.base64 || '',
+          code: data.code,
+          base64: data.base64,
           instanceId: instanceName,
           expiresAt: new Date(Date.now() + 45000) // QR expires in 45 seconds
         };

@@ -60,7 +60,6 @@ Página completa de perfil do usuário com:
 
 **D) Seção de Segurança**
 - Botão: "Alterar Senha" (placeholder)
-- Botão: "Autenticação de Dois Fatores" (placeholder)
 - Ícone de cadeado
 - Cards hover com bg-gray-100
 
@@ -387,9 +386,7 @@ import SettingsPage from './pages/SettingsPage';
    - Conectar interval ao auto-refresh real
 
 3. **Autenticação 2FA:**
-   - QR Code para TOTP
-   - Input de código 6 dígitos
-   - Backup codes
+   - Removida conforme solicitação - funcionalidade não necessária no momento
 
 ---
 
@@ -412,7 +409,7 @@ Header (UserMenu)
 ├── Profile → /profile (ProfilePage)
 │   ├── Editar Nome/Email
 │   ├── Informações da Conta
-│   └── Segurança (Senha, 2FA)
+│   └── Segurança (Senha)
 │
 ├── Settings → /settings (SettingsPage)
 │   ├── Notificações (4 toggles)
@@ -436,7 +433,7 @@ Header (UserMenu)
 | ⏳ Profile API integration | Pendente | Média |
 | ⏳ Settings API integration | Pendente | Média |
 | ⏳ Change Password | Pendente | Média |
-| ⏳ 2FA Authentication | Pendente | Baixa |
+| ⏳ 2FA Authentication | Removida | Baixa |
 | ⏳ Dark Mode implementation | Pendente | Baixa |
 | ⏳ Avatar Upload | Pendente | Baixa |
 

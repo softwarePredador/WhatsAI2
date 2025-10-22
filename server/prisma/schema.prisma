@@ -24,6 +24,7 @@ model User {
 
   // Relations
   instances WhatsAppInstance[]
+  settings  UserSettings?
 
   @@map("users")
 }
@@ -96,6 +97,43 @@ model WebhookEvent {
   updatedAt DateTime @updatedAt
 
   @@map("webhook_events")
+}
+
+model UserSettings {
+  id     String  @id @default(cuid())
+  userId String  @unique
+
+  // Profile Settings
+  displayName     String?
+  profilePicture  String?
+  bio             String?
+
+  // Theme Settings
+  theme           String  @default("light") // light, dark, auto
+  language        String  @default("pt-BR")
+
+  // Notification Settings
+  emailNotifications    Boolean @default(true)
+  pushNotifications     Boolean @default(true)
+  soundNotifications    Boolean @default(true)
+  notificationFrequency String  @default("immediate") // immediate, hourly, daily
+
+  // Auto-refresh Settings
+  autoRefresh         Boolean @default(true)
+  autoRefreshInterval Int     @default(30) // seconds
+
+  // Privacy Settings
+  showOnlineStatus Boolean @default(true)
+  allowDataCollection Boolean @default(false)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_settings")
 }
 
 // SQLite doesn't support enums, so we use string literals
