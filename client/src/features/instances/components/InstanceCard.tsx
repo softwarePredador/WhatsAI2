@@ -7,6 +7,7 @@ interface InstanceCardProps {
   onDisconnect: (instanceId: string) => void;
   onDelete: (instanceId: string) => void;
   onViewQR: (instance: WhatsAppInstance) => void;
+  onSendMessage?: (instance: WhatsAppInstance) => void;
   loading?: boolean;
 }
 
@@ -44,6 +45,7 @@ function InstanceCard({
   onDisconnect, 
   onDelete, 
   onViewQR,
+  onSendMessage,
   loading = false 
 }: InstanceCardProps) {
   // Safe status handling with fallback
@@ -151,22 +153,36 @@ function InstanceCard({
           )}
 
           {isConnected && (
-            <button 
-              className="btn btn-warning btn-sm border-0"
-              onClick={() => onDisconnect(instance.id)}
-              disabled={loading}
-            >
-              {loading ? (
-                <span className="loading loading-spinner loading-sm"></span>
-              ) : (
-                <>
+            <>
+              {onSendMessage && (
+                <button 
+                  className="btn btn-primary btn-sm border-0"
+                  onClick={() => onSendMessage(instance)}
+                  disabled={loading}
+                >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                   </svg>
-                  Desconectar
-                </>
+                  Enviar Mensagem
+                </button>
               )}
-            </button>
+              <button 
+                className="btn btn-warning btn-sm border-0"
+                onClick={() => onDisconnect(instance.id)}
+                disabled={loading}
+              >
+                {loading ? (
+                  <span className="loading loading-spinner loading-sm"></span>
+                ) : (
+                  <>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                    </svg>
+                    Desconectar
+                  </>
+                )}
+              </button>
+            </>
           )}
 
           <button 

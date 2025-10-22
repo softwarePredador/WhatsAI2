@@ -32,7 +32,9 @@ export class EvolutionApiService {
   private setupInterceptors(): void {
     this.client.interceptors.request.use(
       (config) => {
-        console.log(`Evolution API Request: ${config.method?.toUpperCase()} ${config.url}`);
+        if (process.env['NODE_ENV'] === 'development') {
+          console.log(`Evolution API Request: ${config.method?.toUpperCase()} ${config.url}`);
+        }
         return config;
       },
       (error) => {
@@ -43,7 +45,9 @@ export class EvolutionApiService {
 
     this.client.interceptors.response.use(
       (response) => {
-        console.log(`Evolution API Response: ${response.status} ${response.config.url}`);
+        if (process.env['NODE_ENV'] === 'development') {
+          console.log(`Evolution API Response: ${response.status} ${response.config.url}`);
+        }
         return response;
       },
       (error) => {
@@ -101,13 +105,7 @@ export class EvolutionApiService {
 
   async connectInstance(instanceName: string): Promise<any> {
     try {
-      console.log('🔌 [DEBUG EvolutionAPI] Connecting instance:', instanceName);
       const response = await this.client.get(`/instance/connect/${instanceName}`);
-      
-      console.log('📦 [DEBUG EvolutionAPI] Response status:', response.status);
-      console.log('📦 [DEBUG EvolutionAPI] Response data keys:', Object.keys(response.data || {}));
-      console.log('📦 [DEBUG EvolutionAPI] Full response data:', JSON.stringify(response.data, null, 2));
-      
       return response.data;
     } catch (error) {
       console.error('❌ [DEBUG EvolutionAPI] Error connecting instance:', error);
@@ -145,28 +143,15 @@ export class EvolutionApiService {
     }
   }
 
-  async getQRCode(instanceName: string): Promise<QRCodeData | null> {
+  async getQRCode(instanceName: string): Promise<string | null> {
     try {
-      console.log('🔍 [DEBUG EvolutionAPI getQRCode] Fetching QR for:', instanceName);
-      const response = await this.client.get(`/instance/connect/${instanceName}`);
-      const data = response.data;
-      
-      console.log('📦 [DEBUG EvolutionAPI getQRCode] Response keys:', Object.keys(data || {}));
-      console.log('🔍 [DEBUG EvolutionAPI getQRCode] Has code?', !!data.code);
-      console.log('🔍 [DEBUG EvolutionAPI getQRCode] Has base64?', !!data.base64);
-      
-      // Evolution API returns code and base64 directly, not in a qrcode object
-      if (data.code && data.base64) {
-        console.log('✅ [DEBUG EvolutionAPI getQRCode] QR Code found!');
-        return {
-          code: data.code,
-          base64: data.base64,
-          instanceId: instanceName,
-          expiresAt: new Date(Date.now() + 45000) // QR expires in 45 seconds
-        };
+      const response = await this.client.get(`/instance/qrcode/${instanceName}`);
+      const { data } = response;
+
+      if (data && (data.code || data.base64)) {
+        return data.code || data.base64;
       }
-      
-      console.warn('⚠️ [DEBUG EvolutionAPI getQRCode] No QR Code in response');
+
       return null;
     } catch (error) {
       console.error('❌ [DEBUG EvolutionAPI getQRCode] Error:', error);
@@ -176,17 +161,15 @@ export class EvolutionApiService {
 
   async sendTextMessage(instanceName: string, number: string, text: string): Promise<any> {
     try {
-      const response = await this.client.post(`/message/sendText/${instanceName}`, {
+      // Formato correto baseado na documentação Evolution API v2
+      const payload = {
         number: number,
-        options: {
-          delay: 1200,
-          presence: 'composing'
-        },
-        textMessage: {
-          text: text
-        }
-      });
-
+        text: text,
+        delay: 1200,
+        linkPreview: false
+      };
+      
+      const response = await this.client.post(`/message/sendText/${instanceName}`, payload);
       return response.data;
     } catch (error) {
       console.error('Error sending text message:', error);

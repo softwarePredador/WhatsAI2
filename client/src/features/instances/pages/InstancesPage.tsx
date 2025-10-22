@@ -4,6 +4,7 @@ import { useInstanceStore } from "../store/instanceStore";
 import InstanceCard from "../components/InstanceCard";
 import CreateInstanceModal from "../components/CreateInstanceModal";
 import QRCodeModal from "../components/QRCodeModal";
+import SendMessageModal from "../components/SendMessageModal";
 import { WhatsAppInstance, CreateInstancePayload } from "../types/instanceTypes";
 import { useLocalStorage } from "../../../hooks/useLocalStorage";
 import { UserSettings, DEFAULT_SETTINGS, STORAGE_KEY } from "../../../types/settings";
@@ -27,6 +28,7 @@ export default function InstancesPage() {
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedInstanceForQR, setSelectedInstanceForQR] = useState<WhatsAppInstance | null>(null);
+  const [selectedInstanceForMessage, setSelectedInstanceForMessage] = useState<WhatsAppInstance | null>(null);
   const [isAutoRefreshing, setIsAutoRefreshing] = useState(false);
 
   // Fetch inicial
@@ -97,6 +99,10 @@ export default function InstancesPage() {
 
   const handleViewQR = (instance: WhatsAppInstance) => {
     setSelectedInstanceForQR(instance);
+  };
+
+  const handleSendMessage = (instance: WhatsAppInstance) => {
+    setSelectedInstanceForMessage(instance);
   };
 
   const handleRefreshQR = async (instanceId: string) => {
@@ -279,6 +285,7 @@ export default function InstancesPage() {
                 onDisconnect={handleDisconnect}
                 onDelete={handleDelete}
                 onViewQR={handleViewQR}
+                onSendMessage={handleSendMessage}
                 loading={loading}
               />
             ))}
@@ -297,6 +304,12 @@ export default function InstancesPage() {
           instance={selectedInstanceForQR}
           onClose={() => setSelectedInstanceForQR(null)}
           onRefresh={handleRefreshQR}
+        />
+
+        <SendMessageModal
+          isOpen={!!selectedInstanceForMessage}
+          instance={selectedInstanceForMessage}
+          onClose={() => setSelectedInstanceForMessage(null)}
         />
       </div>
     </div>
