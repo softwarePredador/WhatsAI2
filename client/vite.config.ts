@@ -10,6 +10,8 @@ export default defineConfig({
   ],
   server: {
     port: 3000,
+    host: true, // Allow external connections
+    allowedHosts: true, // Allow all hosts (including tunnels)
     proxy: {
       '/api': {
         target: 'http://localhost:3001',

@@ -387,4 +387,58 @@ export class ConversationController {
       });
     }
   }
+
+  async markConversationAsRead(req: Request, res: Response): Promise<void> {
+    try {
+      const { conversationId } = req.params;
+
+      if (!conversationId) {
+        res.status(400).json({
+          success: false,
+          message: 'ID da conversa é obrigatório'
+        });
+        return;
+      }
+
+      await this.conversationService.markConversationAsRead(conversationId);
+
+      res.json({
+        success: true,
+        message: 'Conversa marcada como lida'
+      });
+    } catch (error) {
+      console.error('Error marking conversation as read:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Erro ao marcar conversa como lida'
+      });
+    }
+  }
+
+  async markConversationAsUnread(req: Request, res: Response): Promise<void> {
+    try {
+      const { conversationId } = req.params;
+
+      if (!conversationId) {
+        res.status(400).json({
+          success: false,
+          message: 'ID da conversa é obrigatório'
+        });
+        return;
+      }
+
+      await this.conversationService.markConversationAsUnread(conversationId);
+
+      res.json({
+        success: true,
+        message: 'Conversa marcada como não lida'
+      });
+    } catch (error) {
+      console.error('Error marking conversation as unread:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Erro ao marcar conversa como não lida'
+      });
+    }
+  }
 }

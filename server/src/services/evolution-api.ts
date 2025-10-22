@@ -262,4 +262,57 @@ export class EvolutionApiService {
       return false;
     }
   }
+
+  async markMessageAsRead(instanceName: string, messages: Array<{
+    remoteJid: string;
+    fromMe: boolean;
+    id: string;
+  }>): Promise<{ message: string; read: string }> {
+    try {
+      console.log(`📖 Marking messages as read for instance ${instanceName}`);
+      
+      const response = await this.client.post(`/chat/markMessageAsRead/${instanceName}`, {
+        readMessages: messages
+      });
+
+      console.log(`✅ Messages marked as read successfully`);
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ Error marking messages as read:', error.response?.data || error.message);
+      throw new Error(`Failed to mark messages as read: ${error.response?.data?.message || error.message}`);
+    }
+  }
+
+  async markChatAsUnread(instanceName: string, chat: string, lastMessage: {
+    remoteJid: string;
+    fromMe: boolean;
+    id: string;
+  }): Promise<{ message: string; read: string }> {
+    try {
+      console.log(`📪 Marking chat as unread for instance ${instanceName}, chat: ${chat}`);
+      
+      // Formato correto baseado nos testes com a Evolution API
+      const payload = {
+        chat: chat,
+        lastMessage: {
+          remoteJid: lastMessage.remoteJid,
+          fromMe: lastMessage.fromMe,
+          id: lastMessage.id,
+          key: {
+            remoteJid: lastMessage.remoteJid,
+            fromMe: lastMessage.fromMe,
+            id: lastMessage.id
+          }
+        }
+      };
+      
+      const response = await this.client.post(`/chat/markChatUnread/${instanceName}`, payload);
+
+      console.log(`✅ Chat marked as unread successfully`);
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ Error marking chat as unread:', error.response?.data || error.message);
+      throw new Error(`Failed to mark chat as unread: ${error.response?.data?.message || error.message}`);
+    }
+  }
 }

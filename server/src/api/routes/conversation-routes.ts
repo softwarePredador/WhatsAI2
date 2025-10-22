@@ -40,7 +40,12 @@ router.post('/instance/:instanceId/send', (req, res) => {
 
 // Mark conversation as read
 router.patch('/:conversationId/read', (req, res) => {
-  conversationController.markAsRead(req, res);
+  conversationController.markConversationAsRead(req, res);
+});
+
+// Mark conversation as unread  
+router.patch('/:conversationId/unread', (req, res) => {
+  conversationController.markConversationAsUnread(req, res);
 });
 
 // Pin conversation

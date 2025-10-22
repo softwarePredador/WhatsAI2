@@ -360,9 +360,13 @@ export class WhatsAppInstanceService {
         throw new Error('Instance is not connected');
       }
 
-      const result = await this.evolutionApi.sendTextMessage(
-        instance.evolutionInstanceName,
-        number,
+      // Format the remoteJid properly (WhatsApp format)
+      const remoteJid = number.includes('@') ? number : `${number}@s.whatsapp.net`;
+
+      // Use conversationService.sendMessage instead to ensure message is saved
+      const result = await this.conversationService.sendMessage(
+        instanceId,
+        remoteJid,
         text
       );
 
@@ -371,22 +375,7 @@ export class WhatsAppInstanceService {
       instance.updatedAt = new Date();
       this.instances.set(instanceId, instance);
 
-      // Create or update conversation to track the message
-      try {
-        // Format the remoteJid properly (WhatsApp format)
-        const remoteJid = number.includes('@') ? number : `${number}@s.whatsapp.net`;
-        
-        // Create or update conversation and immediately update with last message
-        await this.conversationService.createOrUpdateConversation(instanceId, remoteJid, {
-          contactName: number, // Use number as name initially
-          isGroup: false
-        });
-
-        console.log(`💬 Conversation created/updated for ${number} on instance ${instanceId}`);
-      } catch (convError) {
-        console.error('Error creating/updating conversation:', convError);
-        // Don't throw error here, message was sent successfully
-      }
+      console.log(`💬 Message sent and saved via conversationService for ${remoteJid} on instance ${instanceId}`);
 
       return result;
     } catch (error: any) {

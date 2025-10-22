@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import { Search, MessageSquare, Archive, Pin, MoreVertical } from 'lucide-react';
+import { Search, MessageSquare, Archive, Pin, MoreVertical, Check, Mail } from 'lucide-react';
 import { userAuthStore } from '../features/auth/store/authStore';
+import { conversationService } from '../services/conversationService';
 
 interface ConversationSummary {
   id: string;
@@ -35,6 +36,22 @@ export const ConversationList: React.FC = () => {
 
   useEffect(() => {
     loadConversations();
+  }, [instanceId]);
+
+  // ✨ Recarregar conversas quando a página fica visível novamente (usuário volta para a lista)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        // Quando o usuário volta para a aba, recarregar as conversas para atualizar contadores
+        loadConversations();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [instanceId]);
 
   const loadConversations = async () => {
@@ -111,6 +128,48 @@ export const ConversationList: React.FC = () => {
     return message.substring(0, maxLength) + '...';
   };
 
+  const handleMarkAsRead = async (e: React.MouseEvent, conversationId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!token) return;
+    
+    try {
+      await conversationService.markAsRead(conversationId, token);
+      // Atualizar a conversa localmente
+      setConversations(prev => 
+        prev.map(conv => 
+          conv.id === conversationId 
+            ? { ...conv, unreadCount: 0 }
+            : conv
+        )
+      );
+    } catch (error) {
+      console.error('Erro ao marcar como lida:', error);
+    }
+  };
+
+  const handleMarkAsUnread = async (e: React.MouseEvent, conversationId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!token) return;
+    
+    try {
+      await conversationService.markAsUnread(conversationId, token);
+      // Atualizar a conversa localmente
+      setConversations(prev => 
+        prev.map(conv => 
+          conv.id === conversationId 
+            ? { ...conv, unreadCount: Math.max(1, conv.unreadCount) }
+            : conv
+        )
+      );
+    } catch (error) {
+      console.error('Erro ao marcar como não lida:', error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -173,7 +232,7 @@ export const ConversationList: React.FC = () => {
               <Link
                 key={conversation.id}
                 to={`/chat/${instanceId}/${conversation.id}`}
-                className="block hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                className="group block hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
               >
                 <div className="p-4">
                   <div className="flex items-start space-x-3">
@@ -215,6 +274,26 @@ export const ConversationList: React.FC = () => {
                               {conversation.unreadCount > 99 ? '99+' : conversation.unreadCount}
                             </span>
                           )}
+                          {/* Action buttons */}
+                          <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {conversation.unreadCount > 0 ? (
+                              <button
+                                onClick={(e) => handleMarkAsRead(e, conversation.id)}
+                                className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
+                                title="Marcar como lida"
+                              >
+                                <Check className="h-4 w-4 text-green-600" />
+                              </button>
+                            ) : (
+                              <button
+                                onClick={(e) => handleMarkAsUnread(e, conversation.id)}
+                                className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
+                                title="Marcar como não lida"
+                              >
+                                <Mail className="h-4 w-4 text-blue-600" />
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
                       

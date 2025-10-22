@@ -157,11 +157,41 @@ export class ConversationService {
       const message = await this.messageRepository.create(messageCreateData);
 
       // Update conversation with last message info
+      // Smart unread logic: only increment if conversation is NOT currently active
+      const isConversationActive = this.socketService.isConversationActive(conversation.id);
+      const shouldMarkAsRead = messageData.key.fromMe || isConversationActive;
+      
+      console.log(`📱 Smart read logic for conversation ${conversation.id}:`);
+      console.log(`   - fromMe: ${messageData.key.fromMe}`);
+      console.log(`   - isActive: ${isConversationActive}`);
+      console.log(`   - shouldMarkAsRead: ${shouldMarkAsRead}`);
+
       await this.conversationRepository.update(conversation.id, {
         lastMessage: this.extractMessageContent(messageData),
         lastMessageAt: new Date(messageData.messageTimestamp * 1000),
-        unreadCount: messageData.key.fromMe ? 0 : conversation.unreadCount + 1
+        unreadCount: shouldMarkAsRead ? 0 : conversation.unreadCount + 1
       });
+
+      // If conversation is active and message was received, auto-mark as read in Evolution API
+      if (isConversationActive && !messageData.key.fromMe) {
+        console.log(`🤖 Auto-marking message as read in Evolution API (conversation is active)`);
+        try {
+          const evolutionApi = new EvolutionApiService();
+          const instance = await prisma.whatsAppInstance.findUnique({
+            where: { id: instanceId }
+          });
+          
+          if (instance?.evolutionInstanceName) {
+            await evolutionApi.markMessageAsRead(instance.evolutionInstanceName, [{
+              remoteJid: messageData.key.remoteJid,
+              fromMe: messageData.key.fromMe || false,
+              id: messageData.key.id
+            }]);
+          }
+        } catch (error) {
+          console.error('❌ Error auto-marking message as read:', error);
+        }
+      }
 
       // Emit real-time update to frontend
       this.socketService.emitToInstance(instanceId, 'message:received', {
@@ -226,7 +256,8 @@ export class ConversationService {
         messageType: 'TEXT',
         content,
         messageId: evolutionResponse.key?.id || `msg_${Date.now()}`,
-        timestamp: new Date()
+        timestamp: new Date(),
+        conversationId: conversation.id // ✅ Link to conversation
       });
 
       // Update conversation with last message
@@ -262,13 +293,57 @@ export class ConversationService {
   }
 
   async markConversationAsRead(conversationId: string): Promise<void> {
-    const conversation = await this.conversationRepository.markAsRead(conversationId);
-    
-    // Emit update to frontend
-    this.socketService.emitToInstance(conversation.instanceId, 'conversation:read', {
-      conversationId,
-      unreadCount: 0
-    });
+    try {
+      // Buscar a conversa e suas mensagens não lidas
+      const conversation = await this.conversationRepository.findByIdWithMessages(conversationId, 50, 0);
+      
+      if (!conversation) {
+        throw new Error('Conversation not found');
+      }
+
+      // Buscar a instância para obter os dados da Evolution API
+      const instance = await prisma.whatsAppInstance.findUnique({
+        where: { id: conversation.instanceId }
+      });
+
+      if (!instance) {
+        throw new Error('Instance not found');
+      }
+
+      // Filtrar mensagens não lidas (que não são minhas)
+      const unreadMessages = conversation.messages
+        .filter(msg => !msg.fromMe)
+        .map(msg => ({
+          remoteJid: msg.remoteJid,
+          fromMe: msg.fromMe,
+          id: msg.messageId
+        }));
+
+      if (unreadMessages.length > 0) {
+        // Criar service específico para esta instância
+        const evolutionService = new EvolutionApiService(instance.evolutionApiUrl, instance.evolutionApiKey);
+        
+        // Marcar mensagens como lidas na Evolution API
+        await evolutionService.markMessageAsRead(instance.evolutionInstanceName, unreadMessages);
+      }
+
+      // Atualizar contador local
+      await this.conversationRepository.update(conversationId, {
+        unreadCount: 0
+      });
+
+      console.log(`✅ Conversation ${conversationId} marked as read`);
+
+      // Notificar via WebSocket
+      this.socketService.emitToInstance(conversation.instanceId, 'conversation:read', {
+        conversationId,
+        unreadCount: 0
+      });
+
+    } catch (error) {
+      console.error('❌ Error marking conversation as read:', error);
+      throw error;
+    }
   }
 
   async pinConversation(conversationId: string): Promise<void> {
@@ -384,5 +459,67 @@ export class ConversationService {
     }
     
     return '[Mensagem não suportada]';
+  }
+
+  async markConversationAsUnread(conversationId: string): Promise<void> {
+    try {
+      // Buscar a conversa e sua última mensagem
+      const conversation = await this.conversationRepository.findByIdWithMessages(conversationId, 1, 0);
+      
+      if (!conversation) {
+        throw new Error('Conversation not found');
+      }
+
+      if (conversation.messages.length === 0) {
+        throw new Error('No messages found to mark as unread');
+      }
+
+      // Buscar a instância para obter os dados da Evolution API
+      const instance = await prisma.whatsAppInstance.findUnique({
+        where: { id: conversation.instanceId }
+      });
+
+      if (!instance) {
+        throw new Error('Instance not found');
+      }
+
+      const lastMessage = conversation.messages[0];
+      if (!lastMessage) {
+        throw new Error('Last message not found');
+      }
+
+      // Criar service específico para esta instância
+      const evolutionService = new EvolutionApiService(instance.evolutionApiUrl, instance.evolutionApiKey);
+      
+      // Marcar chat como não lido na Evolution API
+      await evolutionService.markChatAsUnread(
+        instance.evolutionInstanceName,
+        conversation.remoteJid,
+        {
+          remoteJid: lastMessage.remoteJid,
+          fromMe: lastMessage.fromMe,
+          id: lastMessage.messageId
+        }
+      );
+
+      // Atualizar contador local (incrementar se era 0)
+      const newUnreadCount = conversation.unreadCount > 0 ? conversation.unreadCount : 1;
+      await this.conversationRepository.update(conversationId, {
+        unreadCount: newUnreadCount
+      });
+
+      console.log(`✅ Conversation ${conversationId} marked as unread`);
+
+      // Notificar via WebSocket
+      this.socketService.emitToInstance(conversation.instanceId, 'conversation:unread', {
+        conversationId,
+        instanceId: conversation.instanceId,
+        unreadCount: newUnreadCount
+      });
+
+    } catch (error) {
+      console.error('❌ Error marking conversation as unread:', error);
+      throw error;
+    }
   }
 }

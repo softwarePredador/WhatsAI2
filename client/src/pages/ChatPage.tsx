@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Send, Phone, Video, MoreVertical, ArrowLeft, Search } from 'lucide-react';
 import { userAuthStore } from '../features/auth/store/authStore';
+import { conversationService } from '../services/conversationService';
+import { socketService } from '../services/socketService';
 
 interface Message {
   id: string;
@@ -51,8 +53,106 @@ export const ChatPage: React.FC = () => {
     if (conversationId) {
       loadConversation();
       loadMessages();
+      
+      // 🔗 Conectar ao WebSocket e notificar conversa aberta
+      socketService.connect(token || undefined);
+      if (instanceId) {
+        socketService.joinInstance(instanceId);
+      }
+      socketService.openConversation(conversationId);
+      
+      // 📱 Cleanup: notificar quando a conversa for fechada
+      return () => {
+        socketService.closeConversation(conversationId);
+        if (instanceId) {
+          socketService.leaveInstance(instanceId);
+        }
+      };
     }
+  }, [conversationId, instanceId, token]);
+
+  // 🔗 Setup WebSocket listeners for real-time updates
+  useEffect(() => {
+    if (!conversationId) return;
+
+    // Listen for new messages in this conversation
+    const handleNewMessage = (data: { conversationId: string; message: any }) => {
+      if (data.conversationId === conversationId) {
+        const newMessage: Message = {
+          id: data.message.id,
+          content: data.message.content,
+          fromMe: data.message.fromMe,
+          timestamp: new Date(data.message.timestamp),
+          messageType: data.message.messageType || 'text',
+          status: data.message.fromMe ? 'sent' : undefined
+        };
+        
+        setMessages(prev => [...prev, newMessage]);
+        console.log(`📩 Nova mensagem recebida via WebSocket para conversa ${conversationId}`);
+      }
+    };
+
+    // Listen for conversation updates
+    const handleConversationUpdate = (conversation: Conversation) => {
+      if (conversation.id === conversationId) {
+        setConversation(conversation);
+        console.log(`🔄 Conversa ${conversationId} atualizada via WebSocket`);
+      }
+    };
+
+    socketService.on('message:received', handleNewMessage);
+    socketService.on('conversation:updated', handleConversationUpdate);
+
+    return () => {
+      socketService.off('message:received', handleNewMessage);
+      socketService.off('conversation:updated', handleConversationUpdate);
+    };
   }, [conversationId]);
+
+  // ✨ Marcar como lida após um tempo ativo na conversa
+  useEffect(() => {
+    if (!conversation || !conversationId || !token || conversation.unreadCount === 0) {
+      return;
+    }
+
+    // Marcar como lida após 3 segundos de permanência na conversa
+    const timeoutId = setTimeout(async () => {
+      if (conversation.unreadCount > 0) {
+        try {
+          await conversationService.markAsRead(conversationId, token);
+          console.log(`📖 Conversa ${conversationId} marcada como lida após permanência ativa`);
+          setConversation(prev => prev ? { ...prev, unreadCount: 0 } : null);
+        } catch (error) {
+          console.error('❌ Erro ao marcar conversa como lida:', error);
+        }
+      }
+    }, 3000); // 3 segundos
+
+    return () => clearTimeout(timeoutId);
+  }, [conversation?.id, conversation?.unreadCount, conversationId, token]);
+
+  // ✨ Marcar como lida quando a página fica visível novamente (usuário volta para a aba)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && conversation && conversation.unreadCount > 0 && conversationId && token) {
+        // Quando o usuário volta para a aba, marcar como lida se houver mensagens não lidas
+        conversationService.markAsRead(conversationId, token)
+          .then(() => {
+            console.log(`📖 Conversa ${conversationId} marcada como lida (foco na aba)`);
+            setConversation(prev => prev ? { ...prev, unreadCount: 0 } : null);
+          })
+          .catch(error => {
+            console.error('❌ Erro ao marcar como lida (foco na aba):', error);
+          });
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [conversation, conversationId, token]);
 
   const loadConversation = async () => {
     try {
@@ -77,6 +177,11 @@ export const ChatPage: React.FC = () => {
       if (response.ok) {
         const data = await response.json();
         setConversation(data.data);
+        
+        // ✨ NÃO marcar automaticamente como lida apenas por carregar a conversa
+        // A marcação como lida acontece via WebSocket quando mensagens chegam 
+        // e a conversa está ativa, ou via visibility change quando usuário volta à aba
+        console.log(`📱 Conversa carregada: ${data.data?.contactName || data.data?.remoteJid} (unreadCount: ${data.data?.unreadCount || 0})`);
       }
     } catch (error) {
       console.error('Erro ao carregar conversa:', error);
@@ -154,7 +259,7 @@ export const ChatPage: React.FC = () => {
       }
 
       if (response.ok) {
-        const data = await response.json();
+        await response.json();
         
         // Adicionar mensagem localmente
         const tempMessage: Message = {
@@ -168,6 +273,20 @@ export const ChatPage: React.FC = () => {
         
         setMessages(prev => [...prev, tempMessage]);
         setNewMessage('');
+        
+        // ✨ Marcar como lida quando o usuário envia uma mensagem (se ainda não estava lida)
+        if (conversation && conversation.unreadCount > 0 && conversationId) {
+          try {
+            await conversationService.markAsRead(conversationId, token);
+            console.log(`📖 Conversa ${conversationId} marcada como lida após envio de mensagem`);
+            
+            // Atualizar o estado local
+            setConversation(prev => prev ? { ...prev, unreadCount: 0 } : null);
+          } catch (error) {
+            console.error('❌ Erro ao marcar conversa como lida após envio:', error);
+            // Não bloquear o envio se falhar
+          }
+        }
       } else {
         // Tentar obter mensagem de erro específica do backend
         try {
@@ -198,24 +317,6 @@ export const ChatPage: React.FC = () => {
       hour: '2-digit',
       minute: '2-digit'
     }).format(date);
-  };
-
-  const formatMessageDate = (date: Date) => {
-    const today = new Date();
-    const messageDate = new Date(date);
-    
-    if (messageDate.toDateString() === today.toDateString()) {
-      return formatTime(messageDate);
-    }
-    
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    
-    if (messageDate.toDateString() === yesterday.toDateString()) {
-      return 'Ontem';
-    }
-    
-    return messageDate.toLocaleDateString('pt-BR');
   };
 
   if (loading) {

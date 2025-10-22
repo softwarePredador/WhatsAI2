@@ -4,14 +4,16 @@ import { WebhookEvent } from '../../types';
 import { SocketService } from '../../services/socket-service';
 import { ConversationService } from '../../services/conversation-service';
 
-// Validation schema for webhook events
+// Validation schema for webhook events (Evolution API format)
 const webhookEventSchema = z.object({
-  instanceKey: z.string(),
-  data: z.record(z.any()),
-  datetime: z.string(),
-  sender: z.string(),
-  serverUrl: z.string(),
-});
+  event: z.string().optional(),
+  data: z.record(z.any()).optional(),
+  datetime: z.string().optional(),
+  sender: z.string().optional(),
+  serverUrl: z.string().optional(),
+  instanceKey: z.string().optional(),
+  instanceName: z.string().optional(),
+}).passthrough(); // Allow additional properties
 
 export class WebhookController {
   private socketService: SocketService;

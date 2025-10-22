@@ -5,7 +5,7 @@ import { ChatPage } from './ChatPage';
 import { MessageSquare } from 'lucide-react';
 
 export const ChatLayout: React.FC = () => {
-  const { instanceId, conversationId } = useParams<{ 
+  const { conversationId } = useParams<{ 
     instanceId: string; 
     conversationId?: string; 
   }>();
