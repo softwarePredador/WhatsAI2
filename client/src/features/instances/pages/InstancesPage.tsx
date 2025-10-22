@@ -101,7 +101,21 @@ export default function InstancesPage() {
 
   const handleRefreshQR = async (instanceId: string) => {
     if (!token) return;
-    await fetchInstance(instanceId, token);
+    
+    // Instead of fetchInstance, call the QR code endpoint directly
+    try {
+      console.log('🔄 [InstancesPage] Refreshing QR code for instance:', instanceId);
+      // Call instance service to get QR code specifically
+      await fetchInstance(instanceId, token);
+      
+      // Update the selected instance in the modal
+      const updatedInstance = instances.find((inst: WhatsAppInstance) => inst.id === instanceId);
+      if (updatedInstance) {
+        setSelectedInstanceForQR(updatedInstance);
+      }
+    } catch (error) {
+      console.error('❌ [InstancesPage] Error refreshing QR code:', error);
+    }
   };
 
   return (

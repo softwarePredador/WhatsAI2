@@ -4,9 +4,27 @@ Este guia contém **TODAS** as configurações sensíveis e arquivos que não v�
 
 ---
 
-## 📋 **CHECKLIST DE SETUP**
+## � **SITUAÇÃO ATUAL DO PROJETO**
 
-### **1. Clone o Repositório**
+### **✅ O que está configurado:**
+- ✅ Estrutura de pastas criada
+- ✅ Arquivos `.env.example` disponíveis
+- ✅ Schema do Prisma configurado
+- ✅ Configurações Docker prontas
+- ✅ Scripts de package.json configurados
+
+### **❌ O que FALTA configurar:**
+- ❌ **Arquivos `.env` não criados** (apenas .env.example existe)
+- ❌ **Dependências não instaladas** (node_modules ausentes)
+- ❌ **Banco de dados não configurado** (dev.db não existe)
+- ❌ **Prisma Client não gerado**
+- ❌ **Projeto nunca foi inicializado**
+
+---
+
+## �📋 **CHECKLIST DE SETUP URGENTE**
+
+### **1. Clone do Repositório** ✅ FEITO
 ```bash
 git clone https://github.com/rafaelhalder/WhatsAI2.git
 cd WhatsAI2
@@ -14,7 +32,97 @@ cd WhatsAI2
 
 ---
 
-## 🔐 **ARQUIVOS DE CONFIGURAÇÃO (.env)**
+## � **CONFIGURAÇÃO URGENTE NECESSÁRIA**
+
+### **PASSO 1: Criar Arquivos .env** 
+⚠️ **CRÍTICO - Sem isso o projeto não funciona**
+
+#### **Backend - `server/.env`**
+```bash
+# Copiar do .env.example e ajustar
+cp server/.env.example server/.env
+```
+
+**Conteúdo do `server/.env`:**
+```env
+# Application Configuration
+NODE_ENV=development
+PORT=3001
+
+# Evolution API Configuration
+EVOLUTION_API_URL=https://hsapi.studio/
+EVOLUTION_API_KEY=Pz6qEerZE5IYwaoc8ZCQxmBdLAinX4dl
+
+# JWT Configuration (for future authentication)
+JWT_SECRET=whatsai-super-secret-jwt-key-2024
+
+# Database Configuration - Supabase with connection pooling
+DATABASE_URL="postgresql://postgres.viqjmhlxsqqoqimglxar:xitao3275rafa@aws-1-us-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true"
+DIRECT_URL="postgresql://postgres.viqjmhlxsqqoqimglxar:xitao3275rafa@aws-1-us-east-1.pooler.supabase.com:5432/postgres"
+```
+
+#### **Frontend - `client/.env`**
+```bash
+# Copiar do .env.example e ajustar
+cp client/.env.example client/.env
+```
+
+**Conteúdo do `client/.env`:**
+```env
+# Use relative URL for development (Vite proxy will forward to backend)
+VITE_API_URL=/api
+```
+
+### **PASSO 2: Instalar Dependências**
+⚠️ **CRÍTICO - node_modules ausentes**
+
+```bash
+# 1. Dependências da raiz (para concorrência)
+npm install
+
+# 2. Dependências do backend
+cd server
+npm install
+
+# 3. Dependências do frontend
+cd ../client
+npm install
+
+# 4. Voltar para raiz
+cd ..
+```
+
+### **PASSO 3: Configurar Banco de Dados**
+⚠️ **CRÍTICO - Prisma não configurado**
+
+```bash
+cd server
+
+# 1. Gerar Prisma Client
+npx prisma generate
+
+# 2. Criar banco SQLite local OU migrar para PostgreSQL
+# OPÇÃO A: SQLite Local (mais rápido para desenvolvimento)
+npx prisma db push
+
+# OPÇÃO B: PostgreSQL Supabase (produção)
+# Primeiro mude o schema.prisma para PostgreSQL, depois:
+# npx prisma migrate dev --name init
+```
+
+### **PASSO 4: Testar Configuração**
+```bash
+# Na raiz do projeto
+npm run dev
+```
+
+**Deve abrir:**
+- ✅ Frontend: http://localhost:3000
+- ✅ Backend: http://localhost:3001
+
+---
+
+## �🔐 **ARQUIVOS DE CONFIGURAÇÃO (.env)**
 
 ### **📁 Backend - `server/.env`**
 

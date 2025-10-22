@@ -1,34 +1,84 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { userAuthStore } from '../features/auth/store/authStore';
+import ChangePasswordModal from '../components/ChangePasswordModal';
 import toast from 'react-hot-toast';
 
 export default function ProfilePage() {
   const user = userAuthStore((state) => state.user);
+  const setUser = userAuthStore((state) => state.setUser);
   const [isEditing, setIsEditing] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isChangePasswordModalOpen, setIsChangePasswordModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: user?.name || '',
     email: user?.email || '',
   });
 
+  console.log('ProfilePage render - isEditing:', isEditing, 'isLoading:', isLoading);
+
+  // Sync formData with user data when user changes (with immediate update)
+  useEffect(() => {
+    if (user && !isEditing) {
+      setFormData({
+        name: user.name || '',
+        email: user.email || '',
+      });
+    }
+  }, [user, isEditing]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Only process submit if we're actually in editing mode
+    if (!isEditing) {
+      return;
+    }
+    
+    setIsLoading(true);
+    
     try {
-      // TODO: Implement API call to update user profile
-      // const response = await fetch('http://localhost:3000/api/auth/profile', {
-      //   method: 'PUT',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //     'Authorization': `Bearer ${token}`,
-      //   },
-      //   body: JSON.stringify(formData),
-      // });
+      const token = localStorage.getItem('whatsai_token') || localStorage.getItem('token');
       
-      toast.success('Perfil atualizado com sucesso!');
-      setIsEditing(false);
+      const response = await fetch('http://localhost:3001/api/auth/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(formData),
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        const updatedUser = data.data.user;
+        
+        // Update the user store with new data
+        setUser(updatedUser);
+        
+        // Update local formData immediately to reflect the changes
+        setFormData({
+          name: updatedUser.name,
+          email: updatedUser.email,
+        });
+        
+        toast.success('Perfil atualizado com sucesso!');
+        setIsEditing(false);
+      } else {
+        if (data.errors) {
+          // Show validation errors
+          data.errors.forEach((error: any) => {
+            toast.error(`${error.field}: ${error.message}`);
+          });
+        } else {
+          toast.error(data.message || 'Erro ao atualizar perfil');
+        }
+      }
     } catch (error) {
-      toast.error('Erro ao atualizar perfil');
+      toast.error('Erro ao conectar com o servidor');
       console.error('Profile update error:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -54,11 +104,11 @@ export default function ProfilePage() {
           {/* Avatar Section */}
           <div className="flex items-center gap-6 mb-8 pb-6 border-b border-base-300">
             <div className="w-24 h-24 bg-gradient-to-br from-primary to-secondary rounded-full flex items-center justify-center text-primary-content text-3xl font-bold">
-              {user?.name?.charAt(0).toUpperCase() || 'U'}
+              {(formData.name || user?.name)?.charAt(0).toUpperCase() || 'U'}
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-base-content">{user?.name}</h2>
-              <p className="text-base-content/70">{user?.email}</p>
+              <h2 className="text-2xl font-bold text-base-content">{formData.name || user?.name}</h2>
+              <p className="text-base-content/70">{formData.email || user?.email}</p>
             </div>
           </div>
 
@@ -80,7 +130,7 @@ export default function ProfilePage() {
                   />
                 ) : (
                   <p className="px-4 py-3 bg-base-200 rounded-lg text-base-content">
-                    {user?.name}
+                    {formData.name || user?.name}
                   </p>
                 )}
               </div>
@@ -100,7 +150,7 @@ export default function ProfilePage() {
                   />
                 ) : (
                   <p className="px-4 py-3 bg-base-200 rounded-lg text-base-content">
-                    {user?.email}
+                    {formData.email || user?.email}
                   </p>
                 )}
               </div>
@@ -136,29 +186,47 @@ export default function ProfilePage() {
                     <button
                       type="submit"
                       className="flex-1 btn btn-primary border-0"
+                      disabled={isLoading}
                     >
-                      Salvar Alterações
+                      {isLoading ? (
+                        <>
+                          <span className="loading loading-spinner loading-sm"></span>
+                          Salvando...
+                        </>
+                      ) : (
+                        'Salvar Alterações'
+                      )}
                     </button>
                     <button
                       type="button"
                       onClick={handleCancel}
                       className="flex-1 btn btn-ghost"
+                      disabled={isLoading}
                     >
                       Cancelar
                     </button>
                   </>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setIsEditing(true)}
-                    className="flex-1 btn btn-primary border-0"
-                  >
-                    Editar Perfil
-                  </button>
-                )}
+                ) : null}
               </div>
             </div>
           </form>
+          
+          {/* Edit Button - Outside form to prevent accidental submit */}
+          {!isEditing && (
+            <div className="flex gap-3 pt-6">
+              <button
+                type="button"
+                onClick={() => {
+                  console.log('Clicou em Editar Perfil');
+                  setIsEditing(true);
+                  console.log('isEditing agora é:', true);
+                }}
+                className="flex-1 btn btn-primary border-0"
+              >
+                Editar Perfil
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Security Section */}
@@ -173,22 +241,20 @@ export default function ProfilePage() {
             <button
               type="button"
               className="w-full text-left px-4 py-3 bg-base-200 rounded-lg hover:bg-base-300 transition-colors"
-              onClick={() => toast('Funcionalidade em desenvolvimento', { icon: 'ℹ️' })}
+              onClick={() => setIsChangePasswordModalOpen(true)}
             >
               <p className="font-medium text-base-content">Alterar Senha</p>
               <p className="text-sm text-base-content/60">Atualize sua senha periodicamente</p>
             </button>
-            <button
-              type="button"
-              className="w-full text-left px-4 py-3 bg-base-200 rounded-lg hover:bg-base-300 transition-colors"
-              onClick={() => toast('Funcionalidade em desenvolvimento', { icon: 'ℹ️' })}
-            >
-              <p className="font-medium text-base-content">Autenticação de Dois Fatores</p>
-              <p className="text-sm text-base-content/60">Adicione uma camada extra de segurança</p>
-            </button>
           </div>
         </div>
       </div>
+
+      {/* Change Password Modal */}
+      <ChangePasswordModal
+        isOpen={isChangePasswordModalOpen}
+        onClose={() => setIsChangePasswordModalOpen(false)}
+      />
     </div>
   );
 }

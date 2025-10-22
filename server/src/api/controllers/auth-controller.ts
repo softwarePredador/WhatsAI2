@@ -19,6 +19,11 @@ const changePasswordSchema = z.object({
   newPassword: z.string().min(6, 'New password must be at least 6 characters')
 });
 
+const updateProfileSchema = z.object({
+  name: z.string().min(2, 'Name must be at least 2 characters'),
+  email: z.string().email('Invalid email format')
+});
+
 export class AuthController {
   /**
    * POST /api/auth/register
@@ -223,6 +228,70 @@ export class AuthController {
         res.status(500).json({
           success: false,
           message: 'Failed to change password',
+          error: error.message
+        });
+        return;
+      }
+
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error'
+      });
+    }
+  }
+
+  /**
+   * PUT /api/auth/profile
+   * Update user profile
+   */
+  async updateProfile(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = (req as any).userId;
+
+      if (!userId) {
+        res.status(401).json({
+          success: false,
+          message: 'Unauthorized'
+        });
+        return;
+      }
+
+      // Validate request body
+      const validatedData = updateProfileSchema.parse(req.body);
+
+      // Update profile
+      const result = await authService.updateProfile(userId, validatedData);
+
+      res.status(200).json({
+        success: true,
+        message: 'Profile updated successfully',
+        data: result
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({
+          success: false,
+          message: 'Validation error',
+          errors: error.errors.map(err => ({
+            field: err.path.join('.'),
+            message: err.message
+          }))
+        });
+        return;
+      }
+
+      if (error instanceof Error) {
+        if (error.message === 'Email already exists') {
+          res.status(409).json({
+            success: false,
+            message: error.message
+          });
+          return;
+        }
+
+        res.status(500).json({
+          success: false,
+          message: 'Failed to update profile',
           error: error.message
         });
         return;

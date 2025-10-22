@@ -116,30 +116,71 @@ export class WhatsAppInstanceService {
       instances.map(async (instance) => {
         try {
           const apiStatus = await this.evolutionApi.getInstanceStatus(instance.evolutionInstanceName);
+          console.log(`🔍 [getAllInstances] Instance ${instance.name}: Current=${instance.status}, API=${apiStatus}`);
           
-          // Only update if status changed
-          if (instance.status !== apiStatus) {
-            console.log(`📊 [getAllInstances] Status changed for ${instance.name}: ${instance.status} → ${apiStatus}`);
-            instance.status = apiStatus;
-            instance.connected = apiStatus === InstanceStatus.CONNECTED;
-            instance.updatedAt = new Date();
-            
-            if (apiStatus === InstanceStatus.CONNECTED) {
-              instance.connectedAt = new Date();
+          // Always try to get QR code if status is connecting
+          if (apiStatus === InstanceStatus.CONNECTING) {
+            console.log(`🔄 [getAllInstances] Instance ${instance.name} is connecting, attempting to get QR code...`);
+            try {
+              const qrData = await this.evolutionApi.getQRCode(instance.evolutionInstanceName);
+              console.log(`🔍 [getAllInstances] QR Data response for ${instance.name}:`, qrData);
+              if (qrData && qrData.base64) {
+                console.log(`📱 [getAllInstances] QR Code obtained for ${instance.name}`);
+                instance.qrCode = qrData.base64;
+                instance.lastSeen = new Date();
+              } else {
+                console.log(`⚠️ [getAllInstances] No QR Code available for ${instance.name}`);
+                console.log(`⚠️ [getAllInstances] QR Data structure:`, qrData);
+              }
+            } catch (qrError) {
+              console.error(`⚠️ [getAllInstances] Could not get QR code for ${instance.name}:`, qrError);
             }
-            
-            this.instances.set(instance.id, instance);
-            
-            // Update database
-            await this.repository.update(instance.id, {
+          }
+          
+          // Always update instance with latest status
+          const statusChanged = instance.status !== apiStatus;
+          instance.status = apiStatus;
+          instance.connected = apiStatus === InstanceStatus.CONNECTED;
+          instance.updatedAt = new Date();
+          
+          if (apiStatus === InstanceStatus.CONNECTED) {
+            instance.connectedAt = new Date();
+            // Clear QR code when connected
+            delete instance.qrCode;
+          }
+          
+          this.instances.set(instance.id, instance);
+          
+          // Update database if status changed or we have new QR code
+          const needsUpdate = statusChanged || (apiStatus === InstanceStatus.CONNECTING && instance.qrCode);
+          
+          if (needsUpdate) {
+            // Update database with all changes
+            const updateData: Partial<WhatsAppInstance> = {
               status: apiStatus,
               connected: apiStatus === InstanceStatus.CONNECTED
-            });
+            };
+            
+            if (instance.qrCode !== undefined) {
+              updateData.qrCode = instance.qrCode;
+            }
+            
+            if (instance.lastSeen !== undefined) {
+              updateData.lastSeen = instance.lastSeen;
+            }
+            
+            if (instance.connectedAt !== undefined) {
+              updateData.connectedAt = instance.connectedAt;
+            }
+            
+            await this.repository.update(instance.id, updateData);
+            console.log(`💾 [getAllInstances] Database updated for ${instance.name}`);
             
             // Emit status change
             this.socketService.emitToInstance(instance.id, 'status_changed', {
               instanceId: instance.id,
-              status: apiStatus
+              status: apiStatus,
+              qrCode: instance.qrCode
             });
           }
         } catch (error) {

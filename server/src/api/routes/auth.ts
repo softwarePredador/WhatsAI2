@@ -26,6 +26,13 @@ router.post('/login', (req, res) => authController.login(req, res));
 router.get('/me', authMiddleware, (req, res) => authController.me(req, res));
 
 /**
+ * PUT /api/auth/profile
+ * Update user profile
+ * Protected route
+ */
+router.put('/profile', authMiddleware, (req, res) => authController.updateProfile(req, res));
+
+/**
  * POST /api/auth/change-password
  * Change user password
  * Protected route

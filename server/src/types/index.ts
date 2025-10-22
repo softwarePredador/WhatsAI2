@@ -1,4 +1,14 @@
 // Core types for WhatsApp instance management
+import { Request } from 'express';
+
+export interface AuthenticatedRequest extends Request {
+  user?: {
+    userId: string;
+    email: string;
+    role: string;
+  };
+}
+
 export interface WhatsAppInstance {
   id: string;
   name: string;
@@ -79,4 +89,89 @@ export interface InstanceListResponse {
   total: number;
   page: number;
   limit: number;
+}
+
+// User Settings types
+export interface UserSettings {
+  id: string;
+  userId: string;
+  
+  // Profile Settings (can be null in database, undefined in API)
+  displayName: string | undefined;
+  profilePicture: string | undefined;
+  bio: string | undefined;
+  
+  // Theme Settings
+  theme: 'light' | 'dark' | 'auto';
+  language: string;
+  
+  // Notification Settings
+  emailNotifications: boolean;
+  pushNotifications: boolean;
+  soundNotifications: boolean;
+  notificationFrequency: 'immediate' | 'hourly' | 'daily';
+  
+  // Auto-refresh Settings
+  autoRefresh: boolean;
+  autoRefreshInterval: number;
+  
+  // Privacy Settings
+  showOnlineStatus: boolean;
+  allowDataCollection: boolean;
+  
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CreateUserSettingsRequest {
+  displayName?: string | undefined;
+  profilePicture?: string | undefined;
+  bio?: string | undefined;
+  theme?: 'light' | 'dark' | 'auto' | undefined;
+  language?: string | undefined;
+  emailNotifications?: boolean | undefined;
+  pushNotifications?: boolean | undefined;
+  soundNotifications?: boolean | undefined;
+  notificationFrequency?: 'immediate' | 'hourly' | 'daily' | undefined;
+  autoRefresh?: boolean | undefined;
+  autoRefreshInterval?: number | undefined;
+  showOnlineStatus?: boolean | undefined;
+  allowDataCollection?: boolean | undefined;
+}
+
+export interface UpdateUserSettingsRequest extends Partial<CreateUserSettingsRequest> {}
+
+export interface UserSettingsResponse {
+  settings: UserSettings;
+}
+
+// Account Deletion types
+export interface DeleteAccountRequest {
+  password: string;
+  confirmEmail: string;
+  confirmDeletion: boolean;
+}
+
+export interface AccountDeletionPreview {
+  user: {
+    email: string;
+    name: string;
+    createdAt: Date;
+  };
+  dataToDelete: {
+    instances: number;
+    messages: number;
+    settings: boolean;
+  };
+}
+
+export interface DeleteAccountResult {
+  success: boolean;
+  deletedData: {
+    userId: string;
+    email: string;
+    instancesDeleted: number;
+    messagesDeleted: number;
+    settingsDeleted: boolean;
+  };
 }

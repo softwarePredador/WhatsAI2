@@ -11,6 +11,7 @@ type AuthState = {
   register: (payload: { name: string; email: string; password: string }) => Promise<boolean>;
   logout: () => void;
   checkAuth: () => Promise<void>;
+  setUser: (user: LoginResponse["user"]) => void;
 }
 
 export const userAuthStore = create<AuthState>((set) => ({
@@ -66,5 +67,9 @@ export const userAuthStore = create<AuthState>((set) => ({
       localStorage.removeItem("token");
       set({ token: null, user: null, loading: false });
     }
+  },
+
+  setUser: (user) => {
+    set({ user });
   },
 }));
