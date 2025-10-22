@@ -42,3 +42,17 @@ export interface QRCodeData {
   qrCode: string;
   instanceId: string;
 }
+
+export interface SendMessagePayload {
+  number: string;
+  text: string;
+}
+
+export interface MessageResponse {
+  success: boolean;
+  data: {
+    messageId?: string;
+    status?: string;
+  };
+  message?: string;
+}

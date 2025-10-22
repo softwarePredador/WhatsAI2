@@ -4,6 +4,7 @@ import { Server as HTTPServer } from 'http';
 export class SocketService {
   private static instance: SocketService;
   private io: SocketIOServer | null = null;
+  private activeConversations: Map<string, Set<string>> = new Map(); // socketId -> Set<conversationId>
 
   private constructor() {}
 
@@ -43,8 +44,26 @@ export class SocketService {
         console.log(`Client ${socket.id} left instance room: ${instanceId}`);
       });
 
+      // Handle conversation open/close tracking
+      socket.on('conversation_opened', (conversationId: string) => {
+        if (!this.activeConversations.has(socket.id)) {
+          this.activeConversations.set(socket.id, new Set());
+        }
+        this.activeConversations.get(socket.id)!.add(conversationId);
+        console.log(`👀 Client ${socket.id} opened conversation: ${conversationId}`);
+      });
+
+      socket.on('conversation_closed', (conversationId: string) => {
+        if (this.activeConversations.has(socket.id)) {
+          this.activeConversations.get(socket.id)!.delete(conversationId);
+          console.log(`👋 Client ${socket.id} closed conversation: ${conversationId}`);
+        }
+      });
+
       socket.on('disconnect', () => {
         console.log(`Client disconnected: ${socket.id}`);
+        // Clean up active conversations for this socket
+        this.activeConversations.delete(socket.id);
       });
     });
   }
@@ -70,5 +89,32 @@ export class SocketService {
   getConnectedClients(): number {
     if (!this.io) return 0;
     return this.io.engine.clientsCount;
+  }
+
+  /**
+   * Verifica se uma conversa está atualmente ativa/aberta em algum cliente
+   */
+  isConversationActive(conversationId: string): boolean {
+    const values = Array.from(this.activeConversations.values());
+    for (const activeConversations of values) {
+      if (activeConversations.has(conversationId)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Retorna quantos clientes têm a conversa ativa
+   */
+  getActiveClientsForConversation(conversationId: string): number {
+    let count = 0;
+    const values = Array.from(this.activeConversations.values());
+    for (const activeConversations of values) {
+      if (activeConversations.has(conversationId)) {
+        count++;
+      }
+    }
+    return count;
   }
 }

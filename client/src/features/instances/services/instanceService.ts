@@ -261,5 +261,39 @@ export const instanceService = {
       }
       throw error;
     }
+  },
+
+  /**
+   * Send a message via WhatsApp instance
+   */
+  async sendMessage(instanceId: string, number: string, text: string, token: string): Promise<any> {
+    try {
+      const response = await axios.post(
+        `${API_URL}/instances/${instanceId}/send-message`,
+        {
+          number,
+          text
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json"
+          }
+        }
+      );
+
+      if (!response.data.success) {
+        throw new Error(response.data.message || "Failed to send message");
+      }
+
+      return response.data.data;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        // Priorizar a mensagem do backend, que pode conter informações específicas como "número não possui WhatsApp"
+        const message = error.response?.data?.message || error.response?.data?.error || "Failed to send message";
+        throw new Error(message);
+      }
+      throw error;
+    }
   }
 };

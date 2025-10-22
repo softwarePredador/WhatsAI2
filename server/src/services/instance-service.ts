@@ -1,6 +1,7 @@
-import { WhatsAppInstance, InstanceStatus, QRCodeData } from '../types';
+import { WhatsAppInstance, InstanceStatus } from '../types';
 import { EvolutionApiService } from './evolution-api';
 import { SocketService } from './socket-service';
+import { ConversationService } from './conversation-service';
 import { PrismaInstanceRepository } from '../database/repositories/instance-repository';
 import { env } from '../config/env';
 import { v4 as uuidv4 } from 'uuid';
@@ -17,12 +18,14 @@ interface CreateInstanceData {
 export class WhatsAppInstanceService {
   private evolutionApi: EvolutionApiService;
   private socketService: SocketService;
+  private conversationService: ConversationService;
   private repository: PrismaInstanceRepository;
   private instances: Map<string, WhatsAppInstance> = new Map();
 
   constructor() {
     this.evolutionApi = new EvolutionApiService();
     this.socketService = SocketService.getInstance();
+    this.conversationService = new ConversationService();
     this.repository = new PrismaInstanceRepository();
     
     // Load existing instances from database on startup
@@ -120,17 +123,11 @@ export class WhatsAppInstanceService {
           
           // Always try to get QR code if status is connecting
           if (apiStatus === InstanceStatus.CONNECTING) {
-            console.log(`🔄 [getAllInstances] Instance ${instance.name} is connecting, attempting to get QR code...`);
             try {
-              const qrData = await this.evolutionApi.getQRCode(instance.evolutionInstanceName);
-              console.log(`🔍 [getAllInstances] QR Data response for ${instance.name}:`, qrData);
-              if (qrData && qrData.base64) {
-                console.log(`📱 [getAllInstances] QR Code obtained for ${instance.name}`);
-                instance.qrCode = qrData.base64;
+              const qrCodeString = await this.evolutionApi.getQRCode(instance.evolutionInstanceName);
+              if (qrCodeString) {
+                instance.qrCode = qrCodeString;
                 instance.lastSeen = new Date();
-              } else {
-                console.log(`⚠️ [getAllInstances] No QR Code available for ${instance.name}`);
-                console.log(`⚠️ [getAllInstances] QR Data structure:`, qrData);
               }
             } catch (qrError) {
               console.error(`⚠️ [getAllInstances] Could not get QR code for ${instance.name}:`, qrError);
@@ -251,12 +248,7 @@ export class WhatsAppInstanceService {
       });
 
       // Connect via Evolution API
-      console.log('🔄 [DEBUG] Calling Evolution API connectInstance...');
       const result = await this.evolutionApi.connectInstance(instance.evolutionInstanceName);
-      
-      console.log('📦 [DEBUG] Evolution API Response:', JSON.stringify(result, null, 2));
-      console.log('🔍 [DEBUG] result.qrcode exists?', !!result.qrcode);
-      console.log('🔍 [DEBUG] result.base64 exists?', !!result.base64);
       
       // Evolution API can return QR Code in two formats:
       // 1. result.qrcode.base64 (nested)
@@ -265,28 +257,21 @@ export class WhatsAppInstanceService {
 
       // Save QR Code if present
       if (qrCodeBase64) {
-        console.log('✅ [DEBUG] QR Code found! Saving...');
-        console.log('📏 [DEBUG] QR Code length:', qrCodeBase64.length);
-        console.log('📋 [DEBUG] QR Code format:', qrCodeBase64.substring(0, 30) + '...');
-        
         instance.qrCode = qrCodeBase64;
         instance.updatedAt = new Date();
         this.instances.set(instanceId, instance);
-        console.log('💾 [DEBUG] QR Code saved to memory cache');
         
         // Persist to database
         await this.repository.update(instanceId, {
           qrCode: qrCodeBase64,
           status: InstanceStatus.CONNECTING
         });
-        console.log('🗄️ [DEBUG] QR Code persisted to database');
 
         // Emit QR code event
         this.socketService.emitToInstance(instanceId, 'qr_code', {
           instanceId,
           qrCode: qrCodeBase64
         });
-        console.log('📡 [DEBUG] QR Code event emitted via WebSocket');
       } else {
         console.warn('⚠️ [DEBUG] QR Code NOT found in response!');
         console.warn('⚠️ [DEBUG] Result structure:', Object.keys(result));
@@ -340,31 +325,21 @@ export class WhatsAppInstanceService {
     }
   }
 
-  async getQRCode(instanceId: string): Promise<QRCodeData | null> {
+  async getQRCode(instanceId: string): Promise<string | null> {
     try {
-      console.log('🔍 [DEBUG getQRCode] Fetching instance:', instanceId);
       const instance = await this.getInstanceById(instanceId);
       if (!instance) {
-        console.error('❌ [DEBUG getQRCode] Instance not found!');
         throw new Error('Instance not found');
       }
 
-      console.log('📱 [DEBUG getQRCode] Instance found:', {
-        name: instance.name,
-        status: instance.status,
-        hasQRCode: !!instance.qrCode,
-        qrCodeLength: instance.qrCode?.length || 0
-      });
-
-      console.log('🔄 [DEBUG getQRCode] Calling Evolution API getQRCode...');
       const qrData = await this.evolutionApi.getQRCode(instance.evolutionInstanceName);
       
-      console.log('📦 [DEBUG getQRCode] Evolution API response:', qrData ? 'QR Code received' : 'No QR Code');
-      
       if (qrData) {
-        console.log('📡 [DEBUG getQRCode] Emitting QR code via WebSocket');
         // Emit QR code via WebSocket
-        this.socketService.emitToInstance(instanceId, 'qr_code', qrData);
+        this.socketService.emitToInstance(instanceId, 'qr_code', {
+          instanceId,
+          qrCode: qrData
+        });
       }
 
       return qrData;
@@ -385,9 +360,13 @@ export class WhatsAppInstanceService {
         throw new Error('Instance is not connected');
       }
 
-      const result = await this.evolutionApi.sendTextMessage(
-        instance.evolutionInstanceName,
-        number,
+      // Format the remoteJid properly (WhatsApp format)
+      const remoteJid = number.includes('@') ? number : `${number}@s.whatsapp.net`;
+
+      // Use conversationService.sendMessage instead to ensure message is saved
+      const result = await this.conversationService.sendMessage(
+        instanceId,
+        remoteJid,
         text
       );
 
@@ -396,9 +375,17 @@ export class WhatsAppInstanceService {
       instance.updatedAt = new Date();
       this.instances.set(instanceId, instance);
 
+      console.log(`💬 Message sent and saved via conversationService for ${remoteJid} on instance ${instanceId}`);
+
       return result;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error sending message:', error);
+      
+      // Se for erro de WhatsApp não encontrado, propagar a mensagem específica
+      if (error.message && error.message.includes('não possui WhatsApp')) {
+        throw error; // Propagar o erro original com a mensagem específica
+      }
+      
       throw new Error('Failed to send message');
     }
   }

@@ -14,6 +14,7 @@ import HomePage from './pages/HomePage';
 import InstancesPage from './features/instances/pages/InstancesPage';
 import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage';
+import { ChatLayout } from './pages/ChatLayout';
 import { useTheme } from './hooks/useTheme';
 
 function RegisterPage() {
@@ -258,7 +259,7 @@ export function App() {
       <Toaster
         position="top-right"
         toastOptions={{
-          duration: 1000,
+          duration: 4000, // 4 segundos para dar tempo de ler
           success: {
             style: {
               background: '#10b981',
@@ -270,6 +271,7 @@ export function App() {
               background: '#ef4444',
               color: 'white',
             },
+            duration: 6000, // Erros ficam mais tempo visíveis
           },
         }}
       />
@@ -307,6 +309,22 @@ export function App() {
               element={
                 <ProtectedRoute>
                   <SettingsPage />
+                </ProtectedRoute>
+              }
+              />
+            <Route
+              path="/chat/:instanceId"
+              element={
+                <ProtectedRoute>
+                  <ChatLayout />
+                </ProtectedRoute>
+              }
+              />
+            <Route
+              path="/chat/:instanceId/:conversationId"
+              element={
+                <ProtectedRoute>
+                  <ChatLayout />
                 </ProtectedRoute>
               }
               />

@@ -32,7 +32,9 @@ export class EvolutionApiService {
   private setupInterceptors(): void {
     this.client.interceptors.request.use(
       (config) => {
-        console.log(`Evolution API Request: ${config.method?.toUpperCase()} ${config.url}`);
+        if (process.env['NODE_ENV'] === 'development') {
+          console.log(`Evolution API Request: ${config.method?.toUpperCase()} ${config.url}`);
+        }
         return config;
       },
       (error) => {
@@ -43,7 +45,9 @@ export class EvolutionApiService {
 
     this.client.interceptors.response.use(
       (response) => {
-        console.log(`Evolution API Response: ${response.status} ${response.config.url}`);
+        if (process.env['NODE_ENV'] === 'development') {
+          console.log(`Evolution API Response: ${response.status} ${response.config.url}`);
+        }
         return response;
       },
       (error) => {
@@ -101,13 +105,7 @@ export class EvolutionApiService {
 
   async connectInstance(instanceName: string): Promise<any> {
     try {
-      console.log('🔌 [DEBUG EvolutionAPI] Connecting instance:', instanceName);
       const response = await this.client.get(`/instance/connect/${instanceName}`);
-      
-      console.log('📦 [DEBUG EvolutionAPI] Response status:', response.status);
-      console.log('📦 [DEBUG EvolutionAPI] Response data keys:', Object.keys(response.data || {}));
-      console.log('📦 [DEBUG EvolutionAPI] Full response data:', JSON.stringify(response.data, null, 2));
-      
       return response.data;
     } catch (error) {
       console.error('❌ [DEBUG EvolutionAPI] Error connecting instance:', error);
@@ -145,48 +143,75 @@ export class EvolutionApiService {
     }
   }
 
-  async getQRCode(instanceName: string): Promise<QRCodeData | null> {
+  async getQRCode(instanceName: string): Promise<string | null> {
     try {
-      console.log('🔍 [DEBUG EvolutionAPI getQRCode] Fetching QR for:', instanceName);
       const response = await this.client.get(`/instance/connect/${instanceName}`);
-      const data = response.data;
-      
-      console.log('📦 [DEBUG EvolutionAPI getQRCode] Response keys:', Object.keys(data || {}));
-      console.log('🔍 [DEBUG EvolutionAPI getQRCode] Has code?', !!data.code);
-      console.log('🔍 [DEBUG EvolutionAPI getQRCode] Has base64?', !!data.base64);
-      
-      // Evolution API returns code and base64 directly, not in a qrcode object
-      if (data.code && data.base64) {
-        console.log('✅ [DEBUG EvolutionAPI getQRCode] QR Code found!');
-        return {
-          code: data.code,
-          base64: data.base64,
-          instanceId: instanceName,
-          expiresAt: new Date(Date.now() + 45000) // QR expires in 45 seconds
-        };
+      const { data } = response;
+
+      // Priorizar base64 (imagem completa) em vez de apenas o código
+      if (data && (data.base64 || data.qrcode || data.qr || data.code)) {
+        return data.base64 || data.qrcode || data.qr || data.code;
       }
+
+      return null;
+    } catch (error: any) {
+      // Reduzir log - só mostrar erro se não for 404 (QR não disponível ainda)
+      if (error.response?.status !== 404) {
+        console.error('❌ [EvolutionAPI getQRCode] Error:', error.message);
+      }
+      return null;
+    }
+  }
+
+  async checkIsWhatsApp(instanceName: string, numbers: string[]): Promise<any> {
+    try {
+      console.log(`🔍 [EvolutionAPI checkIsWhatsApp] Verificando números:`, numbers);
       
-      console.warn('⚠️ [DEBUG EvolutionAPI getQRCode] No QR Code in response');
-      return null;
+      const payload = {
+        numbers: numbers
+      };
+      
+      const response = await this.client.post(`/chat/whatsappNumbers/${instanceName}`, payload);
+      console.log(`✅ [EvolutionAPI checkIsWhatsApp] Resposta:`, response.data);
+      
+      return response.data;
     } catch (error) {
-      console.error('❌ [DEBUG EvolutionAPI getQRCode] Error:', error);
-      return null;
+      console.error('❌ [EvolutionAPI checkIsWhatsApp] Error:', error);
+      throw error;
     }
   }
 
   async sendTextMessage(instanceName: string, number: string, text: string): Promise<any> {
     try {
-      const response = await this.client.post(`/message/sendText/${instanceName}`, {
-        number: number,
-        options: {
-          delay: 1200,
-          presence: 'composing'
-        },
-        textMessage: {
-          text: text
-        }
-      });
-
+      // Garantir que o número esteja no formato correto do WhatsApp
+      const formattedNumber = number.includes('@') ? number : `${number}@s.whatsapp.net`;
+      
+      // Verificar se o número tem WhatsApp antes de enviar
+      console.log(`🔍 [sendTextMessage] Verificando se ${formattedNumber} tem WhatsApp...`);
+      
+      const whatsappCheck = await this.checkIsWhatsApp(instanceName, [formattedNumber]);
+      
+      // A resposta geralmente vem como array de objetos com exists: boolean
+      const numberInfo = whatsappCheck.find((info: any) => 
+        info.jid === formattedNumber || info.number === formattedNumber
+      );
+      
+      if (!numberInfo || !numberInfo.exists) {
+        console.log(`❌ [sendTextMessage] Número ${formattedNumber} não tem WhatsApp`);
+        throw new Error(`O número ${number} não possui WhatsApp`);
+      }
+      
+      console.log(`✅ [sendTextMessage] Número ${formattedNumber} tem WhatsApp, enviando mensagem...`);
+      
+      // Formato correto baseado na documentação Evolution API v2
+      const payload = {
+        number: formattedNumber,
+        text: text,
+        delay: 1200,
+        linkPreview: false
+      };
+      
+      const response = await this.client.post(`/message/sendText/${instanceName}`, payload);
       return response.data;
     } catch (error) {
       console.error('Error sending text message:', error);
@@ -235,6 +260,59 @@ export class EvolutionApiService {
     } catch (error) {
       console.error('Error checking webhook:', error);
       return false;
+    }
+  }
+
+  async markMessageAsRead(instanceName: string, messages: Array<{
+    remoteJid: string;
+    fromMe: boolean;
+    id: string;
+  }>): Promise<{ message: string; read: string }> {
+    try {
+      console.log(`📖 Marking messages as read for instance ${instanceName}`);
+      
+      const response = await this.client.post(`/chat/markMessageAsRead/${instanceName}`, {
+        readMessages: messages
+      });
+
+      console.log(`✅ Messages marked as read successfully`);
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ Error marking messages as read:', error.response?.data || error.message);
+      throw new Error(`Failed to mark messages as read: ${error.response?.data?.message || error.message}`);
+    }
+  }
+
+  async markChatAsUnread(instanceName: string, chat: string, lastMessage: {
+    remoteJid: string;
+    fromMe: boolean;
+    id: string;
+  }): Promise<{ message: string; read: string }> {
+    try {
+      console.log(`📪 Marking chat as unread for instance ${instanceName}, chat: ${chat}`);
+      
+      // Formato correto baseado nos testes com a Evolution API
+      const payload = {
+        chat: chat,
+        lastMessage: {
+          remoteJid: lastMessage.remoteJid,
+          fromMe: lastMessage.fromMe,
+          id: lastMessage.id,
+          key: {
+            remoteJid: lastMessage.remoteJid,
+            fromMe: lastMessage.fromMe,
+            id: lastMessage.id
+          }
+        }
+      };
+      
+      const response = await this.client.post(`/chat/markChatUnread/${instanceName}`, payload);
+
+      console.log(`✅ Chat marked as unread successfully`);
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ Error marking chat as unread:', error.response?.data || error.message);
+      throw new Error(`Failed to mark chat as unread: ${error.response?.data?.message || error.message}`);
     }
   }
 }
