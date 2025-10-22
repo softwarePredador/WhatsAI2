@@ -289,7 +289,8 @@ export const instanceService = {
       return response.data.data;
     } catch (error) {
       if (axios.isAxiosError(error)) {
-        const message = error.response?.data?.error || "Failed to send message";
+        // Priorizar a mensagem do backend, que pode conter informações específicas como "número não possui WhatsApp"
+        const message = error.response?.data?.message || error.response?.data?.error || "Failed to send message";
         throw new Error(message);
       }
       throw error;

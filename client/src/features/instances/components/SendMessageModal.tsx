@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { instanceService } from '../services/instanceService';
 import { userAuthStore } from '../../auth/store/authStore';
 import { WhatsAppInstance, SendMessagePayload } from '../types/instanceTypes';
@@ -12,6 +13,7 @@ interface SendMessageModalProps {
 
 function SendMessageModal({ isOpen, onClose, instance }: SendMessageModalProps) {
   const { token } = userAuthStore();
+  const navigate = useNavigate();
   const [formData, setFormData] = useState<SendMessagePayload>({
     number: '',
     text: ''
@@ -31,6 +33,22 @@ function SendMessageModal({ isOpen, onClose, instance }: SendMessageModalProps) 
       return;
     }
 
+    // Evitar múltiplas submissões
+    if (isLoading) {
+      return;
+    }
+
+    // Validar campos
+    if (!formData.number.trim()) {
+      toast.error('Digite o número do destinatário');
+      return;
+    }
+
+    if (!formData.text.trim()) {
+      toast.error('Digite o texto da mensagem');
+      return;
+    }
+
     setIsLoading(true);
     
     try {
@@ -46,8 +64,13 @@ function SendMessageModal({ isOpen, onClose, instance }: SendMessageModalProps) 
       // Reset form
       setFormData({ number: '', text: '' });
       onClose();
+      
+      // Redirecionar para o chat da instância
+      navigate(`/chat/${instance.id}`);
     } catch (error) {
+      console.error('❌ [SendMessageModal] Erro ao enviar mensagem:', error);
       const errorMessage = error instanceof Error ? error.message : 'Erro ao enviar mensagem';
+      console.log('❌ [SendMessageModal] Mensagem de erro:', errorMessage);
       toast.error(errorMessage);
     } finally {
       setIsLoading(false);

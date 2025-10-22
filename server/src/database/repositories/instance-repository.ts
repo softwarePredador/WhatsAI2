@@ -107,7 +107,32 @@ export class PrismaInstanceRepository {
     fileName?: string;
     caption?: string;
   }): Promise<void> {
-    await prisma.message.create({
+    // Primeiro, encontrar ou criar a conversa associada
+    const conversation = await (prisma as any).conversation.upsert({
+      where: {
+        instanceId_remoteJid: {
+          instanceId: data.instanceId,
+          remoteJid: data.remoteJid
+        }
+      },
+      create: {
+        instanceId: data.instanceId,
+        remoteJid: data.remoteJid,
+        isGroup: data.remoteJid.includes('@g.us'),
+        lastMessage: data.content,
+        lastMessageAt: data.timestamp,
+        unreadCount: data.fromMe ? 0 : 1, // Se não é de mim, incrementa contador
+      },
+      update: {
+        lastMessage: data.content,
+        lastMessageAt: data.timestamp,
+        unreadCount: data.fromMe ? undefined : { increment: 1 }, // Se não é de mim, incrementa contador
+        updatedAt: new Date()
+      }
+    });
+
+    // Agora criar a mensagem associada à conversa
+    await (prisma as any).message.create({
       data: {
         instanceId: data.instanceId,
         remoteJid: data.remoteJid,
@@ -119,6 +144,7 @@ export class PrismaInstanceRepository {
         mediaUrl: data.mediaUrl || null,
         fileName: data.fileName || null,
         caption: data.caption || null,
+        conversationId: conversation.id, // Associar à conversa
       },
     });
   }

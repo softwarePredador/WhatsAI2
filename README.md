@@ -15,6 +15,8 @@ A powerful multi-instance WhatsApp manager built with TypeScript, Node.js, and E
 - 📧 **Message Sending**: Send text messages through multiple instances
 - 🔗 **Evolution API Integration**: Seamless integration with Evolution API
 - 📊 **QR Code Generation**: Dynamic QR code generation with automatic refresh
+- ✅ **Smart WhatsApp Verification**: Automatically checks if numbers have WhatsApp before sending
+- 💬 **Complete Chat Interface**: WhatsApp-like chat interface with conversation management
 
 ### 🔐 **Authentication & Security**
 - 🛡️ **User Authentication**: JWT-based authentication system

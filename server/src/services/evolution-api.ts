@@ -145,25 +145,67 @@ export class EvolutionApiService {
 
   async getQRCode(instanceName: string): Promise<string | null> {
     try {
-      const response = await this.client.get(`/instance/qrcode/${instanceName}`);
+      const response = await this.client.get(`/instance/connect/${instanceName}`);
       const { data } = response;
 
-      if (data && (data.code || data.base64)) {
-        return data.code || data.base64;
+      // Priorizar base64 (imagem completa) em vez de apenas o código
+      if (data && (data.base64 || data.qrcode || data.qr || data.code)) {
+        return data.base64 || data.qrcode || data.qr || data.code;
       }
 
       return null;
-    } catch (error) {
-      console.error('❌ [DEBUG EvolutionAPI getQRCode] Error:', error);
+    } catch (error: any) {
+      // Reduzir log - só mostrar erro se não for 404 (QR não disponível ainda)
+      if (error.response?.status !== 404) {
+        console.error('❌ [EvolutionAPI getQRCode] Error:', error.message);
+      }
       return null;
+    }
+  }
+
+  async checkIsWhatsApp(instanceName: string, numbers: string[]): Promise<any> {
+    try {
+      console.log(`🔍 [EvolutionAPI checkIsWhatsApp] Verificando números:`, numbers);
+      
+      const payload = {
+        numbers: numbers
+      };
+      
+      const response = await this.client.post(`/chat/whatsappNumbers/${instanceName}`, payload);
+      console.log(`✅ [EvolutionAPI checkIsWhatsApp] Resposta:`, response.data);
+      
+      return response.data;
+    } catch (error) {
+      console.error('❌ [EvolutionAPI checkIsWhatsApp] Error:', error);
+      throw error;
     }
   }
 
   async sendTextMessage(instanceName: string, number: string, text: string): Promise<any> {
     try {
+      // Garantir que o número esteja no formato correto do WhatsApp
+      const formattedNumber = number.includes('@') ? number : `${number}@s.whatsapp.net`;
+      
+      // Verificar se o número tem WhatsApp antes de enviar
+      console.log(`🔍 [sendTextMessage] Verificando se ${formattedNumber} tem WhatsApp...`);
+      
+      const whatsappCheck = await this.checkIsWhatsApp(instanceName, [formattedNumber]);
+      
+      // A resposta geralmente vem como array de objetos com exists: boolean
+      const numberInfo = whatsappCheck.find((info: any) => 
+        info.jid === formattedNumber || info.number === formattedNumber
+      );
+      
+      if (!numberInfo || !numberInfo.exists) {
+        console.log(`❌ [sendTextMessage] Número ${formattedNumber} não tem WhatsApp`);
+        throw new Error(`O número ${number} não possui WhatsApp`);
+      }
+      
+      console.log(`✅ [sendTextMessage] Número ${formattedNumber} tem WhatsApp, enviando mensagem...`);
+      
       // Formato correto baseado na documentação Evolution API v2
       const payload = {
-        number: number,
+        number: formattedNumber,
         text: text,
         delay: 1200,
         linkPreview: false

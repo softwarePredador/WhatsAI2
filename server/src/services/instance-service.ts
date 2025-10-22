@@ -1,6 +1,7 @@
 import { WhatsAppInstance, InstanceStatus } from '../types';
 import { EvolutionApiService } from './evolution-api';
 import { SocketService } from './socket-service';
+import { ConversationService } from './conversation-service';
 import { PrismaInstanceRepository } from '../database/repositories/instance-repository';
 import { env } from '../config/env';
 import { v4 as uuidv4 } from 'uuid';
@@ -17,12 +18,14 @@ interface CreateInstanceData {
 export class WhatsAppInstanceService {
   private evolutionApi: EvolutionApiService;
   private socketService: SocketService;
+  private conversationService: ConversationService;
   private repository: PrismaInstanceRepository;
   private instances: Map<string, WhatsAppInstance> = new Map();
 
   constructor() {
     this.evolutionApi = new EvolutionApiService();
     this.socketService = SocketService.getInstance();
+    this.conversationService = new ConversationService();
     this.repository = new PrismaInstanceRepository();
     
     // Load existing instances from database on startup
@@ -368,9 +371,32 @@ export class WhatsAppInstanceService {
       instance.updatedAt = new Date();
       this.instances.set(instanceId, instance);
 
+      // Create or update conversation to track the message
+      try {
+        // Format the remoteJid properly (WhatsApp format)
+        const remoteJid = number.includes('@') ? number : `${number}@s.whatsapp.net`;
+        
+        // Create or update conversation and immediately update with last message
+        await this.conversationService.createOrUpdateConversation(instanceId, remoteJid, {
+          contactName: number, // Use number as name initially
+          isGroup: false
+        });
+
+        console.log(`💬 Conversation created/updated for ${number} on instance ${instanceId}`);
+      } catch (convError) {
+        console.error('Error creating/updating conversation:', convError);
+        // Don't throw error here, message was sent successfully
+      }
+
       return result;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error sending message:', error);
+      
+      // Se for erro de WhatsApp não encontrado, propagar a mensagem específica
+      if (error.message && error.message.includes('não possui WhatsApp')) {
+        throw error; // Propagar o erro original com a mensagem específica
+      }
+      
       throw new Error('Failed to send message');
     }
   }

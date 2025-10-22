@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { z } from 'zod';
 import { WebhookEvent } from '../../types';
 import { SocketService } from '../../services/socket-service';
+import { ConversationService } from '../../services/conversation-service';
 
 // Validation schema for webhook events
 const webhookEventSchema = z.object({
@@ -14,9 +15,11 @@ const webhookEventSchema = z.object({
 
 export class WebhookController {
   private socketService: SocketService;
+  private conversationService: ConversationService;
 
   constructor() {
     this.socketService = SocketService.getInstance();
+    this.conversationService = new ConversationService();
   }
 
   handleEvolutionWebhook = async (req: Request, res: Response): Promise<void> => {
@@ -33,7 +36,21 @@ export class WebhookController {
 
       const webhookData = webhookEventSchema.parse(req.body);
       
-      console.log(`Received Evolution webhook for instance ${instanceId}:`, webhookData);
+      console.log(`🔔 Received Evolution webhook for instance ${instanceId}:`, webhookData);
+
+      // Process different types of webhook events
+      if (webhookData.data && typeof webhookData.data === 'object') {
+        // Check if this is a message event
+        if (webhookData.data['key'] && webhookData.data['message']) {
+          console.log(`💬 Processing incoming message for instance ${instanceId}`);
+          await this.conversationService.handleIncomingMessage(instanceId, webhookData.data);
+        }
+        
+        // Handle other webhook events (status changes, etc.)
+        if (webhookData.data['status']) {
+          console.log(`📊 Processing status change for instance ${instanceId}: ${webhookData.data['status']}`);
+        }
+      }
 
       // Emit event via WebSocket
       this.socketService.emitToInstance(instanceId, 'evolution_event', webhookData);

@@ -56,6 +56,7 @@ model WhatsAppInstance {
 
   // Relations
   messages Message[]
+  conversations Conversation[]
 
   @@map("whatsapp_instances")
 }
@@ -81,8 +82,39 @@ model Message {
 
   // Relations
   instance WhatsAppInstance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  conversation Conversation? @relation(fields: [conversationId], references: [id])
+  conversationId String?
 
   @@map("messages")
+}
+
+model Conversation {
+  id         String  @id @default(cuid())
+  instanceId String
+  remoteJid  String // WhatsApp contact ID
+  
+  // Contact information
+  contactName  String?
+  contactPicture String?
+  isGroup      Boolean @default(false)
+  
+  // Conversation state
+  lastMessage    String?
+  lastMessageAt  DateTime?
+  unreadCount    Int @default(0)
+  isArchived     Boolean @default(false)
+  isPinned       Boolean @default(false)
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  instance WhatsAppInstance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  messages Message[]
+  
+  @@unique([instanceId, remoteJid])
+  @@map("conversations")
 }
 
 model WebhookEvent {

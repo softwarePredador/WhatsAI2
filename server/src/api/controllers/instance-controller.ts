@@ -288,7 +288,7 @@ export class WhatsAppInstanceController {
         data: result,
         message: 'Message sent successfully'
       });
-    } catch (error) {
+    } catch (error: any) {
       if (error instanceof z.ZodError) {
         res.status(400).json({
           success: false,
@@ -299,6 +299,16 @@ export class WhatsAppInstanceController {
       }
 
       console.error('Error sending message:', error);
+      
+      // Verificar se é erro de WhatsApp não encontrado
+      if (error.message && error.message.includes('não possui WhatsApp')) {
+        res.status(400).json({
+          success: false,
+          message: error.message
+        });
+        return;
+      }
+
       res.status(500).json({
         success: false,
         error: 'Failed to send message'
