@@ -42,6 +42,7 @@ export function useTheme() {
     
     // Função para aplicar o tema usando data-theme do DaisyUI
     const applyTheme = (themeName: 'light' | 'dark') => {
+      // Usar os temas padrão do DaisyUI customizados
       root.setAttribute('data-theme', themeName);
       // Também adiciona classe para Tailwind dark: utilities
       if (themeName === 'dark') {

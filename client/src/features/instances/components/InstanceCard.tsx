@@ -65,7 +65,7 @@ function InstanceCard({
   };
 
   return (
-    <div className="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow">
+    <div className="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow rounded-2xl border border-base-300">
       <div className="card-body">
         {/* Header */}
         <div className="flex justify-between items-start gap-4">
@@ -120,7 +120,7 @@ function InstanceCard({
         <div className="card-actions justify-end mt-4">
           {isConnecting && (
             <button 
-              className="btn btn-info btn-sm"
+              className="btn btn-info btn-sm border-0"
               onClick={() => onViewQR(instance)}
               disabled={loading}
             >
@@ -133,7 +133,7 @@ function InstanceCard({
 
           {!isConnected && !isConnecting && (
             <button 
-              className="btn btn-success btn-sm"
+              className="btn btn-success btn-sm border-0"
               onClick={() => onConnect(instance.id)}
               disabled={loading}
             >
@@ -152,7 +152,7 @@ function InstanceCard({
 
           {isConnected && (
             <button 
-              className="btn btn-warning btn-sm"
+              className="btn btn-warning btn-sm border-0"
               onClick={() => onDisconnect(instance.id)}
               disabled={loading}
             >
@@ -170,7 +170,7 @@ function InstanceCard({
           )}
 
           <button 
-            className="btn btn-error btn-sm"
+            className="btn btn-error btn-sm border-0"
             onClick={handleDelete}
             disabled={loading}
           >

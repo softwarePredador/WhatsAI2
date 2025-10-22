@@ -50,7 +50,7 @@ export default function ProfilePage() {
         </div>
 
         {/* Profile Card */}
-        <div className="card bg-base-100 shadow-xl p-6 md:p-8">
+        <div className="card bg-base-100 shadow-xl rounded-2xl border border-base-300 p-6 md:p-8">
           {/* Avatar Section */}
           <div className="flex items-center gap-6 mb-8 pb-6 border-b border-base-300">
             <div className="w-24 h-24 bg-gradient-to-br from-primary to-secondary rounded-full flex items-center justify-center text-primary-content text-3xl font-bold">
@@ -135,7 +135,7 @@ export default function ProfilePage() {
                   <>
                     <button
                       type="submit"
-                      className="flex-1 btn btn-primary"
+                      className="flex-1 btn btn-primary border-0"
                     >
                       Salvar Alterações
                     </button>
@@ -151,7 +151,7 @@ export default function ProfilePage() {
                   <button
                     type="button"
                     onClick={() => setIsEditing(true)}
-                    className="flex-1 btn btn-primary"
+                    className="flex-1 btn btn-primary border-0"
                   >
                     Editar Perfil
                   </button>
@@ -162,7 +162,7 @@ export default function ProfilePage() {
         </div>
 
         {/* Security Section */}
-        <div className="mt-6 card bg-base-100 shadow-xl p-6 md:p-8">
+        <div className="mt-6 card bg-base-100 shadow-xl rounded-2xl border border-base-300 p-6 md:p-8">
           <h3 className="text-lg font-semibold text-base-content mb-4 flex items-center gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />

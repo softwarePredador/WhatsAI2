@@ -53,7 +53,7 @@ function DashboardPage() {
     <div className="min-h-screen bg-base-200 p-4 md:p-8">
       <div className="max-w-6xl mx-auto">
         {/* Header com boas-vindas */}
-        <div className="card bg-base-100 shadow-xl p-6 mb-6">
+        <div className="card bg-base-100 shadow-xl rounded-2xl border border-base-300 p-6 mb-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
               <h1 className="text-3xl font-bold text-base-content mb-2">
@@ -68,7 +68,7 @@ function DashboardPage() {
 
         {/* Card de informações do usuário */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          <div className="card bg-base-100 shadow-xl p-6">
+          <div className="card bg-base-100 shadow-xl rounded-2xl border border-base-300 p-6">
             <h2 className="text-xl font-semibold text-base-content mb-4">
               Informações da Conta
             </h2>
@@ -85,7 +85,7 @@ function DashboardPage() {
           </div>
 
           {/* Atalhos Rápidos */}
-          <div className="card bg-base-100 shadow-xl p-6">
+          <div className="card bg-base-100 shadow-xl rounded-2xl border border-base-300 p-6">
             <h2 className="text-xl font-semibold text-base-content mb-4 flex items-center gap-2">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -145,7 +145,7 @@ function DashboardPage() {
         {/* Grid de estatísticas detalhadas - mantém gradientes coloridos */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           {/* Total de Instâncias */}
-          <div className="stats shadow bg-base-100">
+          <div className="stats shadow-xl bg-base-100 rounded-2xl border border-base-300">
             <div className="stat">
               <div className="stat-figure">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -159,7 +159,7 @@ function DashboardPage() {
           </div>
 
           {/* Conectadas */}
-          <div className="stats shadow bg-base-100">
+          <div className="stats shadow-xl bg-base-100 rounded-2xl border border-base-300">
             <div className="stat">
               <div className="stat-figure">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -173,7 +173,7 @@ function DashboardPage() {
           </div>
 
           {/* Conectando */}
-          <div className="stats shadow bg-base-100">
+          <div className="stats shadow-xl bg-base-100 rounded-2xl border border-base-300">
             <div className="stat">
               <div className="stat-figure">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -187,22 +187,24 @@ function DashboardPage() {
           </div>
 
           {/* Desconectadas */}
-          <div className="stats shadow bg-error text-error-content">
+     <div className="stats shadow-xl bg-base-100 rounded-2xl border border-base-300">
             <div className="stat">
               <div className="stat-figure">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <circle cx="12" cy="12" r="9" strokeWidth={2} />
+                  <line x1="15" y1="9" x2="9" y2="15" strokeWidth={2} strokeLinecap="round" />
+                  <line x1="9" y1="9" x2="15" y2="15" strokeWidth={2} strokeLinecap="round" />
                 </svg>
               </div>
-              <div className="stat-title opacity-70">Desconectadas</div>
-              <div className="stat-value">{instances.filter(inst => inst.status === 'disconnected' || inst.status === 'error').length}</div>
-              <div className="stat-desc opacity-70">Offline</div>
+              <div className="stat-title text-base-content/60 text-sm">Desconectadas</div>
+              <div className="stat-value text-error text-4xl">{instances.filter(inst => inst.status === 'disconnected' || inst.status === 'error').length}</div>
+              <div className="stat-desc text-base-content/50 text-sm">Offline</div>
             </div>
           </div>
         </div>
 
         {/* Call to action */}
-        <div className="card bg-gradient-to-r from-primary to-secondary text-primary-content shadow-xl p-8">
+        <div className="card bg-gradient-to-r from-primary to-secondary text-primary-content shadow-xl rounded-2xl p-8">
           <h2 className="text-2xl font-bold mb-4">
             {totalInstances === 0 ? 'Pronto para começar?' : 'Continue gerenciando'}
           </h2>

@@ -105,10 +105,10 @@ export default function InstancesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-base-200 p-4 md:p-8">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-base-200">
+      <div className="max-w-7xl mx-auto px-4 py-6 md:px-8 md:py-8">
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="text-4xl font-bold text-primary">
               Instâncias WhatsApp
@@ -145,7 +145,7 @@ export default function InstancesPage() {
           </div>
           
           <button
-            className="btn btn-primary gap-2"
+            className="btn btn-primary gap-2 border-0"
             onClick={() => setIsCreateModalOpen(true)}
             disabled={loading}
           >
@@ -159,7 +159,7 @@ export default function InstancesPage() {
         {/* Stats - usando componentes DaisyUI stats com visual neutro */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
           {/* Total de Instâncias */}
-          <div className="stats shadow bg-base-100">
+          <div className="stats shadow-xl bg-base-100 rounded-2xl border border-base-300">
             <div className="stat">
               <div className="stat-figure">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -173,7 +173,7 @@ export default function InstancesPage() {
           </div>
 
           {/* Conectadas */}
-          <div className="stats shadow bg-base-100">
+          <div className="stats shadow-xl bg-base-100 rounded-2xl border border-base-300">
             <div className="stat">
               <div className="stat-figure">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -189,7 +189,7 @@ export default function InstancesPage() {
           </div>
 
           {/* Conectando */}
-          <div className="stats shadow bg-base-100">
+          <div className="stats shadow-xl bg-base-100 rounded-2xl border border-base-300">
             <div className="stat">
               <div className="stat-figure">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -205,7 +205,7 @@ export default function InstancesPage() {
           </div>
 
           {/* Desconectadas */}
-          <div className="stats shadow bg-base-100">
+          <div className="stats shadow-xl bg-base-100 rounded-2xl border border-base-300">
             <div className="stat">
               <div className="stat-figure">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -232,7 +232,7 @@ export default function InstancesPage() {
 
         {/* Empty State */}
         {!loading && instances.length === 0 && (
-          <div className="card bg-base-100 shadow-xl">
+          <div className="card bg-base-100 shadow-xl rounded-2xl border border-base-300">
             <div className="card-body items-center text-center py-20">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-24 w-24 text-base-content/20 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
@@ -242,7 +242,7 @@ export default function InstancesPage() {
                 Crie sua primeira instância WhatsApp para começar a gerenciar suas conexões.
               </p>
               <button
-                className="btn btn-primary mt-6"
+                className="btn btn-primary mt-6 border-0"
                 onClick={() => setIsCreateModalOpen(true)}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

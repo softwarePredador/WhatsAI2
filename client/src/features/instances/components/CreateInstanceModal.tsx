@@ -138,7 +138,7 @@ export default function CreateInstanceModal({
             </button>
             <button
               type="submit"
-              className="btn btn-primary"
+              className="btn btn-primary border-0"
               disabled={isSubmitting || loading}
             >
               {isSubmitting || loading ? (
