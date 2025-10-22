@@ -1,0 +1,29 @@
+# Development Dockerfile with hot reload
+
+FROM node:22-alpine
+
+WORKDIR /app
+
+# Install security updates and development dependencies
+RUN apk update && apk upgrade --no-cache && \
+    apk add --no-cache python3 make g++
+
+# Copy package files
+COPY package*.json ./
+COPY tsconfig.json ./
+
+# Install all dependencies (including dev)
+RUN npm install
+
+# Copy Prisma schema
+COPY prisma ./prisma
+
+# Generate Prisma Client
+RUN npm run db:generate
+
+# Expose ports
+EXPOSE 5173
+EXPOSE 9229
+
+# Start development server with hot reload
+CMD ["npm", "run", "dev"]

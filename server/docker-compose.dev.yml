@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  # WhatsAI Development Environment
+  whatsai-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: whatsai-dev
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+      - "9229:9229" # Node.js debugger
+    environment:
+      NODE_ENV: development
+      PORT: 5173
+      EVOLUTION_API_URL: ${EVOLUTION_API_URL:-https://hsapi.studio/}
+      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY:-your-evolution-api-key}
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key}
+      DATABASE_URL: file:./dev.db
+    volumes:
+      # Mount source code for hot reload
+      - ./src:/app/src
+      - ./prisma:/app/prisma
+      - ./test-client.html:/app/test-client.html
+      # Persist node_modules
+      - node_modules:/app/node_modules
+    networks:
+      - whatsai-network
+    command: npm run dev
+
+networks:
+  whatsai-network:
+    driver: bridge
+
+volumes:
+  node_modules:

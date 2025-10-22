@@ -1,0 +1,111 @@
+// Prisma schema for PostgreSQL (Production)
+// To use this schema:
+// 1. Rename this file to schema.prisma (backup the current one)
+// 2. Update your DATABASE_URL in .env to point to PostgreSQL
+// 3. Run: npm run db:migrate
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum InstanceStatus {
+  PENDING
+  DISCONNECTED
+  CONNECTING
+  CONNECTED
+  ERROR
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  VIDEO
+  AUDIO
+  DOCUMENT
+  STICKER
+  LOCATION
+  CONTACT
+  UNKNOWN
+}
+
+model WhatsAppInstance {
+  id                     String         @id @default(cuid())
+  name                   String
+  evolutionInstanceName  String         @unique
+  status                 InstanceStatus @default(PENDING)
+  connected              Boolean        @default(false)
+  
+  // Evolution API Configuration
+  evolutionApiUrl        String
+  evolutionApiKey        String
+  
+  // Optional configurations
+  webhook                String?
+  qrCode                 String?
+  lastSeen               DateTime?
+  connectedAt            DateTime?
+  
+  // Timestamps
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
+  
+  // Relations
+  messages               Message[]
+  
+  @@map("whatsapp_instances")
+  @@index([status])
+  @@index([connected])
+  @@index([createdAt])
+}
+
+model Message {
+  id                String       @id @default(cuid())
+  instanceId        String
+  remoteJid         String       // WhatsApp contact ID
+  fromMe            Boolean
+  messageType       MessageType
+  content           String       @db.Text
+  mediaUrl          String?
+  fileName          String?
+  caption           String?      @db.Text
+  
+  // WhatsApp message data
+  messageId         String       @unique
+  timestamp         DateTime
+  
+  // Timestamps
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  
+  // Relations
+  instance          WhatsAppInstance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  
+  @@map("messages")
+  @@index([instanceId])
+  @@index([remoteJid])
+  @@index([timestamp])
+  @@index([messageId])
+}
+
+model WebhookEvent {
+  id            String   @id @default(cuid())
+  instanceId    String
+  eventType     String
+  data          String   @db.Text // JSON data
+  processed     Boolean  @default(false)
+  
+  // Timestamps
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@map("webhook_events")
+  @@index([instanceId])
+  @@index([eventType])
+  @@index([processed])
+  @@index([createdAt])
+}

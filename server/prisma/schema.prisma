@@ -1,0 +1,103 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id       String  @id @default(cuid())
+  name     String
+  email    String  @unique
+  password String // bcrypt hash
+  role     String  @default("USER") // USER, ADMIN
+  active   Boolean @default(true)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  instances WhatsAppInstance[]
+
+  @@map("users")
+}
+
+model WhatsAppInstance {
+  id                    String  @id @default(cuid())
+  name                  String
+  evolutionInstanceName String  @unique
+  status                String  @default("PENDING") // InstanceStatus: PENDING, DISCONNECTED, CONNECTING, CONNECTED, ERROR
+  connected             Boolean @default(false)
+
+  // Evolution API Configuration
+  evolutionApiUrl String
+  evolutionApiKey String
+
+  // Optional configurations
+  webhook     String?
+  qrCode      String?
+  lastSeen    DateTime?
+  connectedAt DateTime?
+
+  // User ownership
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  messages Message[]
+
+  @@map("whatsapp_instances")
+}
+
+model Message {
+  id          String  @id @default(cuid())
+  instanceId  String
+  remoteJid   String // WhatsApp contact ID
+  fromMe      Boolean
+  messageType String // MessageType: TEXT, IMAGE, VIDEO, AUDIO, DOCUMENT, STICKER, LOCATION, CONTACT, UNKNOWN
+  content     String
+  mediaUrl    String?
+  fileName    String?
+  caption     String?
+
+  // WhatsApp message data
+  messageId String   @unique
+  timestamp DateTime
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  instance WhatsAppInstance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+
+  @@map("messages")
+}
+
+model WebhookEvent {
+  id         String  @id @default(cuid())
+  instanceId String
+  eventType  String
+  data       String // JSON data stored as String for SQLite compatibility
+  processed  Boolean @default(false)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("webhook_events")
+}
+
+// SQLite doesn't support enums, so we use string literals
+// InstanceStatus: PENDING, DISCONNECTED, CONNECTING, CONNECTED, ERROR
+// MessageType: TEXT, IMAGE, VIDEO, AUDIO, DOCUMENT, STICKER, LOCATION, CONTACT, UNKNOWN
