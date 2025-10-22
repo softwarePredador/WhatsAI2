@@ -17,8 +17,9 @@ PORT=3001
 EVOLUTION_API_URL=https://hsapi.studio/
 EVOLUTION_API_KEY=Pz6qEerZE5IYwaoc8ZCQxmBdLAinX4dl
 JWT_SECRET=whatsai-super-secret-jwt-key-2024
-DATABASE_URL="postgresql://postgres.viqjmhlxsqqoqimglxar:xitao3275rafa@aws-1-us-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true"
-DIRECT_URL="postgresql://postgres.viqjmhlxsqqoqimglxar:xitao3275rafa@aws-1-us-east-1.pooler.supabase.com:5432/postgres"
+# Database Configuration - Supabase
+DATABASE_URL="postgresql://username:password@host:port/database?pgbouncer=true"
+DIRECT_URL="postgresql://username:password@host:port/database"
 ```
 
 ### **3. Criar `client/.env`**

@@ -10,20 +10,32 @@ paths-ignore:
   - "**/node_modules/**" # Ignore dependencies
   - "**/dist/**"        # Ignore build outputs
   - "**/.env.example"   # Ignore example env files
+  - "**/SETUP-*.md"     # Ignore setup documentation files
 
 # Secrets to ignore (use with caution)
 secrets-ignore:
-  # Example Evolution API key (not real production key)
+  # Evolution API key (development only)
   - name: "Evolution API Example Key"
     match: "Pz6qEerZE5IYwaoc8ZCQxmBdLAinX4dl"
     
-  # Default JWT secrets in development
+  # Development JWT secrets
   - name: "Development JWT Secret"
     match: "whatsai-super-secret-jwt-key-2024"
     
-  # Example database URLs (Supabase demo)
+  # Supabase development database (demo/development only)
   - name: "Development Database URL"
     match: "postgresql://postgres.viqjmhlxsqqoqimglxar"
+    
+  # Historic secrets from deleted files and documentation
+  - name: "Historic PostgreSQL Credentials"
+    match: "xitao3275rafa"
+    
+  - name: "Supabase Development Instance"
+    match: "aws-1-us-east-1.pooler.supabase.com"
+    
+# Historical commits to ignore (specific commit hashes)
+commits-ignore:
+  - "f3b1c78"  # Commit with SETUP-OUTRO-PC.md (file was deleted)
 
 # Detectors to disable for this repository
 detectors-ignore:
