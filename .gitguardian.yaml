@@ -1,0 +1,37 @@
+# GitGuardian configuration file
+version: v1
+
+# Paths to ignore completely
+paths-ignore:
+  - "**/*.md"           # Ignore markdown files (documentation)
+  - "**/test-client.html" # Ignore test files
+  - "**/debug-*.js"     # Ignore debug scripts
+  - "docs/**"           # Ignore documentation folder
+  - "**/node_modules/**" # Ignore dependencies
+  - "**/dist/**"        # Ignore build outputs
+  - "**/.env.example"   # Ignore example env files
+
+# Secrets to ignore (use with caution)
+secrets-ignore:
+  # Example Evolution API key (not real production key)
+  - name: "Evolution API Example Key"
+    match: "Pz6qEerZE5IYwaoc8ZCQxmBdLAinX4dl"
+    
+  # Default JWT secrets in development
+  - name: "Development JWT Secret"
+    match: "whatsai-super-secret-jwt-key-2024"
+    
+  # Example database URLs (Supabase demo)
+  - name: "Development Database URL"
+    match: "postgresql://postgres.viqjmhlxsqqoqimglxar"
+
+# Detectors to disable for this repository
+detectors-ignore:
+  - "jwt"               # Ignore JWT token detection in development
+  - "postgresql"        # Ignore PostgreSQL connection strings
+
+# Custom rules
+custom-detectors: []
+
+# Minimum entropy for secret detection
+minimum-entropy: 3.5

@@ -6,6 +6,7 @@ const envSchema = z.object({
   
   // Evolution API configuration
   EVOLUTION_API_URL: z.string().url().default('https://hsapi.studio/'),
+  // ggignore: Development API key for Evolution API (not production)
   EVOLUTION_API_KEY: z.string().default('Pz6qEerZE5IYwaoc8ZCQxmBdLAinX4dl'),
   
   // Multiple Evolution API servers (optional)
@@ -18,6 +19,7 @@ const envSchema = z.object({
   DATABASE_URL: z.string().optional(),
   
   // JWT configuration (if needed in future)
+  // ggignore: Development JWT secret (not production)
   JWT_SECRET: z.string().default('your-jwt-secret'),
   
   // WebSocket configuration
