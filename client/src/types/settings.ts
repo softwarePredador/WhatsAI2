@@ -4,7 +4,6 @@
 
 export interface UserSettings {
   notifications: {
-    email: boolean;
     push: boolean;
     instanceStatus: boolean;
     qrCodeReady: boolean;
@@ -15,13 +14,11 @@ export interface UserSettings {
   };
   appearance: {
     theme: 'light' | 'dark' | 'auto';
-    compactMode: boolean;
   };
 }
 
 export const DEFAULT_SETTINGS: UserSettings = {
   notifications: {
-    email: true,
     push: true,
     instanceStatus: true,
     qrCodeReady: true,
@@ -32,7 +29,6 @@ export const DEFAULT_SETTINGS: UserSettings = {
   },
   appearance: {
     theme: 'light',
-    compactMode: false,
   },
 };
 

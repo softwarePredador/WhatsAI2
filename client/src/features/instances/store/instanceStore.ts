@@ -2,6 +2,58 @@ import { create } from "zustand";
 import { WhatsAppInstance, CreateInstancePayload } from "../types/instanceTypes";
 import { instanceService } from "../services/instanceService";
 import { toast } from "react-hot-toast";
+import { UserSettings, STORAGE_KEY } from "../../../types/settings";
+
+// Helper para verificar se notificações estão habilitadas
+const shouldShowNotification = (type: 'instanceStatus' | 'qrCodeReady'): boolean => {
+  try {
+    const settingsStr = localStorage.getItem(STORAGE_KEY);
+    if (!settingsStr) return true; // Default: mostrar notificações
+    
+    const settings: UserSettings = JSON.parse(settingsStr);
+    return settings.notifications[type] ?? true;
+  } catch {
+    return true; // Em caso de erro, mostrar notificações
+  }
+};
+
+// Helper para enviar push notification
+const sendPushNotification = (title: string, body: string) => {
+  try {
+    const settingsStr = localStorage.getItem(STORAGE_KEY);
+    if (!settingsStr) return;
+    
+    const settings: UserSettings = JSON.parse(settingsStr);
+    if (!settings.notifications.push) return;
+    
+    // Verificar suporte a notificações
+    if (!('Notification' in window)) return;
+    
+    // Enviar notificação se permissão concedida
+    if (Notification.permission === 'granted') {
+      new Notification(title, {
+        body,
+        icon: '/logo.png',
+        badge: '/logo.png',
+        tag: 'whatsai-instance', // Evita notificações duplicadas
+      });
+    } else if (Notification.permission === 'default') {
+      // Pedir permissão
+      Notification.requestPermission().then((permission) => {
+        if (permission === 'granted') {
+          new Notification(title, {
+            body,
+            icon: '/logo.png',
+            badge: '/logo.png',
+            tag: 'whatsai-instance',
+          });
+        }
+      });
+    }
+  } catch (error) {
+    console.error('❌ Erro ao enviar push notification:', error);
+  }
+};
 
 interface InstanceState {
   instances: WhatsAppInstance[];
@@ -36,7 +88,9 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to fetch instances";
       set({ error: errorMessage, loading: false });
-      toast.error(errorMessage);
+      if (shouldShowNotification('instanceStatus')) {
+        toast.error(errorMessage);
+      }
     }
   },
 
@@ -82,7 +136,9 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to fetch instance";
       set({ error: errorMessage, loading: false });
-      toast.error(errorMessage);
+      if (shouldShowNotification('instanceStatus')) {
+        toast.error(errorMessage);
+      }
     }
   },
 
@@ -98,12 +154,17 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
         loading: false 
       });
       
-      toast.success("Instância criada com sucesso!");
+      if (shouldShowNotification('instanceStatus')) {
+        toast.success("Instância criada com sucesso!");
+      }
+      sendPushNotification('WhatsAI', `Instância "${newInstance.name}" criada com sucesso!`);
       return newInstance;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to create instance";
       set({ error: errorMessage, loading: false });
-      toast.error(errorMessage);
+      if (shouldShowNotification('instanceStatus')) {
+        toast.error(errorMessage);
+      }
       return null;
     }
   },
@@ -121,11 +182,16 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
       }
       
       set({ loading: false });
-      toast.success("Conectando instância... QR Code gerado!");
+      if (shouldShowNotification('qrCodeReady')) {
+        toast.success("Conectando instância... QR Code gerado!");
+      }
+      sendPushNotification('QR Code Pronto', 'Escaneie o QR Code para conectar sua instância do WhatsApp');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to connect instance";
       set({ error: errorMessage, loading: false });
-      toast.error(errorMessage);
+      if (shouldShowNotification('instanceStatus')) {
+        toast.error(errorMessage);
+      }
     }
   },
 
@@ -137,11 +203,16 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
       // Refresh the instance to get updated status
       await get().fetchInstance(instanceId, token);
       
-      toast.success("Instância desconectada com sucesso!");
+      if (shouldShowNotification('instanceStatus')) {
+        toast.success("Instância desconectada com sucesso!");
+      }
+      sendPushNotification('WhatsAI', 'Instância desconectada');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to disconnect instance";
       set({ error: errorMessage, loading: false });
-      toast.error(errorMessage);
+      if (shouldShowNotification('instanceStatus')) {
+        toast.error(errorMessage);
+      }
     }
   },
 
@@ -160,11 +231,16 @@ export const useInstanceStore = create<InstanceState>((set, get) => ({
         set({ selectedInstance: null });
       }
       
-      toast.success("Instância deletada com sucesso!");
+      if (shouldShowNotification('instanceStatus')) {
+        toast.success("Instância deletada com sucesso!");
+      }
+      sendPushNotification('WhatsAI', 'Instância deletada');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to delete instance";
       set({ error: errorMessage, loading: false });
-      toast.error(errorMessage);
+      if (shouldShowNotification('instanceStatus')) {
+        toast.error(errorMessage);
+      }
     }
   },
 

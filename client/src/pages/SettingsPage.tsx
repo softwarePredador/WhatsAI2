@@ -1,24 +1,82 @@
 import toast from 'react-hot-toast';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { UserSettings, DEFAULT_SETTINGS, STORAGE_KEY } from '../types/settings';
+import { useState, useEffect } from 'react';
 
 export default function SettingsPage() {
   // Settings state com persistência em localStorage
   const [settings, setSettings] = useLocalStorage<UserSettings>(STORAGE_KEY, DEFAULT_SETTINGS);
+  const [saving, setSaving] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [savedSettings, setSavedSettings] = useState<UserSettings>(settings);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-  const handleSaveSettings = () => {
+  // Detectar mudanças não salvas
+  useEffect(() => {
+    const isDifferent = JSON.stringify(settings) !== JSON.stringify(savedSettings);
+    setHasUnsavedChanges(isDifferent);
+  }, [settings, savedSettings]);
+
+  const handleSaveSettings = async () => {
+    setSaving(true);
+    
+    // Simular async save (no futuro será chamada ao backend)
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
     // Settings são automaticamente salvos no localStorage pelo hook
-    toast.success('Configurações salvas com sucesso!');
+    toast.success('✅ Configurações salvas com sucesso!');
     console.log('✅ Settings saved to localStorage:', settings);
     
     // Forçar atualização do tema disparando um evento de storage
     window.dispatchEvent(new Event('storage'));
+    
+    // Marcar como salvo
+    setSavedSettings(settings);
+    
+    setSaving(false);
   };
 
   const handleResetSettings = () => {
     setSettings(DEFAULT_SETTINGS);
-    toast.success('Configurações restauradas para o padrão');
+    toast.success('✅ Configurações restauradas para o padrão');
     console.log('🔄 Settings reset to default');
+    setShowResetModal(false);
+  };
+
+  const confirmReset = () => {
+    setShowResetModal(true);
+  };
+
+  // Handler para toggle de Push Notifications
+  const handlePushNotificationToggle = async (enabled: boolean) => {
+    if (enabled) {
+      // Verificar se browser suporta notificações
+      if (!('Notification' in window)) {
+        toast.error('Seu navegador não suporta notificações push');
+        return;
+      }
+
+      // Pedir permissão
+      if (Notification.permission === 'default') {
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+          toast.error('Permissão de notificações negada');
+          return;
+        } else {
+          toast.success('Notificações push habilitadas! 🔔');
+        }
+      } else if (Notification.permission === 'denied') {
+        toast.error('Permissão de notificações negada. Habilite nas configurações do navegador.');
+        return;
+      }
+    }
+
+    // Atualizar settings
+    setSettings({
+      ...settings,
+      notifications: { ...settings.notifications, push: enabled }
+    });
   };
 
   return (
@@ -42,32 +100,13 @@ export default function SettingsPage() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="font-medium text-base-content">Notificações por Email</p>
-                <p className="text-sm text-base-content/60">Receba atualizações no seu email</p>
-              </div>
-              <input
-                type="checkbox"
-                checked={settings.notifications.email}
-                onChange={(e) => setSettings({
-                  ...settings,
-                  notifications: { ...settings.notifications, email: e.target.checked }
-                })}
-                className="toggle toggle-primary"
-              />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div>
                 <p className="font-medium text-base-content">Notificações Push</p>
                 <p className="text-sm text-base-content/60">Receba notificações no navegador</p>
               </div>
               <input
                 type="checkbox"
                 checked={settings.notifications.push}
-                onChange={(e) => setSettings({
-                  ...settings,
-                  notifications: { ...settings.notifications, push: e.target.checked }
-                })}
+                onChange={(e) => handlePushNotificationToggle(e.target.checked)}
                 className="toggle toggle-primary"
               />
             </div>
@@ -223,22 +262,6 @@ export default function SettingsPage() {
                 </button>
               </div>
             </div>
-
-            <div className="flex items-center justify-between pt-4 border-t border-base-300">
-              <div>
-                <p className="font-medium text-base-content">Modo Compacto</p>
-                <p className="text-sm text-base-content/60">Reduzir espaçamento da interface</p>
-              </div>
-              <input
-                type="checkbox"
-                checked={settings.appearance.compactMode}
-                onChange={(e) => setSettings({
-                  ...settings,
-                  appearance: { ...settings.appearance, compactMode: e.target.checked }
-                })}
-                className="toggle toggle-primary"
-              />
-            </div>
           </div>
         </div>
 
@@ -253,7 +276,7 @@ export default function SettingsPage() {
           
           <div className="space-y-3">
             <button
-              onClick={() => toast('Funcionalidade em desenvolvimento', { icon: '⚠️' })}
+              onClick={() => setShowDeleteModal(true)}
               className="w-full text-left px-4 py-3 bg-error/10 rounded-lg hover:bg-error/20 transition-colors border border-error/30"
             >
               <p className="font-medium text-error">Excluir Conta</p>
@@ -266,17 +289,114 @@ export default function SettingsPage() {
         <div className="flex gap-3">
           <button
             onClick={handleSaveSettings}
-            className="flex-1 btn btn-primary border-0"
+            disabled={saving}
+            className={`flex-1 btn btn-primary border-0 ${hasUnsavedChanges ? 'btn-warning' : ''}`}
           >
-            Salvar Configurações
+            {saving ? (
+              <>
+                <span className="loading loading-spinner loading-sm"></span>
+                Salvando...
+              </>
+            ) : hasUnsavedChanges ? (
+              <>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                * Alterações Não Salvas
+              </>
+            ) : (
+              <>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Salvar Configurações
+              </>
+            )}
           </button>
           <button
-            onClick={handleResetSettings}
+            onClick={confirmReset}
             className="btn btn-ghost"
           >
             Restaurar Padrão
           </button>
         </div>
+
+        {/* Modal de Confirmação - Restaurar Padrão */}
+        {showResetModal && (
+          <div className="modal modal-open">
+            <div className="modal-box">
+              <h3 className="font-bold text-lg text-base-content">Restaurar Configurações Padrão?</h3>
+              <p className="py-4 text-base-content/70">
+                Isso irá restaurar todas as configurações para os valores padrão. 
+                Suas preferências atuais serão perdidas.
+              </p>
+              <div className="modal-action">
+                <button 
+                  onClick={() => setShowResetModal(false)}
+                  className="btn btn-ghost"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={handleResetSettings}
+                  className="btn btn-warning"
+                >
+                  Sim, Restaurar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal de Confirmação - Excluir Conta */}
+        {showDeleteModal && (
+          <div className="modal modal-open">
+            <div className="modal-box border-2 border-error">
+              <h3 className="font-bold text-lg text-error flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                Excluir Conta Permanentemente
+              </h3>
+              <p className="py-4 text-base-content/70">
+                ⚠️ <strong>ATENÇÃO:</strong> Esta ação é irreversível! 
+                <br/><br/>
+                Sua conta e todos os dados associados (instâncias, configurações, histórico) 
+                serão permanentemente excluídos.
+              </p>
+              
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text">Digite sua senha para confirmar:</span>
+                </label>
+                <input 
+                  type="password" 
+                  placeholder="Senha" 
+                  className="input input-bordered input-error"
+                />
+              </div>
+
+              <div className="modal-action">
+                <button 
+                  onClick={() => setShowDeleteModal(false)}
+                  className="btn btn-ghost"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={() => {
+                    // TODO: Validar senha e chamar API de exclusão
+                    toast.success('Conta excluída (funcionalidade em desenvolvimento)');
+                    setShowDeleteModal(false);
+                  }}
+                  className="btn btn-error"
+                >
+                  Confirmar Exclusão
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
