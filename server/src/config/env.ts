@@ -9,6 +9,9 @@ const envSchema = z.object({
   // ggignore: Development API key for Evolution API (not production)
   EVOLUTION_API_KEY: z.string().default('Pz6qEerZE5IYwaoc8ZCQxmBdLAinX4dl'),
   
+  // Webhook URL (Easypanel webhook receiver)
+  WEBHOOK_URL: z.string().url().default('https://teta-webhook.8ktevp.easypanel.host/api/webhooks/evolution'),
+  
   // Multiple Evolution API servers (optional)
   EVOLUTION_API_URL_2: z.string().url().optional(),
   EVOLUTION_API_KEY_2: z.string().optional(),

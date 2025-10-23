@@ -69,11 +69,16 @@ export class EvolutionApiService {
 
   async createInstance(instanceData: Partial<WhatsAppInstance>): Promise<any> {
     try {
+      // Construir a URL do webhook com o instanceName
+      const webhookUrl = `${env.WEBHOOK_URL}/${instanceData.name}`;
+      
+      console.log(`🔗 Configurando webhook automático: ${webhookUrl}`);
+      
       const response = await this.client.post('/instance/create', {
         instanceName: instanceData.name,
         qrcode: true,
-        integration: 'WHATSAPP-BAILEYS', // Add integration type
-        webhook: instanceData.webhook || '',
+        integration: 'WHATSAPP-BAILEYS',
+        webhook: webhookUrl,
         webhookByEvents: false,
         webhookBase64: false,
         events: [
@@ -87,6 +92,7 @@ export class EvolutionApiService {
         ]
       });
 
+      console.log(`✅ Instância criada com webhook configurado: ${instanceData.name}`);
       return response.data;
     } catch (error) {
       console.error('Error creating Evolution API instance:', error);
@@ -99,6 +105,35 @@ export class EvolutionApiService {
       await this.client.delete(`/instance/delete/${instanceName}`);
     } catch (error) {
       console.error('Error deleting Evolution API instance:', error);
+      throw error;
+    }
+  }
+
+  async setWebhook(instanceName: string): Promise<any> {
+    try {
+      const webhookUrl = `${env.WEBHOOK_URL}/${instanceName}`;
+      
+      console.log(`🔗 Configurando webhook para ${instanceName}: ${webhookUrl}`);
+      
+      const response = await this.client.post(`/webhook/set/${instanceName}`, {
+        webhook: webhookUrl,
+        webhookByEvents: false,
+        webhookBase64: false,
+        events: [
+          'APPLICATION_STARTUP',
+          'QRCODE_UPDATED',
+          'MESSAGES_UPSERT',
+          'MESSAGES_UPDATE',
+          'MESSAGES_DELETE',
+          'SEND_MESSAGE',
+          'CONNECTION_UPDATE'
+        ]
+      });
+
+      console.log(`✅ Webhook configurado para ${instanceName}`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error setting webhook for ${instanceName}:`, error);
       throw error;
     }
   }

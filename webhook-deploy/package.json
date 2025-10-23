@@ -1,15 +1,19 @@
 {
-  "name": "webhook-receiver",
-  "version": "1.0.0",
-  "description": "Webhook receiver for WhatsAI",
+  "name": "whatsai-webhook",
+  "version": "2.0.0",
+  "description": "WhatsAI Webhook Receiver para Evolution API",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js"
+    "build": "prisma generate",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "express": "^4.18.2",
-    "@prisma/client": "^5.0.0",
-    "prisma": "^5.0.0"
+    "@prisma/client": "^5.22.0",
+    "prisma": "^5.22.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }

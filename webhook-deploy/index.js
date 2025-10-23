@@ -2,6 +2,8 @@
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
 
+const PORT = process.env.PORT || 3002;
+
 const app = express();
 const prisma = new PrismaClient({
   datasources: {
@@ -165,7 +167,6 @@ app.get('/instances', async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 3001;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🌐 Webhook Receiver rodando na porta ${PORT}`);
   console.log(`📡 Endpoint: http://localhost:${PORT}/api/webhooks/evolution/:instanceId`);

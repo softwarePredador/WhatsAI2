@@ -1,77 +1,173 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = "postgres://postgres:78ffa3b05805066f6719@banco_halder-db:5432/halder?sslmode=disable"
+  url      = env("DATABASE_URL")
 }
 
 model User {
-  id       String @id @default(cuid())
-  username String @unique
-  password String
-  
-  conversations Conversation[]
-  
+  id       String  @id @default(cuid())
+  name     String
+  email    String  @unique
+  password String // bcrypt hash
+  role     String  @default("USER") // USER, ADMIN
+  active   Boolean @default(true)
+
+  // Timestamps
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
+  // Relations
+  instances WhatsAppInstance[]
+  settings  UserSettings?
+
   @@map("users")
 }
 
-model Instance {
-  id             String  @id @default(cuid())
-  instanceName   String  @unique
-  instanceId     String? @unique
-  qrCode         String?
-  status         String  @default("DISCONNECTED")
-  profilePicUrl  String?
-  profileName    String?
-  profileStatus  String?
-  
-  conversations Conversation[]
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  @@map("instances")
-}
+model WhatsAppInstance {
+  id                    String  @id @default(cuid())
+  name                  String
+  evolutionInstanceName String  @unique
+  status                String  @default("PENDING") // InstanceStatus: PENDING, DISCONNECTED, CONNECTING, CONNECTED, ERROR
+  connected             Boolean @default(false)
 
-model Conversation {
-  id          String @id @default(cuid())
-  instanceId  String
-  chatId      String
-  chatName    String?
-  isGroup     Boolean @default(false)
-  lastMessage String?
-  timestamp   DateTime @default(now())
-  
-  userId      String?
-  user        User?     @relation(fields: [userId], references: [id])
-  instance    Instance  @relation(fields: [instanceId], references: [id])
-  messages    Message[]
-  
+  // Evolution API Configuration
+  evolutionApiUrl String
+  evolutionApiKey String
+
+  // Optional configurations
+  webhook     String?
+  qrCode      String?
+  lastSeen    DateTime?
+  connectedAt DateTime?
+
+  // User ownership
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Timestamps
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
-  @@unique([instanceId, chatId])
-  @@map("conversations")
+
+  // Relations
+  messages Message[]
+  conversations Conversation[]
+
+  @@map("whatsapp_instances")
 }
 
 model Message {
-  id             String   @id @default(cuid())
-  conversationId String
-  messageId      String   @unique
-  fromMe         Boolean  @default(false)
-  body           String?
-  type           String   @default("text")
-  timestamp      DateTime @default(now())
+  id          String  @id @default(cuid())
+  instanceId  String
+  remoteJid   String // WhatsApp contact ID
+  fromMe      Boolean
+  messageType String // MessageType: TEXT, IMAGE, VIDEO, AUDIO, DOCUMENT, STICKER, LOCATION, CONTACT, UNKNOWN
+  content     String
+  mediaUrl    String?
+  fileName    String?
+  caption     String?
+
+  // WhatsApp message data
+  messageId String   @unique
+  timestamp DateTime
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  instance WhatsAppInstance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  conversation Conversation? @relation(fields: [conversationId], references: [id])
+  conversationId String?
+
+  @@map("messages")
+}
+
+model Conversation {
+  id         String  @id @default(cuid())
+  instanceId String
+  remoteJid  String // WhatsApp contact ID
   
-  conversation Conversation @relation(fields: [conversationId], references: [id])
+  // Contact information
+  contactName  String?
+  contactPicture String?
+  isGroup      Boolean @default(false)
   
+  // Conversation state
+  lastMessage    String?
+  lastMessageAt  DateTime?
+  unreadCount    Int @default(0)
+  isArchived     Boolean @default(false)
+  isPinned       Boolean @default(false)
+  
+  // Timestamps
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   
-  @@map("messages")
+  // Relations
+  instance WhatsAppInstance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  messages Message[]
+  
+  @@unique([instanceId, remoteJid])
+  @@map("conversations")
 }
+
+model WebhookEvent {
+  id         String  @id @default(cuid())
+  instanceId String
+  eventType  String
+  data       String // JSON data stored as String for SQLite compatibility
+  processed  Boolean @default(false)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("webhook_events")
+}
+
+model UserSettings {
+  id     String  @id @default(cuid())
+  userId String  @unique
+
+  // Profile Settings
+  displayName     String?
+  profilePicture  String?
+  bio             String?
+
+  // Theme Settings
+  theme           String  @default("light") // light, dark, auto
+  language        String  @default("pt-BR")
+
+  // Notification Settings
+  emailNotifications    Boolean @default(true)
+  pushNotifications     Boolean @default(true)
+  soundNotifications    Boolean @default(true)
+  notificationFrequency String  @default("immediate") // immediate, hourly, daily
+
+  // Auto-refresh Settings
+  autoRefresh         Boolean @default(true)
+  autoRefreshInterval Int     @default(30) // seconds
+
+  // Privacy Settings
+  showOnlineStatus Boolean @default(true)
+  allowDataCollection Boolean @default(false)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_settings")
+}
+
+// SQLite doesn't support enums, so we use string literals
+// InstanceStatus: PENDING, DISCONNECTED, CONNECTING, CONNECTED, ERROR
+// MessageType: TEXT, IMAGE, VIDEO, AUDIO, DOCUMENT, STICKER, LOCATION, CONTACT, UNKNOWN
