@@ -30,6 +30,10 @@ export class ConversationController {
       if (targetInstanceId) {
         // Get conversations for specific instance
         const conversations = await this.conversationService.getConversationsByInstance(targetInstanceId);
+        console.log(`📋 [getConversations] Retornando ${conversations.length} conversas para instance ${targetInstanceId}`);
+        if (conversations.length > 0) {
+          console.log(`📝 [getConversations] Primeira conversa:`, JSON.stringify(conversations[0], null, 2));
+        }
         res.json({
           success: true,
           data: conversations

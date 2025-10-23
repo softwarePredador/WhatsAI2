@@ -278,6 +278,20 @@ export class ConversationService {
         }
       });
 
+      // ✨ NOVO: Emitir atualização da conversa para atualizar a lista do lado esquerdo
+      const updatedConversation = await this.conversationRepository.findById(conversation.id);
+      if (updatedConversation) {
+        this.socketService.emitToInstance(instanceId, 'conversation:updated', {
+          ...updatedConversation,
+          lastMessagePreview: {
+            content: content,
+            fromMe: true,
+            timestamp: new Date(),
+            messageType: 'TEXT'
+          }
+        });
+      }
+
       console.log(`✅ [sendMessage] Mensagem salva no banco de dados:`, message.id);
       return message;
     } catch (error: any) {

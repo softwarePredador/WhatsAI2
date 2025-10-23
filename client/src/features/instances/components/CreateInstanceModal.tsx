@@ -5,8 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { CreateInstancePayload } from "../types/instanceTypes";
 
 const createInstanceSchema = z.object({
-  name: z.string().min(3, "Nome deve ter no mínimo 3 caracteres"),
-  webhook: z.string().url("URL inválida").optional().or(z.literal(""))
+  name: z.string().min(3, "Nome deve ter no mínimo 3 caracteres")
 });
 
 type CreateInstanceForm = z.infer<typeof createInstanceSchema>;
@@ -39,8 +38,7 @@ export default function CreateInstanceModal({
     setIsSubmitting(true);
     try {
       const payload: CreateInstancePayload = {
-        name: data.name,
-        webhook: data.webhook || undefined
+        name: data.name
       };
       
       await onCreate(payload);
@@ -92,29 +90,7 @@ export default function CreateInstanceModal({
             </label>
           </div>
 
-          {/* Webhook Field */}
-          <div className="form-control">
-            <label className="label">
-              <span className="label-text">Webhook URL (opcional)</span>
-            </label>
-            <input
-              type="text"
-              placeholder="https://seu-dominio.com/webhook"
-              className={`input input-bordered w-full ${errors.webhook ? "input-error" : ""}`}
-              {...register("webhook")}
-              disabled={isSubmitting || loading}
-            />
-            {errors.webhook && (
-              <label className="label">
-                <span className="label-text-alt text-error">{errors.webhook.message}</span>
-              </label>
-            )}
-            <label className="label">
-              <span className="label-text-alt">
-                URL para receber eventos do WhatsApp
-              </span>
-            </label>
-          </div>
+          {/* Info Alert - Webhook Automático */}
 
           {/* Info Alert */}
           <div className="alert alert-info">

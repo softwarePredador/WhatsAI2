@@ -3,6 +3,7 @@ import { Link, useParams, useNavigate } from 'react-router-dom';
 import { Search, MessageSquare, Archive, Pin, MoreVertical, Check, Mail } from 'lucide-react';
 import { userAuthStore } from '../features/auth/store/authStore';
 import { conversationService } from '../services/conversationService';
+import { socketService } from '../services/socketService';
 
 interface ConversationSummary {
   id: string;
@@ -36,6 +37,48 @@ export const ConversationList: React.FC = () => {
 
   useEffect(() => {
     loadConversations();
+  }, [instanceId]);
+
+  // ✨ WebSocket: Escutar atualizações de conversas em tempo real
+  useEffect(() => {
+    if (!instanceId) return;
+
+    const handleConversationUpdated = (updatedConversation: ConversationSummary) => {
+      console.log('🔔 [ConversationList] Conversa atualizada via WebSocket:', updatedConversation);
+      
+      setConversations(prevConversations => {
+        // Encontrar e atualizar a conversa na lista
+        const index = prevConversations.findIndex(c => c.id === updatedConversation.id);
+        
+        if (index !== -1) {
+          // Atualizar conversa existente
+          const updated = [...prevConversations];
+          updated[index] = {
+            ...updated[index],
+            ...updatedConversation
+          };
+          
+          // Reordenar por lastMessageAt (mais recente primeiro)
+          return updated.sort((a, b) => {
+            const timeA = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+            const timeB = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+            return timeB - timeA;
+          });
+        } else {
+          // Nova conversa - adicionar no início
+          return [updatedConversation, ...prevConversations];
+        }
+      });
+    };
+
+    // Conectar ao WebSocket quando tiver instanceId
+    socketService.joinInstance(instanceId);
+    socketService.on('conversation:updated', handleConversationUpdated);
+
+    return () => {
+      socketService.off('conversation:updated', handleConversationUpdated);
+      socketService.leaveInstance(instanceId);
+    };
   }, [instanceId]);
 
   // ✨ Recarregar conversas quando a página fica visível novamente (usuário volta para a lista)

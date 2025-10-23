@@ -69,33 +69,43 @@ export class EvolutionApiService {
 
   async createInstance(instanceData: Partial<WhatsAppInstance>): Promise<any> {
     try {
-      // Construir a URL do webhook com o instanceName
       const webhookUrl = `${env.WEBHOOK_URL}/${instanceData.name}`;
       
-      console.log(`🔗 Configurando webhook automático: ${webhookUrl}`);
+      console.log(`📱 Criando instância: ${instanceData.name}`);
+      console.log(`🔗 Webhook configurado: ${webhookUrl}`);
       
+      // Criar instância COM webhook no formato correto (objeto)
       const response = await this.client.post('/instance/create', {
         instanceName: instanceData.name,
         qrcode: true,
         integration: 'WHATSAPP-BAILEYS',
-        webhook: webhookUrl,
-        webhookByEvents: false,
-        webhookBase64: false,
-        events: [
-          'APPLICATION_STARTUP',
-          'QRCODE_UPDATED',
-          'MESSAGES_UPSERT',
-          'MESSAGES_UPDATE',
-          'MESSAGES_DELETE',
-          'SEND_MESSAGE',
-          'CONNECTION_UPDATE'
-        ]
+        webhook: {
+          url: webhookUrl,
+          byEvents: false,
+          base64: false,
+          events: [
+            'APPLICATION_STARTUP',
+            'QRCODE_UPDATED',
+            'MESSAGES_UPSERT',
+            'MESSAGES_UPDATE',
+            'MESSAGES_DELETE',
+            'SEND_MESSAGE',
+            'CONNECTION_UPDATE'
+          ]
+        }
       });
 
       console.log(`✅ Instância criada com webhook configurado: ${instanceData.name}`);
       return response.data;
-    } catch (error) {
-      console.error('Error creating Evolution API instance:', error);
+    } catch (error: any) {
+      console.error('❌ Error creating Evolution API instance:');
+      console.error('Error details:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        requestData: error.config?.data
+      });
       throw error;
     }
   }
@@ -116,9 +126,9 @@ export class EvolutionApiService {
       console.log(`🔗 Configurando webhook para ${instanceName}: ${webhookUrl}`);
       
       const response = await this.client.post(`/webhook/set/${instanceName}`, {
-        webhook: webhookUrl,
-        webhookByEvents: false,
-        webhookBase64: false,
+        url: webhookUrl,
+        byEvents: false,
+        base64: false,
         events: [
           'APPLICATION_STARTUP',
           'QRCODE_UPDATED',
