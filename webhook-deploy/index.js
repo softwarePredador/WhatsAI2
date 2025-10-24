@@ -64,12 +64,16 @@ app.post('/api/webhooks/evolution/:instanceId', async (req, res) => {
       let remoteJid = messageData.key.remoteJid;
       const messageId = messageData.key.id;
       const fromMe = messageData.key.fromMe;
+      const participant = messageData.key.participant; // Para mensagens de grupo
+      const sender = webhookData.sender; // Número real do remetente
       const messageContent = messageData.message.conversation || 
                             messageData.message.extendedTextMessage?.text ||
                             'Mensagem sem texto';
       
       console.log(`💬 [${instanceId}] Processando mensagem: ${messageContent}`);
       console.log(`📱 [${instanceId}] remoteJid original: ${remoteJid}`);
+      if (participant) console.log(`👤 [${instanceId}] participant: ${participant}`);
+      if (sender) console.log(`📤 [${instanceId}] sender: ${sender}`);
       
       // Buscar instância PRIMEIRO (por evolutionInstanceName, não por id)
       const instance = await prisma.whatsAppInstance.findFirst({
@@ -83,41 +87,53 @@ app.post('/api/webhooks/evolution/:instanceId', async (req, res) => {
       
       console.log(`✅ [${instanceId}] Instância encontrada: ${instance.id}`);
       
-      // 🔄 Se for @lid, tentar resolver para número real
-      if (remoteJid.includes('@lid')) {
-        // Buscar no banco de dados por messageId que já tenha esse remoteJid
-        const existingMessage = await prisma.message.findFirst({
-          where: { 
-            instanceId: instance.id, // USA O ID REAL DO BANCO
-            remoteJid: { contains: remoteJid.split('@')[0] } // Busca pelo número base
-          },
-          orderBy: { createdAt: 'desc' }
-        });
+      // 🔄 NOVA LÓGICA: Se for mensagem de grupo com participant @lid, usar sender
+      if (participant && participant.includes('@lid') && sender) {
+        console.log(`✅ [${instanceId}] @lid detectado em grupo, usando sender: ${sender}`);
+        // Não fazemos nada aqui, deixamos o remoteJid como @g.us
+        // A conversa será do grupo, não do participant individual
+      }
+      // 🔄 Se remoteJid for @lid (conversa direta), tentar resolver
+      else if (remoteJid.includes('@lid')) {
+        console.log(`🔍 [${instanceId}] Tentando resolver @lid: ${remoteJid}`);
         
-        if (existingMessage && existingMessage.remoteJid.includes('@s.whatsapp.net')) {
-          console.log(`✅ [${instanceId}] @lid resolvido via banco: ${remoteJid} → ${existingMessage.remoteJid}`);
-          remoteJid = existingMessage.remoteJid;
-        } else {
-          console.log(`⚠️ [${instanceId}] @lid não resolvido, usando normalização padrão: ${remoteJid}`);
+        // ESTRATÉGIA 1: Usar sender se disponível (melhor opção)
+        if (sender && sender.includes('@s.whatsapp.net')) {
+          console.log(`✅ [${instanceId}] @lid resolvido via sender: ${remoteJid} → ${sender}`);
+          remoteJid = sender;
+        }
+        // ESTRATÉGIA 2: Buscar no cache (keyId)
+        else {
+          const cachedNumber = Array.from(keyIdToRealNumberCache.values()).find(val => 
+            val.includes('@s.whatsapp.net')
+          );
+          if (cachedNumber) {
+            console.log(`✅ [${instanceId}] @lid resolvido via cache: ${remoteJid} → ${cachedNumber}`);
+            remoteJid = cachedNumber;
+          } else {
+            console.log(`⚠️ [${instanceId}] @lid não resolvido, criando conversa separada: ${remoteJid}`);
+          }
         }
       }
       
       // ========================================
       // NORMALIZAÇÃO COMPLETA (igual ao backend)
       // ========================================
-      // Passo 1: Remover device IDs (:98, :4, etc)
+      // Passo 1: Detectar se é grupo ANTES de remover sufixos
+      const isGroup = remoteJid.includes('@g.us') || remoteJid.includes('-');
+      
+      // Passo 2: Remover device IDs (:98, :4, etc)
       let normalizedJid = remoteJid.replace(/:\d+@/, '@');
       
-      // Passo 2: Remover todos os sufixos do WhatsApp
+      // Passo 3: Remover todos os sufixos do WhatsApp
       normalizedJid = normalizedJid
         .replace('@s.whatsapp.net', '')
         .replace('@g.us', '')
         .replace('@c.us', '')
         .replace('@lid', '');
       
-      // Passo 3: Re-adicionar sufixo correto
-      // Grupos mantém @g.us, demais usam @s.whatsapp.net
-      const formattedJid = normalizedJid.includes('-') 
+      // Passo 4: Re-adicionar sufixo correto baseado na detecção anterior
+      const formattedJid = isGroup
         ? `${normalizedJid}@g.us` 
         : `${normalizedJid}@s.whatsapp.net`;
       
