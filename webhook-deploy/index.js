@@ -8,10 +8,13 @@ const app = express();
 const prisma = new PrismaClient({
   datasources: {
     db: {
-      url: "postgres://postgres:78ffa3b05805066f6719@banco_halder-db:5432/halder?sslmode=disable"
+      url: "postgres://postgres:78ffa3b05805066f6719@143.198.230.247:5432/halder?sslmode=disable"
     }
   }
 });
+
+// Cache em memória para mapear keyId → remoteJid real
+const keyIdToRealNumberCache = new Map();
 
 app.use(express.json());
 
@@ -23,12 +26,42 @@ app.post('/api/webhooks/evolution/:instanceId', async (req, res) => {
     
     console.log(`📨 Webhook recebido para instância ${instanceId}:`, JSON.stringify(webhookData, null, 2));
 
+    // ========================================
+    // PROCESSAR messages.update PARA MAPEAR @lid → número real
+    // ========================================
+    if (webhookData.event === 'messages.update' && webhookData.data) {
+      const { keyId, remoteJid } = webhookData.data;
+      
+      if (keyId && remoteJid) {
+        // Se for número real (@s.whatsapp.net), armazenar no cache
+        if (remoteJid.includes('@s.whatsapp.net')) {
+          keyIdToRealNumberCache.set(keyId, remoteJid);
+          console.log(`🔑 [${instanceId}] Mapeamento salvo: keyId ${keyId} → ${remoteJid}`);
+        }
+        // Se for @lid, tentar buscar o número real do cache
+        else if (remoteJid.includes('@lid')) {
+          const realNumber = keyIdToRealNumberCache.get(keyId);
+          if (realNumber) {
+            console.log(`✅ [${instanceId}] @lid resolvido: ${remoteJid} → ${realNumber} (via keyId ${keyId})`);
+          } else {
+            console.log(`⚠️ [${instanceId}] @lid ${remoteJid} ainda não tem mapeamento (keyId: ${keyId})`);
+          }
+        }
+      }
+      
+      // messages.update não precisa criar conversa/mensagem, só mapear
+      return res.json({ success: true, message: 'Mapping processed' });
+    }
+
+    // ========================================
+    // PROCESSAR messages.upsert (MENSAGENS REAIS)
+    // ========================================
     // Verificar se é uma mensagem
     if (webhookData.data && webhookData.data.key && webhookData.data.message) {
       const messageData = webhookData.data;
       
       // Extrair dados da mensagem
-      const remoteJid = messageData.key.remoteJid;
+      let remoteJid = messageData.key.remoteJid;
       const messageId = messageData.key.id;
       const fromMe = messageData.key.fromMe;
       const messageContent = messageData.message.conversation || 
@@ -36,30 +69,64 @@ app.post('/api/webhooks/evolution/:instanceId', async (req, res) => {
                             'Mensagem sem texto';
       
       console.log(`💬 [${instanceId}] Processando mensagem: ${messageContent}`);
+      console.log(`📱 [${instanceId}] remoteJid original: ${remoteJid}`);
       
-      // Buscar ou criar instância
-      let instance = await prisma.instance.findUnique({
-        where: { instanceId }
+      // 🔄 Se for @lid, tentar resolver para número real
+      if (remoteJid.includes('@lid')) {
+        // Buscar no banco de dados por messageId que já tenha esse remoteJid
+        const existingMessage = await prisma.message.findFirst({
+          where: { 
+            instanceId: instanceId,
+            remoteJid: { contains: remoteJid.split('@')[0] } // Busca pelo número base
+          },
+          orderBy: { createdAt: 'desc' }
+        });
+        
+        if (existingMessage && existingMessage.remoteJid.includes('@s.whatsapp.net')) {
+          console.log(`✅ [${instanceId}] @lid resolvido via banco: ${remoteJid} → ${existingMessage.remoteJid}`);
+          remoteJid = existingMessage.remoteJid;
+        } else {
+          console.log(`⚠️ [${instanceId}] @lid não resolvido, usando normalização padrão: ${remoteJid}`);
+        }
+      }
+      
+      // Buscar instância
+      const instance = await prisma.whatsAppInstance.findFirst({
+        where: { id: instanceId }
       });
       
       if (!instance) {
-        instance = await prisma.instance.create({
-          data: {
-            instanceId,
-            instanceName: `Instance ${instanceId.slice(0, 8)}`,
-            status: 'CONNECTED'
-          }
-        });
-        console.log(`🆕 Nova instância criada: ${instanceId}`);
+        console.log(`⚠️ Instância ${instanceId} não encontrada`);
+        res.json({ success: true, message: 'Instance not found' });
+        return;
       }
       
-      // Buscar ou criar conversa
-      let conversation = await prisma.conversation.findUnique({
+      // ========================================
+      // NORMALIZAÇÃO COMPLETA (igual ao backend)
+      // ========================================
+      // Passo 1: Remover device IDs (:98, :4, etc)
+      let normalizedJid = remoteJid.replace(/:\d+@/, '@');
+      
+      // Passo 2: Remover todos os sufixos do WhatsApp
+      normalizedJid = normalizedJid
+        .replace('@s.whatsapp.net', '')
+        .replace('@g.us', '')
+        .replace('@c.us', '')
+        .replace('@lid', '');
+      
+      // Passo 3: Re-adicionar sufixo correto
+      // Grupos mantém @g.us, demais usam @s.whatsapp.net
+      const formattedJid = normalizedJid.includes('-') 
+        ? `${normalizedJid}@g.us` 
+        : `${normalizedJid}@s.whatsapp.net`;
+      
+      console.log(`🔄 [${instanceId}] Normalização: ${remoteJid} → ${formattedJid}`);
+      
+      // Buscar ou criar conversa usando JID formatado
+      let conversation = await prisma.conversation.findFirst({
         where: { 
-          instanceId_chatId: {
-            instanceId: instanceId,
-            chatId: remoteJid
-          }
+          instanceId: instanceId,
+          remoteJid: formattedJid
         }
       });
       
@@ -67,38 +134,56 @@ app.post('/api/webhooks/evolution/:instanceId', async (req, res) => {
         conversation = await prisma.conversation.create({
           data: {
             instanceId,
-            chatId: remoteJid,
-            chatName: remoteJid.split('@')[0],
-            isGroup: remoteJid.includes('@g.us'),
+            remoteJid: formattedJid,
+            contactName: normalizedJid,
+            isGroup: formattedJid.includes('@g.us'),
             lastMessage: messageContent,
-            timestamp: new Date()
+            lastMessageAt: new Date(),
+            unreadCount: fromMe ? 0 : 1,
+            isArchived: false,
+            isPinned: false
           }
         });
-        console.log(`🆕 [${instanceId}] Nova conversa criada: ${remoteJid}`);
+        console.log(`🆕 [${instanceId}] Nova conversa criada: ${formattedJid}`);
       }
       
-      // Criar mensagem
-      const message = await prisma.message.create({
-        data: {
-          messageId: messageId,
-          conversationId: conversation.id,
-          fromMe,
-          body: messageContent,
-          type: 'text',
-          timestamp: new Date(messageData.messageTimestamp * 1000)
+      // Criar mensagem com tratamento de duplicatas
+      try {
+        const message = await prisma.message.create({
+          data: {
+            instanceId,
+            remoteJid: formattedJid,
+            messageId: messageId,
+            conversationId: conversation.id,
+            fromMe,
+            content: messageContent,
+            messageType: 'TEXT',
+            timestamp: new Date(messageData.messageTimestamp * 1000)
+          }
+        });
+        
+        console.log(`✅ [${instanceId}] Mensagem salva: ${message.id}`);
+        
+      } catch (msgError) {
+        // Tratar duplicata de messageId (erro P2002)
+        if (msgError.code === 'P2002' && msgError.meta?.target?.includes('messageId')) {
+          console.log(`⚠️ [${instanceId}] Mensagem duplicada (messageId: ${messageId}), ignorando...`);
+          return res.json({ success: true, message: 'Duplicate message ignored' });
         }
-      });
+        throw msgError;
+      }
       
-      // Atualizar conversa
+      // Atualizar conversa com última mensagem
       await prisma.conversation.update({
         where: { id: conversation.id },
         data: {
           lastMessage: messageContent,
-          timestamp: new Date()
+          lastMessageAt: new Date(),
+          unreadCount: fromMe ? conversation.unreadCount : conversation.unreadCount + 1
         }
       });
       
-      console.log(`✅ [${instanceId}] Mensagem salva: ${message.id}`);
+      console.log(`📝 [${instanceId}] Conversa atualizada`);
     }
     
     res.json({ success: true, message: 'Webhook processado', instanceId });
