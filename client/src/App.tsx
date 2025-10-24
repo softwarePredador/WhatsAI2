@@ -328,6 +328,15 @@ export function App() {
                 </ProtectedRoute>
               }
               />
+            {/* Fallback: Se acessar /chat/:id sem instanceId, redirecionar para dashboard */}
+            <Route
+              path="/chat/:conversationId"
+              element={
+                <ProtectedRoute>
+                  <ChatLayout />
+                </ProtectedRoute>
+              }
+              />
             <Route path="*" element={<HomePage />} />
           </Route>
         </Routes>

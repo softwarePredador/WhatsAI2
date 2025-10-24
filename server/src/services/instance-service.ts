@@ -121,6 +121,26 @@ export class WhatsAppInstanceService {
           const apiStatus = await this.evolutionApi.getInstanceStatus(instance.evolutionInstanceName);
           console.log(`🔍 [getAllInstances] Instance ${instance.name}: Current=${instance.status}, API=${apiStatus}`);
           
+          // Se a instância não existe mais na Evolution API, deletar do banco
+          if (apiStatus === InstanceStatus.NOT_FOUND) {
+            console.log(`🗑️  [getAllInstances] Removendo instância ${instance.name} do banco (não existe mais na API)`);
+            
+            // Remover do cache
+            this.instances.delete(instance.id);
+            
+            // Remover do banco de dados
+            await this.repository.delete(instance.id);
+            
+            // Emitir evento de remoção
+            this.socketService.emitToAll('instance_deleted', {
+              instanceId: instance.id,
+              name: instance.name,
+              reason: 'not_found_in_api'
+            });
+            
+            return; // Não processar mais esta instância
+          }
+          
           // Always try to get QR code if status is connecting
           if (apiStatus === InstanceStatus.CONNECTING) {
             try {

@@ -42,10 +42,95 @@ export class WebhookController {
 
       // Process different types of webhook events
       if (webhookData.data && typeof webhookData.data === 'object') {
-        // Check if this is a message event
-        if (webhookData.data['key'] && webhookData.data['message']) {
-          console.log(`💬 Processing incoming message for instance ${instanceId}`);
+        // 🗺️ CRITICAL: Capture @lid to real number mapping from messages.update
+        if (webhookData.event === 'messages.update') {
+          const data = webhookData.data as any;
+          const remoteJid = data.remoteJid;
+          const keyId = data.keyId;
+          
+          if (remoteJid && keyId) {
+            if (remoteJid.includes('@lid')) {
+              console.log(`🗺️ Found @lid in update: ${remoteJid} (keyId: ${keyId})`);
+              await this.conversationService.recordLidMapping(keyId, remoteJid, null);
+            } else if (remoteJid.includes('@s.whatsapp.net')) {
+              console.log(`🗺️ Found real number in update: ${remoteJid} (keyId: ${keyId})`);
+              await this.conversationService.recordLidMapping(keyId, null, remoteJid);
+            }
+          }
+        }
+        
+        // 📥 Process incoming messages (MESSAGES_UPSERT)
+        if (webhookData.event === 'messages.upsert' && webhookData.data['key'] && webhookData.data['message']) {
+          console.log(`💬 [MESSAGES_UPSERT] Processing message for instance ${instanceId}`);
           await this.conversationService.handleIncomingMessage(instanceId, webhookData.data);
+        }
+        
+        // 👤 Process contact updates (CONTACTS_UPDATE) - FOTO E NOME AUTOMÁTICOS!
+        if (webhookData.event === 'contacts.update') {
+          // Pode vir como array ou objeto
+          const contacts = Array.isArray(webhookData.data) ? webhookData.data : [webhookData.data];
+          
+          for (const contactData of contacts) {
+            const remoteJid = contactData.remoteJid;
+            const profilePicUrl = contactData.profilePicUrl;
+            const pushName = contactData.pushName;
+            
+            if (remoteJid && (profilePicUrl || pushName)) {
+              console.log(`👤 [CONTACTS_UPDATE] ${pushName || remoteJid}: foto=${!!profilePicUrl}, nome=${!!pushName}`);
+              await this.conversationService.updateContactFromWebhook(instanceId, remoteJid, {
+                contactName: pushName,
+                contactPicture: profilePicUrl
+              });
+            }
+          }
+        }
+        
+        // 💬 Process chat updates (CHATS_UPSERT) - CONTADOR DE NÃO LIDAS!
+        if (webhookData.event === 'chats.upsert') {
+          const chatsData = Array.isArray(webhookData.data) ? webhookData.data : [webhookData.data];
+          for (const chat of chatsData) {
+            const remoteJid = chat.remoteJid;
+            const unreadMessages = chat.unreadMessages || 0;
+            
+            if (remoteJid) {
+              console.log(`💬 [CHATS_UPSERT] Chat ${remoteJid}: ${unreadMessages} não lidas`);
+              await this.conversationService.updateUnreadCount(instanceId, remoteJid, unreadMessages);
+            }
+          }
+        }
+        
+        // 🟢 Process presence updates (PRESENCE_UPDATE) - DIGITANDO/ONLINE!
+        if (webhookData.event === 'presence.update') {
+          const presenceData = webhookData.data as any;
+          const contactId = presenceData.id;
+          const presences = presenceData.presences || {};
+          const presence = presences[contactId];
+          
+          if (presence) {
+            const status = presence.lastKnownPresence; // composing, available, unavailable
+            console.log(`🟢 [PRESENCE_UPDATE] ${contactId}: ${status}`);
+            
+            // Emitir para o frontend via WebSocket
+            this.socketService.emitToInstance(instanceId, 'presence:update', {
+              contactId,
+              status,
+              isTyping: status === 'composing',
+              isOnline: status === 'available'
+            });
+          }
+        }
+        
+        // 🔗 Process connection updates (CONNECTION_UPDATE)
+        if (webhookData.event === 'connection.update') {
+          const state = webhookData.data['state'];
+          console.log(`🔗 [CONNECTION_UPDATE] Instance ${instanceId}: ${state}`);
+          // TODO: Update instance status in database
+        }
+        
+        // 📱 Process QR code updates (QRCODE_UPDATED)
+        if (webhookData.event === 'qrcode.updated') {
+          console.log(`📱 [QRCODE_UPDATED] New QR available for ${instanceId}`);
+          // TODO: Emit new QR via WebSocket
         }
         
         // Handle other webhook events (status changes, etc.)

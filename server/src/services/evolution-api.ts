@@ -84,13 +84,22 @@ export class EvolutionApiService {
           byEvents: false,
           base64: false,
           events: [
-            'APPLICATION_STARTUP',
-            'QRCODE_UPDATED',
-            'MESSAGES_UPSERT',
-            'MESSAGES_UPDATE',
-            'MESSAGES_DELETE',
-            'SEND_MESSAGE',
-            'CONNECTION_UPDATE'
+            // 🔴 CRÍTICOS - Necessários para @lid resolution
+            'MESSAGES_UPSERT',      // Recebe mensagens novas (com @lid)
+            'MESSAGES_UPDATE',      // Resolve @lid → número real via status updates
+            
+            // 🟡 IMPORTANTES - Gerenciamento de conexão
+            'CONNECTION_UPDATE',    // Monitora status da conexão
+            'QRCODE_UPDATED',       // Novo QR code quando necessário
+            
+            // 🟢 ÚTEIS - Enriquecimento de dados
+            'CONTACTS_UPSERT',      // Informações de contatos (nome, foto)
+            'CONTACTS_UPDATE',      // Atualizações de contatos
+            'CHATS_UPSERT',         // Informações de conversas
+            'PRESENCE_UPDATE',      // Status online/typing
+            
+            // 📤 ENVIO - Confirmação de mensagens enviadas
+            'SEND_MESSAGE'
           ]
         }
       });
@@ -130,13 +139,22 @@ export class EvolutionApiService {
         byEvents: false,
         base64: false,
         events: [
-          'APPLICATION_STARTUP',
-          'QRCODE_UPDATED',
-          'MESSAGES_UPSERT',
-          'MESSAGES_UPDATE',
-          'MESSAGES_DELETE',
-          'SEND_MESSAGE',
-          'CONNECTION_UPDATE'
+          // 🔴 CRÍTICOS - Necessários para @lid resolution
+          'MESSAGES_UPSERT',      // Recebe mensagens novas (com @lid)
+          'MESSAGES_UPDATE',      // Resolve @lid → número real via status updates
+          
+          // 🟡 IMPORTANTES - Gerenciamento de conexão
+          'CONNECTION_UPDATE',    // Monitora status da conexão
+          'QRCODE_UPDATED',       // Novo QR code quando necessário
+          
+          // 🟢 ÚTEIS - Enriquecimento de dados
+          'CONTACTS_UPSERT',      // Informações de contatos (nome, foto)
+          'CONTACTS_UPDATE',      // Atualizações de contatos
+          'CHATS_UPSERT',         // Informações de conversas
+          'PRESENCE_UPDATE',      // Status online/typing
+          
+          // 📤 ENVIO - Confirmação de mensagens enviadas
+          'SEND_MESSAGE'
         ]
       });
 
@@ -172,6 +190,8 @@ export class EvolutionApiService {
       const response = await this.client.get(`/instance/connectionState/${instanceName}`);
       const state = response.data?.instance?.state;
       
+      console.log(`🔍 [getInstanceStatus] Instance ${instanceName} state:`, state);
+      
       switch (state) {
         case 'open':
           return InstanceStatus.CONNECTED;
@@ -182,8 +202,12 @@ export class EvolutionApiService {
         default:
           return InstanceStatus.PENDING;
       }
-    } catch (error) {
-      console.error('Error getting Evolution API instance status:', error);
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        console.log(`⚠️  Instância ${instanceName} não encontrada na Evolution API (404) - será removida do banco`);
+        return InstanceStatus.NOT_FOUND;
+      }
+      console.error('Error getting Evolution API instance status:', error.message || error);
       return InstanceStatus.DISCONNECTED;
     }
   }
@@ -359,5 +383,117 @@ export class EvolutionApiService {
       console.error('❌ Error marking chat as unread:', error.response?.data || error.message);
       throw new Error(`Failed to mark chat as unread: ${error.response?.data?.message || error.message}`);
     }
+  }
+
+  /**
+   * Fetch profile picture URL for a contact
+   * @param instanceName - Nome da instância
+   * @param number - Número do contato (formato: 5511999999999 ou 5511999999999@s.whatsapp.net)
+   * @returns URL da foto de perfil
+   */
+  async fetchProfilePictureUrl(instanceName: string, number: string): Promise<{
+    profilePictureUrl: string | null;
+  }> {
+    try {
+      console.log(`📸 Fetching profile picture for ${number} on instance ${instanceName}`);
+      
+      // Endpoint correto segundo documentação: fetchProfilePictureUrl (com 'u' minúsculo)
+      const response = await this.client.post(`/chat/fetchProfilePictureUrl/${instanceName}`, {
+        number: number
+      });
+
+      console.log(`✅ Profile picture fetched successfully:`, response.data?.profilePictureUrl ? 'Found' : 'Not found');
+      return {
+        profilePictureUrl: response.data?.profilePictureUrl || null
+      };
+    } catch (error: any) {
+      console.error('❌ Error fetching profile picture:', error.response?.data || error.message);
+      // Retorna null em vez de lançar erro, pois nem todos os contatos têm foto
+      return { profilePictureUrl: null };
+    }
+  }
+
+  /**
+   * Fetch contact information (name, profile picture, etc)
+   * @param instanceName - Nome da instância
+   * @param numbers - Array de números para buscar
+   * @returns Array com informações dos contatos
+   */
+  async fetchContacts(instanceName: string, numbers?: string[]): Promise<Array<{
+    id: string;
+    profilePictureUrl?: string;
+    pushName?: string;
+    businessName?: string;
+    profileName?: string;
+  }>> {
+    try {
+      console.log(`👥 Fetching contacts for instance ${instanceName}`);
+      
+      const payload: any = {};
+      if (numbers && numbers.length > 0) {
+        payload.where = numbers.map(num => ({ id: num }));
+      }
+
+      const response = await this.client.post(`/chat/findContacts/${instanceName}`, payload);
+
+      console.log(`✅ Contacts fetched successfully: ${response.data?.length || 0} contacts`);
+      return response.data || [];
+    } catch (error: any) {
+      console.error('❌ Error fetching contacts:', error.response?.data || error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Get contact name with fallback logic
+   * Priority: businessName > pushName > profileName > number
+   */
+  getContactDisplayName(contact: {
+    pushName?: string;
+    businessName?: string;
+    profileName?: string;
+    id?: string;
+  }, fallbackNumber?: string): string {
+    if (contact.businessName) return contact.businessName;
+    if (contact.pushName) return contact.pushName;
+    if (contact.profileName) return contact.profileName;
+    
+    // Se tiver ID, formatar como número
+    if (contact.id) {
+      const cleaned = contact.id.replace('@s.whatsapp.net', '').replace('@g.us', '');
+      return this.formatPhoneNumber(cleaned);
+    }
+    
+    // Fallback para número fornecido
+    if (fallbackNumber) {
+      return this.formatPhoneNumber(fallbackNumber);
+    }
+    
+    return 'Contato sem nome';
+  }
+
+  /**
+   * Format phone number for display
+   * Example: 5511999999999 -> +55 (11) 99999-9999
+   */
+  private formatPhoneNumber(number: string): string {
+    const cleaned = number.replace(/\D/g, '');
+    
+    // Formato brasileiro (55 + DDD + número)
+    if (cleaned.startsWith('55') && cleaned.length >= 12) {
+      const country = cleaned.slice(0, 2);
+      const ddd = cleaned.slice(2, 4);
+      const firstPart = cleaned.slice(4, -4);
+      const lastPart = cleaned.slice(-4);
+      return `+${country} (${ddd}) ${firstPart}-${lastPart}`;
+    }
+    
+    // Outros formatos internacionais
+    if (cleaned.length > 10) {
+      return `+${cleaned}`;
+    }
+    
+    // Se não identificar formato, retorna como está
+    return number;
   }
 }

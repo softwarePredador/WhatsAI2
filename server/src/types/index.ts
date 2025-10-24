@@ -30,7 +30,8 @@ export enum InstanceStatus {
   DISCONNECTED = 'disconnected',
   CONNECTING = 'connecting',
   CONNECTED = 'connected',
-  ERROR = 'error'
+  ERROR = 'error',
+  NOT_FOUND = 'not_found' // Instância não existe mais na Evolution API
 }
 
 export interface QRCodeData {

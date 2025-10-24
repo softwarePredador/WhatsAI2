@@ -61,6 +61,9 @@ export class ConversationService {
   private messageRepository: MessageRepository;
   private evolutionApiService: EvolutionApiService;
   private socketService: SocketService;
+  private lidToRealNumberCache: Map<string, string> = new Map(); // @lid → real number
+  private keyIdToLidCache: Map<string, string> = new Map(); // keyId → @lid  
+  private keyIdToRealCache: Map<string, string> = new Map(); // keyId → real number
 
   constructor() {
     this.conversationRepository = new ConversationRepository(prisma);
@@ -69,8 +72,71 @@ export class ConversationService {
     this.socketService = SocketService.getInstance();
   }
 
+  /**
+   * Normalize WhatsApp number to ensure consistent conversation matching
+   * Removes @s.whatsapp.net, @g.us, @c.us, @lid suffixes and :device_id
+   * Examples:
+   * - 5541998773200@s.whatsapp.net → 5541998773200
+   * - 554198773200:98@s.whatsapp.net → 554198773200 (remove device ID)
+   * - 79512746377469@lid → 79512746377469
+   * - 554198773200 → 554198773200
+   */
+  private normalizeRemoteJid(remoteJid: string): string {
+    // Remove device IDs (e.g., :98, :4) before suffix
+    let normalized = remoteJid.replace(/:\d+@/, '@');
+    
+    // Remove WhatsApp suffixes
+    normalized = normalized
+      .replace('@s.whatsapp.net', '')
+      .replace('@g.us', '')
+      .replace('@c.us', '')
+      .replace('@lid', '');
+    
+    // Log for debugging duplicate conversations
+    console.log(`📞 [normalizeRemoteJid] Input: ${remoteJid} → Output: ${normalized}`);
+    
+    return normalized;
+  }
+
+  /**
+   * Format number with @s.whatsapp.net suffix for Evolution API
+   * NEVER use @lid - always convert to @s.whatsapp.net
+   */
+  private formatRemoteJid(number: string): string {
+    // If already has @, check if it's @lid and replace
+    if (number.includes('@')) {
+      // If it's @lid, remove it and format as normal number
+      if (number.includes('@lid')) {
+        const cleanNumber = number.replace('@lid', '');
+        console.log(`🔄 [formatRemoteJid] Converting @lid to @s.whatsapp.net: ${number} → ${cleanNumber}@s.whatsapp.net`);
+        return `${cleanNumber}@s.whatsapp.net`;
+      }
+      return number; // Already formatted correctly
+    }
+    
+    // Check if it's a group
+    if (number.includes('-')) {
+      return `${number}@g.us`;
+    }
+    
+    return `${number}@s.whatsapp.net`;
+  }
+
   async getConversationsByInstance(instanceId: string): Promise<ConversationSummary[]> {
     const conversations = await this.conversationRepository.findByInstanceId(instanceId);
+    
+    // 📸 Buscar fotos em background para conversas sem foto
+    const conversationsWithoutPicture = conversations.filter(c => !c.contactPicture);
+    if (conversationsWithoutPicture.length > 0) {
+      console.log(`📸 Buscando fotos para ${conversationsWithoutPicture.length} conversas sem foto...`);
+      
+      // Buscar todas em paralelo (não esperar)
+      Promise.all(
+        conversationsWithoutPicture.map(conv => 
+          this.fetchContactInfoInBackground(conv.id, instanceId, conv.remoteJid)
+        )
+      ).catch(err => console.log('⚠️  Erro ao buscar fotos:', err.message));
+    }
     
     return conversations.map(conversation => {
       // Obter a última mensagem do relacionamento messages (primeira posição, ordenada por timestamp desc)
@@ -125,16 +191,174 @@ export class ConversationService {
       remoteJid
     });
 
+    // 📸 Buscar foto de perfil em background se ainda não tiver
+    if (!conversation.contactPicture) {
+      this.fetchContactInfoInBackground(conversation.id, instanceId, remoteJid).catch(err => {
+        console.log(`⚠️  Erro ao buscar foto em background:`, err.message);
+      });
+    }
+
     // Emit conversation update to frontend
     this.socketService.emitToInstance(instanceId, 'conversation:updated', conversation);
 
     return conversation;
   }
 
+  /**
+   * Busca informações do contato em background (não bloqueia)
+   */
+  private async fetchContactInfoInBackground(conversationId: string, instanceId: string, remoteJid: string): Promise<void> {
+    try {
+      const instance = await prisma.whatsAppInstance.findUnique({
+        where: { id: instanceId }
+      });
+
+      if (!instance) return;
+
+      const evolutionService = new EvolutionApiService(instance.evolutionApiUrl, instance.evolutionApiKey);
+      const number = remoteJid.replace('@s.whatsapp.net', '').replace('@g.us', '');
+      
+      // Buscar foto
+      const profilePicture = await evolutionService.fetchProfilePictureUrl(
+        instance.evolutionInstanceName,
+        number
+      );
+
+      if (profilePicture.profilePictureUrl) {
+        await this.conversationRepository.update(conversationId, {
+          contactPicture: profilePicture.profilePictureUrl
+        });
+
+        console.log(`📸 Foto de perfil atualizada em background para ${number}`);
+
+        // Notificar frontend
+        const updatedConv = await this.conversationRepository.findById(conversationId);
+        if (updatedConv) {
+          this.socketService.emitToInstance(instanceId, 'conversation:updated', updatedConv);
+        }
+      }
+    } catch (error) {
+      // Não fazer nada, apenas log silencioso
+      console.log(`⚠️  Não foi possível buscar foto para conversa ${conversationId}`);
+    }
+  }
+
+  /**
+   * Record mapping between @lid and real number from messages.update events
+   */
+  async recordLidMapping(keyId: string, lidNumber: string | null, realNumber: string | null): Promise<void> {
+    if (lidNumber && lidNumber.includes('@lid')) {
+      this.keyIdToLidCache.set(keyId, lidNumber);
+    }
+    
+    if (realNumber && realNumber.includes('@s.whatsapp.net')) {
+      this.keyIdToRealCache.set(keyId, realNumber);
+    }
+    
+    // If we have both for this keyId, create the mapping
+    const lid = this.keyIdToLidCache.get(keyId);
+    const real = this.keyIdToRealCache.get(keyId);
+    
+    if (lid && real) {
+      this.lidToRealNumberCache.set(lid, real);
+      console.log(`✅ Mapped: ${lid} → ${real}`);
+    }
+  }
+
+  /**
+   * Resolve @lid to real number if available in cache
+   */
+  private resolveLidToRealNumber(remoteJid: string): string {
+    if (remoteJid.includes('@lid')) {
+      const realNumber = this.lidToRealNumberCache.get(remoteJid);
+      if (realNumber) {
+        console.log(`🔄 Resolved @lid: ${remoteJid} → ${realNumber}`);
+        return realNumber;
+      }
+    }
+    return remoteJid;
+  }
+
+  /**
+   * Update contact info from webhook (contacts.update event)
+   * Avoids unnecessary API calls for profile pictures and names
+   */
+  async updateContactFromWebhook(instanceId: string, remoteJid: string, data: { contactName?: string; contactPicture?: string }): Promise<void> {
+    try {
+      const normalizedJid = this.normalizeRemoteJid(remoteJid);
+      const formattedJid = this.formatRemoteJid(normalizedJid);
+      
+      // Find conversation by remoteJid
+      const conversations = await this.conversationRepository.findByInstanceId(instanceId);
+      const conversation = conversations.find(c => c.remoteJid === formattedJid);
+      
+      if (conversation) {
+        const updateData: any = {};
+        if (data.contactName) updateData.contactName = data.contactName;
+        if (data.contactPicture) updateData.contactPicture = data.contactPicture;
+        
+        if (Object.keys(updateData).length > 0) {
+          await this.conversationRepository.update(conversation.id, updateData);
+        }
+        
+        console.log(`✅ Updated contact from webhook: ${data.contactName || remoteJid}`);
+        
+        // Notify frontend
+        const updated = await this.conversationRepository.findById(conversation.id);
+        if (updated) {
+          this.socketService.emitToInstance(instanceId, 'conversation:updated', updated);
+        }
+      }
+    } catch (error) {
+      console.log(`⚠️ Failed to update contact from webhook:`, error);
+    }
+  }
+
+  /**
+   * Update unread count from webhook (chats.upsert event)
+   */
+  async updateUnreadCount(instanceId: string, remoteJid: string, unreadCount: number): Promise<void> {
+    try {
+      const normalizedJid = this.normalizeRemoteJid(remoteJid);
+      const formattedJid = this.formatRemoteJid(normalizedJid);
+      
+      // Find conversation by remoteJid
+      const conversations = await this.conversationRepository.findByInstanceId(instanceId);
+      const conversation = conversations.find(c => c.remoteJid === formattedJid);
+      
+      if (conversation) {
+        await this.conversationRepository.update(conversation.id, { unreadCount });
+        
+        console.log(`✅ Updated unread count from webhook: ${formattedJid} = ${unreadCount}`);
+        
+        // Notify frontend
+        this.socketService.emitToInstance(instanceId, 'conversation:unread', {
+          conversationId: conversation.id,
+          unreadCount
+        });
+      }
+    } catch (error) {
+      console.log(`⚠️ Failed to update unread count from webhook:`, error);
+    }
+  }
+
   async handleIncomingMessage(instanceId: string, messageData: any): Promise<void> {
     try {
+      console.log(`📨 [handleIncomingMessage] RAW messageData.key:`, JSON.stringify(messageData.key, null, 2));
+      
+      let remoteJid = messageData.key.remoteJid;
+      
+      // 🔄 Try to resolve @lid to real number
+      remoteJid = this.resolveLidToRealNumber(remoteJid);
+      
+      // Normalize remoteJid to avoid duplicate conversations
+      const normalizedRemoteJid = this.normalizeRemoteJid(remoteJid);
+      const formattedRemoteJid = this.formatRemoteJid(normalizedRemoteJid);
+      
+      console.log(`📨 [handleIncomingMessage] Normalized: ${messageData.key.remoteJid} → ${formattedRemoteJid}`);
+      
       // Create or update conversation first
-      const conversation = await this.createOrUpdateConversation(instanceId, messageData.key.remoteJid, {
+      const conversation = await this.createOrUpdateConversation(instanceId, formattedRemoteJid, {
         contactName: messageData.pushName,
         isGroup: messageData.key.remoteJid.includes('@g.us')
       });
@@ -142,7 +366,7 @@ export class ConversationService {
       // Now save the message with conversation link
       const messageCreateData = {
         instanceId,
-        remoteJid: messageData.key.remoteJid,
+        remoteJid: formattedRemoteJid, // Use normalized version
         fromMe: messageData.key.fromMe || false,
         messageType: this.getMessageType(messageData),
         content: this.extractMessageContent(messageData),
@@ -154,7 +378,26 @@ export class ConversationService {
         conversationId: conversation.id // Link to conversation
       };
       
-      const message = await this.messageRepository.create(messageCreateData);
+      // 🛡️ Try to create message, but ignore if messageId already exists (duplicate webhook)
+      let message;
+      try {
+        message = await this.messageRepository.create(messageCreateData);
+      } catch (error: any) {
+        if (error.code === 'P2002' && error.meta?.target?.includes('messageId')) {
+          console.log(`⚠️ Message ${messageData.key.id} already exists, skipping...`);
+          // Get existing message
+          const existingMessage = await prisma.message.findFirst({
+            where: { messageId: messageData.key.id }
+          });
+          if (existingMessage) {
+            message = existingMessage;
+          } else {
+            throw error;
+          }
+        } else {
+          throw error;
+        }
+      }
 
       // Update conversation with last message info
       // Smart unread logic: only increment if conversation is NOT currently active
@@ -183,7 +426,7 @@ export class ConversationService {
           
           if (instance?.evolutionInstanceName) {
             await evolutionApi.markMessageAsRead(instance.evolutionInstanceName, [{
-              remoteJid: messageData.key.remoteJid,
+              remoteJid: formattedRemoteJid, // Use normalized version
               fromMe: messageData.key.fromMe || false,
               id: messageData.key.id
             }]);
@@ -209,7 +452,7 @@ export class ConversationService {
       });
 
       // Update conversation list in frontend
-      const updatedConversation = await this.conversationRepository.findByInstanceAndRemoteJid(instanceId, messageData.key.remoteJid);
+      const updatedConversation = await this.conversationRepository.findByInstanceAndRemoteJid(instanceId, formattedRemoteJid);
       if (updatedConversation) {
         this.socketService.emitToInstance(instanceId, 'conversation:updated', updatedConversation);
       }
@@ -222,6 +465,11 @@ export class ConversationService {
 
   async sendMessage(instanceId: string, remoteJid: string, content: string): Promise<Message> {
     try {
+      // Normalize remoteJid to avoid duplicate conversations
+      const normalizedRemoteJid = this.normalizeRemoteJid(remoteJid);
+      const formattedRemoteJid = this.formatRemoteJid(normalizedRemoteJid);
+      
+      console.log(`📤 [sendMessage] Normalized: ${remoteJid} → ${formattedRemoteJid}`);
       console.log(`🔍 [sendMessage] Procurando instância ${instanceId} para obter evolutionInstanceName`);
       
       // Get the instance to find the evolutionInstanceName
@@ -239,19 +487,19 @@ export class ConversationService {
       // Send message via Evolution API using the evolutionInstanceName
       const evolutionResponse = await this.evolutionApiService.sendTextMessage(
         instance.evolutionInstanceName, 
-        remoteJid, 
+        formattedRemoteJid, // Use normalized version
         content
       );
 
       console.log(`✅ [sendMessage] Mensagem enviada via Evolution API:`, evolutionResponse);
 
       // Create or update conversation
-      const conversation = await this.createOrUpdateConversation(instanceId, remoteJid);
+      const conversation = await this.createOrUpdateConversation(instanceId, formattedRemoteJid);
 
       // Save message to database
       const message = await this.messageRepository.create({
         instanceId,
-        remoteJid,
+        remoteJid: formattedRemoteJid, // Use normalized version
         fromMe: true,
         messageType: 'TEXT',
         content,
@@ -533,6 +781,138 @@ export class ConversationService {
 
     } catch (error) {
       console.error('❌ Error marking conversation as unread:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update contact information (name and profile picture)
+   * @param conversationId - ID da conversa
+   * @returns Updated conversation
+   */
+  async updateContactInfo(conversationId: string): Promise<Conversation | null> {
+    try {
+      const conversation = await this.conversationRepository.findById(conversationId);
+      if (!conversation) {
+        throw new Error('Conversation not found');
+      }
+
+      const instance = await prisma.whatsAppInstance.findUnique({
+        where: { id: conversation.instanceId }
+      });
+
+      if (!instance) {
+        throw new Error('Instance not found');
+      }
+
+      const evolutionService = new EvolutionApiService(instance.evolutionApiUrl, instance.evolutionApiKey);
+      
+      // Extrair número do remoteJid
+      const number = conversation.remoteJid.replace('@s.whatsapp.net', '').replace('@g.us', '');
+      
+      // Buscar informações do contato
+      const contacts = await evolutionService.fetchContacts(instance.evolutionInstanceName, [number]);
+      
+      if (contacts.length > 0) {
+        const contact = contacts[0];
+        if (contact) {
+          const displayName = evolutionService.getContactDisplayName(contact, number);
+          
+          // Buscar foto de perfil separadamente
+          const profilePicture = await evolutionService.fetchProfilePictureUrl(
+            instance.evolutionInstanceName,
+            number
+          );
+
+          // Atualizar conversa com novas informações
+          const updateData: UpdateConversationData = {
+            contactName: displayName
+          };
+          
+          if (profilePicture.profilePictureUrl) {
+            updateData.contactPicture = profilePicture.profilePictureUrl;
+          }
+
+          const updatedConversation = await this.conversationRepository.update(conversationId, updateData);
+
+          console.log(`✅ Contact info updated for conversation ${conversationId}: ${displayName}`);
+
+          // Notificar via WebSocket
+          this.socketService.emitToInstance(conversation.instanceId, 'conversation:updated', updatedConversation);
+
+          return updatedConversation;
+        }
+      }
+
+      return conversation;
+    } catch (error) {
+      console.error('❌ Error updating contact info:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Batch update contact info for multiple conversations
+   * @param instanceId - ID da instância
+   */
+  async updateAllContactsInfo(instanceId: string): Promise<void> {
+    try {
+      console.log(`🔄 Updating contact info for all conversations in instance ${instanceId}`);
+      
+      const conversations = await this.conversationRepository.findByInstanceId(instanceId);
+      const instance = await prisma.whatsAppInstance.findUnique({
+        where: { id: instanceId }
+      });
+
+      if (!instance) {
+        throw new Error('Instance not found');
+      }
+
+      const evolutionService = new EvolutionApiService(instance.evolutionApiUrl, instance.evolutionApiKey);
+      
+      // Buscar todos os contatos de uma vez
+      const numbers = conversations.map(c => 
+        c.remoteJid.replace('@s.whatsapp.net', '').replace('@g.us', '')
+      );
+      
+      const contacts = await evolutionService.fetchContacts(instance.evolutionInstanceName, numbers);
+      
+      // Criar mapa de contatos por número
+      const contactMap = new Map(
+        contacts.map(c => [c.id.replace('@s.whatsapp.net', '').replace('@g.us', ''), c])
+      );
+
+      // Atualizar cada conversa
+      for (const conversation of conversations) {
+        const number = conversation.remoteJid.replace('@s.whatsapp.net', '').replace('@g.us', '');
+        const contact = contactMap.get(number);
+        
+        if (contact) {
+          const displayName = evolutionService.getContactDisplayName(contact, number);
+          
+          // Buscar foto (pode ser lento, considerar fazer em background)
+          const profilePicture = await evolutionService.fetchProfilePictureUrl(
+            instance.evolutionInstanceName,
+            number
+          );
+
+          const updateData: UpdateConversationData = {
+            contactName: displayName
+          };
+          
+          if (profilePicture.profilePictureUrl) {
+            updateData.contactPicture = profilePicture.profilePictureUrl;
+          }
+
+          await this.conversationRepository.update(conversation.id, updateData);
+
+          console.log(`✅ Updated contact: ${displayName}`);
+        }
+      }
+
+      console.log(`✅ All contacts updated for instance ${instanceId}`);
+    } catch (error) {
+      console.error('❌ Error updating all contacts info:', error);
       throw error;
     }
   }
