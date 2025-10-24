@@ -71,12 +71,24 @@ app.post('/api/webhooks/evolution/:instanceId', async (req, res) => {
       console.log(`💬 [${instanceId}] Processando mensagem: ${messageContent}`);
       console.log(`📱 [${instanceId}] remoteJid original: ${remoteJid}`);
       
+      // Buscar instância PRIMEIRO (por evolutionInstanceName, não por id)
+      const instance = await prisma.whatsAppInstance.findFirst({
+        where: { evolutionInstanceName: instanceId }
+      });
+      
+      if (!instance) {
+        console.log(`⚠️ Instância ${instanceId} não encontrada no banco`);
+        return res.json({ success: true, message: 'Instance not found' });
+      }
+      
+      console.log(`✅ [${instanceId}] Instância encontrada: ${instance.id}`);
+      
       // 🔄 Se for @lid, tentar resolver para número real
       if (remoteJid.includes('@lid')) {
         // Buscar no banco de dados por messageId que já tenha esse remoteJid
         const existingMessage = await prisma.message.findFirst({
           where: { 
-            instanceId: instanceId,
+            instanceId: instance.id, // USA O ID REAL DO BANCO
             remoteJid: { contains: remoteJid.split('@')[0] } // Busca pelo número base
           },
           orderBy: { createdAt: 'desc' }
@@ -88,17 +100,6 @@ app.post('/api/webhooks/evolution/:instanceId', async (req, res) => {
         } else {
           console.log(`⚠️ [${instanceId}] @lid não resolvido, usando normalização padrão: ${remoteJid}`);
         }
-      }
-      
-      // Buscar instância
-      const instance = await prisma.whatsAppInstance.findFirst({
-        where: { id: instanceId }
-      });
-      
-      if (!instance) {
-        console.log(`⚠️ Instância ${instanceId} não encontrada`);
-        res.json({ success: true, message: 'Instance not found' });
-        return;
       }
       
       // ========================================
@@ -122,10 +123,10 @@ app.post('/api/webhooks/evolution/:instanceId', async (req, res) => {
       
       console.log(`🔄 [${instanceId}] Normalização: ${remoteJid} → ${formattedJid}`);
       
-      // Buscar ou criar conversa usando JID formatado
+      // Buscar ou criar conversa usando JID formatado (COM O ID REAL DO BANCO)
       let conversation = await prisma.conversation.findFirst({
         where: { 
-          instanceId: instanceId,
+          instanceId: instance.id,
           remoteJid: formattedJid
         }
       });
@@ -133,7 +134,7 @@ app.post('/api/webhooks/evolution/:instanceId', async (req, res) => {
       if (!conversation) {
         conversation = await prisma.conversation.create({
           data: {
-            instanceId,
+            instanceId: instance.id,
             remoteJid: formattedJid,
             contactName: normalizedJid,
             isGroup: formattedJid.includes('@g.us'),
@@ -151,7 +152,7 @@ app.post('/api/webhooks/evolution/:instanceId', async (req, res) => {
       try {
         const message = await prisma.message.create({
           data: {
-            instanceId,
+            instanceId: instance.id,
             remoteJid: formattedJid,
             messageId: messageId,
             conversationId: conversation.id,
