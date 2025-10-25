@@ -33,6 +33,13 @@ export class MediaStorageService {
   ): Promise<MediaUploadResult> {
     const { file, fileName, contentType, conversationId, mediaType, caption, instanceId, remoteJid } = options;
 
+    // Validate required parameters
+    if (!file || !fileName || !contentType || !conversationId || !mediaType || !instanceId || !remoteJid) {
+      throw new Error(`Missing required parameters: file=${!!file}, fileName=${!!fileName}, contentType=${!!contentType}, conversationId=${!!conversationId}, mediaType=${!!mediaType}, instanceId=${!!instanceId}, remoteJid=${!!remoteJid}`);
+    }
+
+    let uploadResult: any = null;
+
     try {
       console.log(`🚀 [MediaStorage] Starting upload and send process for ${fileName}`);
 
@@ -45,7 +52,7 @@ export class MediaStorageService {
 
       // 2. Upload to DigitalOcean Spaces
       console.log(`📤 [MediaStorage] Uploading to Spaces: ${fileKey}`);
-      const uploadResult = await this.spacesService.uploadFile(
+      uploadResult = await this.spacesService.uploadFile(
         file,
         fileKey,
         contentType,
@@ -86,8 +93,18 @@ export class MediaStorageService {
     } catch (error) {
       console.error(`❌ [MediaStorage] Process failed:`, error);
 
-      // If upload succeeded but message failed, we might want to cleanup
-      // For now, just throw the error
+      // If upload succeeded but message failed, cleanup the uploaded file
+      if (uploadResult) {
+        try {
+          console.log(`🧹 [MediaStorage] Rolling back upload: ${uploadResult.key}`);
+          await this.spacesService.deleteFile(uploadResult.key);
+          console.log(`✅ [MediaStorage] Rollback completed`);
+        } catch (rollbackError) {
+          console.error(`❌ [MediaStorage] Rollback failed:`, rollbackError);
+          // Don't throw rollback error, original error is more important
+        }
+      }
+
       throw error;
     }
   }

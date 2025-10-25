@@ -311,19 +311,32 @@ export class EvolutionApiService {
     }
   }
 
-  async sendMediaMessage(instanceName: string, number: string, mediaUrl: string, caption?: string): Promise<any> {
+  async sendMediaMessage(instanceName: string, number: string, mediaUrl: string, caption?: string, mediaType?: string): Promise<any> {
     try {
+      // Download the file from the URL and convert to base64
+      console.log(`📥 [sendMediaMessage] Downloading media from: ${mediaUrl}`);
+      const mediaResponse = await this.client.get(mediaUrl, { responseType: 'arraybuffer' });
+      const base64Data = Buffer.from(mediaResponse.data).toString('base64');
+
+      // Extract mimetype from response headers
+      const mimetype = mediaResponse.headers['content-type'] || 'application/octet-stream';
+      
+      // Extract filename from URL or generate one
+      const urlParts = mediaUrl.split('/');
+      const originalFileName = urlParts[urlParts.length - 1] || 'file';
+      const fileName = originalFileName.includes('.') ? originalFileName : `file.${this.getExtensionFromMimeType(mimetype)}`;
+
+      console.log(`✅ [sendMediaMessage] Media downloaded and converted to base64 (${base64Data.length} chars)`);
+      console.log(`📄 [sendMediaMessage] MIME type: ${mimetype}, File name: ${fileName}`);
+
       const response = await this.client.post(`/message/sendMedia/${instanceName}`, {
         number: number,
-        options: {
-          delay: 1200,
-          presence: 'composing'
-        },
-        mediaMessage: {
-          mediatype: 'image', // Can be 'image', 'video', 'audio', 'document'
-          media: mediaUrl,
-          caption: caption
-        }
+        mediatype: mediaType || this.getMediaTypeFromMimeType(mimetype),
+        mimetype: mimetype,
+        caption: caption || '',
+        media: base64Data,
+        fileName: fileName,
+        delay: 1200
       });
 
       return response.data;
@@ -539,6 +552,42 @@ export class EvolutionApiService {
     }
     
     return 'Contato sem nome';
+  }
+
+  /**
+   * Get file extension from MIME type
+   */
+  private getExtensionFromMimeType(mimetype: string): string {
+    const mimeToExt: { [key: string]: string } = {
+      'image/jpeg': 'jpg',
+      'image/jpg': 'jpg',
+      'image/png': 'png',
+      'image/gif': 'gif',
+      'image/webp': 'webp',
+      'video/mp4': 'mp4',
+      'video/avi': 'avi',
+      'video/mov': 'mov',
+      'audio/mp3': 'mp3',
+      'audio/wav': 'wav',
+      'audio/ogg': 'ogg',
+      'application/pdf': 'pdf',
+      'application/msword': 'doc',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+      'application/vnd.ms-excel': 'xls',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+      'text/plain': 'txt'
+    };
+    return mimeToExt[mimetype] || 'bin';
+  }
+
+  /**
+   * Get media type from MIME type for Evolution API
+   */
+  private getMediaTypeFromMimeType(mimetype: string): string {
+    if (mimetype.startsWith('image/')) return 'image';
+    if (mimetype.startsWith('video/')) return 'video';
+    if (mimetype.startsWith('audio/')) return 'audio';
+    return 'document';
   }
 
   /**

@@ -58,7 +58,8 @@ export class MediaMessageService {
         instance.evolutionInstanceName,
         normalizedRemoteJid,
         mediaUrl,
-        caption
+        caption,
+        mediaType // Pass the mediaType parameter
       );
 
       console.log(`✅ [sendMediaMessage] Mídia enviada via Evolution API:`, evolutionResponse);

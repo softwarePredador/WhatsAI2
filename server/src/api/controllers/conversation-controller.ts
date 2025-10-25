@@ -39,6 +39,14 @@ export class ConversationController {
       endpoint: process.env['DO_SPACES_ENDPOINT'] || 'https://sfo3.digitaloceanspaces.com'
     };
 
+    console.log('🔧 [ConversationController] Spaces config:', {
+      hasAccessKey: !!spacesConfig.accessKeyId,
+      hasSecretKey: !!spacesConfig.secretAccessKey,
+      region: spacesConfig.region,
+      bucket: spacesConfig.bucket,
+      endpoint: spacesConfig.endpoint
+    });
+
     this.mediaStorageService = new MediaStorageService(spacesConfig);
   }
 
@@ -470,6 +478,16 @@ export class ConversationController {
         return;
       }
 
+      // Verificar se a conversa tem uma instância válida
+      if (!conversation.instanceId) {
+        console.log('❌ [uploadAndSendMediaMessage] Conversa sem instância válida:', conversationId);
+        res.status(400).json({
+          success: false,
+          error: 'Conversa não tem uma instância válida'
+        });
+        return;
+      }
+
       // Verificar se há arquivo no upload
       if (!req.file) {
         res.status(400).json({
@@ -494,6 +512,14 @@ export class ConversationController {
       const mediaType = this.getMediaTypeFromMimeType(mimetype);
 
       // Upload para DigitalOcean Spaces e enviar mensagem
+      console.log('🚀 [uploadAndSendMediaMessage] Iniciando upload e envio:', {
+        conversationId,
+        instanceId: conversation.instanceId,
+        remoteJid: conversation.remoteJid,
+        mediaType,
+        fileName: originalname
+      });
+
       const result = await this.mediaStorageService.uploadAndSendMedia({
         file: buffer,
         fileName: originalname,

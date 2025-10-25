@@ -550,23 +550,28 @@ export class ConversationService {
         conversationId: conversation.id // Link to conversation
       };
       
-      // 🛡️ Try to create message, but ignore if messageId already exists (duplicate webhook)
+      // 🛡️ Create or update message using upsert to handle duplicates
       let message;
       try {
-        message = await this.messageRepository.create(messageCreateData);
+        message = await prisma.message.upsert({
+          where: { messageId: messageData.key.id },
+          update: messageCreateData, // If exists, update with latest data
+          create: messageCreateData
+        });
+        console.log(`💬 [handleIncomingMessage] Message ${message.id.startsWith('cmh') ? 'CREATED' : 'UPDATED'}: ${message.id}`);
       } catch (error: any) {
-        if (error.code === 'P2002' && error.meta?.target?.includes('messageId')) {
-          console.log(`⚠️ Message ${messageData.key.id} already exists, skipping...`);
-          // Get existing message
-          const existingMessage = await prisma.message.findFirst({
+        console.log(`⚠️ Message upsert failed for ${messageData.key.id}, checking if exists...`);
+        try {
+          message = await prisma.message.findFirst({
             where: { messageId: messageData.key.id }
           });
-          if (existingMessage) {
-            message = existingMessage;
-          } else {
+          if (!message) {
+            console.error(`❌ Message ${messageData.key.id} not found after upsert failure`);
             throw error;
           }
-        } else {
+          console.log(`✅ Found existing message: ${message.id}`);
+        } catch (findError) {
+          console.error(`❌ Failed to find message ${messageData.key.id}:`, findError);
           throw error;
         }
       }
@@ -1243,23 +1248,29 @@ export class ConversationService {
           conversationId: conversation.id
         };
 
-        // 2. Create message within transaction
+        // 2. Create message within transaction - use upsert to handle duplicates
         let message;
         try {
-          message = await tx.message.create({
-            data: messageCreateData
+          message = await tx.message.upsert({
+            where: { messageId: messageData.key.id },
+            update: messageCreateData, // If exists, update with latest data
+            create: messageCreateData
           });
-          console.log(`💬 [handleIncomingMessageAtomic] Message CREATED: ${message.id}`);
+          console.log(`💬 [handleIncomingMessageAtomic] Message ${message.id.startsWith('cmh') ? 'CREATED' : 'UPDATED'}: ${message.id}`);
         } catch (error: any) {
-          if (error.code === 'P2002' && error.meta?.target?.includes('messageId')) {
-            console.log(`⚠️ Message ${messageData.key.id} already exists, getting existing...`);
+          // If upsert fails for any reason, try to find existing message
+          console.log(`⚠️ Message upsert failed for ${messageData.key.id}, checking if exists...`);
+          try {
             message = await tx.message.findFirst({
               where: { messageId: messageData.key.id }
             });
             if (!message) {
-              throw new Error(`Message ${messageData.key.id} exists but not found`);
+              console.error(`❌ Message ${messageData.key.id} not found after upsert failure`);
+              throw error;
             }
-          } else {
+            console.log(`✅ Found existing message: ${message.id}`);
+          } catch (findError) {
+            console.error(`❌ Failed to find message ${messageData.key.id}:`, findError);
             throw error;
           }
         }
