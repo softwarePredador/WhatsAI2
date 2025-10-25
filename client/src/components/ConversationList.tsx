@@ -45,16 +45,38 @@ export const ConversationList: React.FC = () => {
     if (!instanceId) return;
 
     console.log('🔌 [ConversationList] Conectando WebSocket para instanceId:', instanceId);
+    console.log('🔌 [ConversationList] Socket conectado?', socketService.isConnected);
+    console.log('🔌 [ConversationList] Token disponível?', !!token);
 
-    const handleConversationUpdated = (updatedConversation: ConversationSummary) => {
-      console.log('🔔 [ConversationList] Conversa atualizada via WebSocket:', updatedConversation);
+    // 🔌 Fazer join na sala da instância para receber eventos
+    socketService.joinInstance(instanceId);
+
+    const handleConversationUpdated = (updatedConversation: any) => {
+      console.log('🔔 [ConversationList] RECEBEU EVENTO conversation:updated:', updatedConversation);
+      console.log('🔔 [ConversationList] ID da conversa recebida:', updatedConversation.id);
+      console.log('🔔 [ConversationList] lastMessage:', updatedConversation.lastMessage);
+      console.log('🔔 [ConversationList] lastMessagePreview:', updatedConversation.lastMessagePreview);
+      console.log('🔔 [ConversationList] lastMessageAt:', updatedConversation.lastMessageAt);
       console.log('🔔 [ConversationList] instanceId atual:', instanceId);
       
+      // Normalizar os dados recebidos
+      const normalizedConversation: ConversationSummary = {
+        ...updatedConversation,
+        lastMessageAt: updatedConversation.lastMessageAt ? new Date(updatedConversation.lastMessageAt) : undefined,
+        lastMessagePreview: updatedConversation.lastMessagePreview ? {
+          ...updatedConversation.lastMessagePreview,
+          timestamp: new Date(updatedConversation.lastMessagePreview.timestamp)
+        } : undefined
+      };
+      
       setConversations(prevConversations => {
-        console.log('🔔 [ConversationList] Conversas antes da atualização:', prevConversations.length);
+        console.log('🔔 [ConversationList] Conversas na lista:', prevConversations.map(c => ({ id: c.id, remoteJid: c.remoteJid })));
         
         // Encontrar e atualizar a conversa na lista
-        const index = prevConversations.findIndex(c => c.id === updatedConversation.id);
+        const index = prevConversations.findIndex(c => c.id === normalizedConversation.id);
+        console.log('🔔 [ConversationList] Procurando conversa com ID:', normalizedConversation.id);
+        console.log('🔔 [ConversationList] IDs das conversas na lista:', prevConversations.map(c => c.id));
+        console.log('🔔 [ConversationList] Índice encontrado:', index);
         
         if (index !== -1) {
           console.log(`🔔 [ConversationList] Atualizando conversa existente (index ${index})`);
@@ -62,7 +84,7 @@ export const ConversationList: React.FC = () => {
           const updated = [...prevConversations];
           updated[index] = {
             ...updated[index],
-            ...updatedConversation
+            ...normalizedConversation
           };
           
           // Reordenar por lastMessageAt (mais recente primeiro)
@@ -74,7 +96,7 @@ export const ConversationList: React.FC = () => {
         } else {
           console.log('🔔 [ConversationList] Adicionando nova conversa');
           // Nova conversa - adicionar no início
-          return [updatedConversation, ...prevConversations];
+          return [normalizedConversation, ...prevConversations];
         }
       });
     };
@@ -92,13 +114,16 @@ export const ConversationList: React.FC = () => {
     };
 
     console.log('🔌 [ConversationList] Registrando listeners');
+    console.log('🔌 [ConversationList] Status do socket:', socketService.isConnected ? 'CONECTADO' : 'DESCONECTADO');
     socketService.on('conversation:updated', handleConversationUpdated);
     socketService.on('conversation:read', handleConversationRead);
+    console.log('🔌 [ConversationList] Listeners registrados com sucesso');
 
     return () => {
-      console.log('🔌 [ConversationList] Removendo listeners');
+      console.log('🔌 [ConversationList] Removendo listeners e deixando sala');
       socketService.off('conversation:updated', handleConversationUpdated);
       socketService.off('conversation:read', handleConversationRead);
+      socketService.leaveInstance(instanceId);
     };
   }, [instanceId]);
 
@@ -122,6 +147,9 @@ export const ConversationList: React.FC = () => {
     try {
       setLoading(true);
       
+      console.log('🔍 [ConversationList] loadConversations chamado');
+      console.log('🔍 [ConversationList] instanceId da URL:', instanceId);
+      
       if (!token) {
         console.log('❌ Nenhum token encontrado, redirecionando para login...');
         logout();
@@ -132,6 +160,9 @@ export const ConversationList: React.FC = () => {
       const url = instanceId 
         ? `/api/conversations?instanceId=${instanceId}`
         : '/api/conversations';
+        
+      console.log('🔍 [loadConversations] URL construída:', url);
+      console.log('🔍 [loadConversations] instanceId da URL:', instanceId);
         
       const response = await fetch(url, {
         headers: {

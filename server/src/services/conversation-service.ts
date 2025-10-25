@@ -73,6 +73,15 @@ export class ConversationService {
   }
 
   /**
+   * Get instance by evolution instance name
+   */
+  async getInstanceByEvolutionName(evolutionInstanceName: string): Promise<any> {
+    return await prisma.whatsAppInstance.findUnique({
+      where: { evolutionInstanceName }
+    });
+  }
+
+  /**
    * Normalize WhatsApp number to ensure consistent conversation matching
    * Removes @s.whatsapp.net, @g.us, @c.us, @lid suffixes and :device_id
    * Examples:
@@ -233,7 +242,10 @@ export class ConversationService {
   }
 
   async getConversationsByInstance(instanceId: string): Promise<ConversationSummary[]> {
+    console.log('🔍 [ConversationService] getConversationsByInstance chamado com instanceId:', instanceId);
+
     const conversations = await this.conversationRepository.findByInstanceId(instanceId);
+    console.log('🔍 [ConversationService] Conversas encontradas no banco:', conversations.length);
     
     // 📸 Buscar fotos em background para conversas sem foto
     const conversationsWithoutPicture = conversations.filter(c => !c.contactPicture);

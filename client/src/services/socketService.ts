@@ -2,7 +2,7 @@ import { io, Socket } from 'socket.io-client';
 
 class SocketService {
   private socket: Socket | null = null;
-  private listeners: Map<string, Function[]> = new Map();
+  private listeners: Map<string, ((...args: any[]) => void)[]> = new Map();
 
   connect(token?: string): void {
     if (this.socket?.connected) {
@@ -21,6 +21,20 @@ class SocketService {
 
     this.socket.on('connect', () => {
       console.log('🔗 Connected to WebSocket server');
+      
+      // Registrar listeners pendentes (evitar duplicatas)
+      this.listeners.forEach((callbacks, event) => {
+        callbacks.forEach(callback => {
+          // Verificar se já não está registrado
+          const socketListeners = (this.socket as any).listeners(event) || [];
+          const isAlreadyRegistered = socketListeners.some((listener: any) => listener === callback);
+          
+          if (!isAlreadyRegistered) {
+            this.socket!.on(event, callback);
+          }
+        });
+      });
+      console.log(`🔗 Registered ${this.listeners.size} event listeners`);
     });
 
     this.socket.on('disconnect', () => {

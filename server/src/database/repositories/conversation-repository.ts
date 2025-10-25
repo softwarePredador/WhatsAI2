@@ -78,7 +78,9 @@ export class ConversationRepository {
   }
 
   async findByInstanceId(instanceId: string): Promise<Conversation[]> {
-    return (this.prisma as any).conversation.findMany({
+    console.log('🔍 [ConversationRepository] findByInstanceId chamado com instanceId:', instanceId);
+
+    const result = await (this.prisma as any).conversation.findMany({
       where: {
         instanceId,
         isArchived: false
@@ -100,6 +102,19 @@ export class ConversationRepository {
         }
       }
     });
+
+    console.log('🔍 [ConversationRepository] Conversas encontradas (não arquivadas):', result.length);
+
+    // Também verificar quantas conversas arquivadas existem
+    const archivedCount = await (this.prisma as any).conversation.count({
+      where: {
+        instanceId,
+        isArchived: true
+      }
+    });
+    console.log('🔍 [ConversationRepository] Conversas arquivadas:', archivedCount);
+
+    return result;
   }
 
   async findByInstanceAndRemoteJid(instanceId: string, remoteJid: string): Promise<Conversation | null> {

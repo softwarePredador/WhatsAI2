@@ -78,7 +78,8 @@ export class SocketService {
     const socketsInRoom = this.io.sockets.adapter.rooms.get(room);
     const clientCount = socketsInRoom ? socketsInRoom.size : 0;
     
-    console.log(`📡 [WebSocket] Emitindo "${event}" para sala "${room}" (${clientCount} clientes)`);
+    console.log(`📡 [WebSocket] EMITINDO "${event}" para sala "${room}" (${clientCount} clientes)`);
+    console.log(`📡 [WebSocket] Dados:`, JSON.stringify(data, null, 2));
     
     if (clientCount === 0) {
       console.warn(`⚠️ [WebSocket] Nenhum cliente conectado na sala ${room}`);
