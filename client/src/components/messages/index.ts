@@ -1,0 +1,1 @@
+export { MediaMessage } from './MediaMessage';

@@ -3,6 +3,7 @@ import { MessageRepository } from '../database/repositories/message-repository';
 import { prisma } from '../database/prisma';
 import { EvolutionApiService } from './evolution-api';
 import { SocketService } from './socket-service';
+import { MediaMessageService } from './messages';
 
 type Conversation = {
   id: string;
@@ -1521,6 +1522,182 @@ export class ConversationService {
 
     } catch (error) {
       console.error('❌ [sendMessageAtomic] Transaction failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 🚨 ATOMIC VERSION: sendMediaMessage with database transactions
+   * Ensures media message sending is atomic - either all database operations succeed or all rollback
+   */
+  async sendMediaMessageAtomic(
+    instanceId: string,
+    remoteJid: string,
+    mediaUrl: string,
+    mediaType: 'image' | 'video' | 'audio' | 'document' | 'sticker',
+    caption?: string,
+    fileName?: string
+  ): Promise<Message> {
+    try {
+      // Use unified normalization
+      let normalizedRemoteJid = this.normalizeWhatsAppNumber(remoteJid, null, false);
+      console.log(`📤 [sendMediaMessageAtomic] Normalized: ${remoteJid} → ${normalizedRemoteJid}`);
+
+      // Get instance
+      const instance = await prisma.whatsAppInstance.findUnique({
+        where: { id: instanceId },
+        select: { id: true, evolutionInstanceName: true }
+      });
+
+      if (!instance) {
+        throw new Error(`Instance not found: ${instanceId}`);
+      }
+
+      console.log(`✅ [sendMediaMessageAtomic] Instance: ${instance.evolutionInstanceName}`);
+
+      // Use MediaMessageService to send media
+      const mediaService = new MediaMessageService();
+      const message = await mediaService.sendMediaMessage({
+        instanceId: instance.id,
+        remoteJid: normalizedRemoteJid,
+        mediaUrl,
+        mediaType,
+        caption,
+        fileName
+      });
+
+      console.log(`✅ [sendMediaMessageAtomic] Media message sent: ${message.id}`);
+
+      // 🚨 ATOMIC TRANSACTION: Update conversation in transaction
+      const transactionResult = await prisma.$transaction(async (tx) => {
+        // 1. Create or update conversation within transaction
+        // PROACTIVE DUPLICATE DETECTION: Always check for existing conversations with either Brazilian format
+        let conversation = null;
+
+        if (normalizedRemoteJid.includes('@s.whatsapp.net')) {
+          const numberPart = normalizedRemoteJid.replace('@s.whatsapp.net', '');
+
+          if (numberPart.startsWith('55')) {
+            // For Brazilian numbers, check BOTH formats proactively
+            const formatsToCheck = [];
+
+            if (numberPart.length === 12) {
+              // Current format has 9th digit, check both with and without
+              formatsToCheck.push(normalizedRemoteJid); // With 9th digit
+              const without9th = numberPart.substring(0, 4) + numberPart.substring(5);
+              formatsToCheck.push(`${without9th}@s.whatsapp.net`); // Without 9th digit
+            } else if (numberPart.length === 11) {
+              // Current format doesn't have 9th digit, check both with and without
+              formatsToCheck.push(normalizedRemoteJid); // Without 9th digit
+              const ddd = numberPart.substring(2, 4);
+              const phone = numberPart.substring(4);
+              const with9th = `55${ddd}9${phone}`;
+              formatsToCheck.push(`${with9th}@s.whatsapp.net`); // With 9th digit
+            } else {
+              // Not a standard Brazilian format, just check the normalized one
+              formatsToCheck.push(normalizedRemoteJid);
+            }
+
+            // Check all possible formats for existing conversations
+            for (const format of formatsToCheck) {
+              conversation = await tx.conversation.findFirst({
+                where: {
+                  instanceId: instance.id,
+                  remoteJid: format
+                }
+              });
+
+              if (conversation) {
+                console.log(`🔄 [sendMediaMessageAtomic] Found existing conversation with format: ${format}`);
+                normalizedRemoteJid = format; // Use the existing format
+                break;
+              }
+            }
+          } else {
+            // Not Brazilian, just check the normalized format
+            conversation = await tx.conversation.findFirst({
+              where: {
+                instanceId: instance.id,
+                remoteJid: normalizedRemoteJid
+              }
+            });
+          }
+        } else {
+          // Not a WhatsApp individual number, just check normally
+          conversation = await tx.conversation.findFirst({
+            where: {
+              instanceId: instance.id,
+              remoteJid: normalizedRemoteJid
+            }
+          });
+        }
+
+        if (!conversation) {
+          conversation = await tx.conversation.create({
+            data: {
+              instanceId: instance.id,
+              remoteJid: normalizedRemoteJid,
+              isGroup: false,
+              unreadCount: 0,
+              isArchived: false,
+              isPinned: false
+            }
+          });
+          console.log(`📁 [sendMediaMessageAtomic] Conversation CREATED: ${conversation.id}`);
+        }
+
+        // 2. Update the message with conversationId within transaction
+        const updatedMessage = await tx.message.update({
+          where: { id: message.id },
+          data: { conversationId: conversation.id }
+        });
+
+        // 3. Update conversation within transaction
+        const lastMessageContent = caption || `[${mediaType.toUpperCase()}]`;
+        const updatedConversation = await tx.conversation.update({
+          where: { id: conversation.id },
+          data: {
+            lastMessage: lastMessageContent,
+            lastMessageAt: new Date()
+          }
+        });
+
+        return { conversation: updatedConversation, message: updatedMessage };
+      });
+
+      // 📤 Post-transaction operations (emit events)
+      this.socketService.emitToInstance(instanceId, 'message:sent', {
+        conversationId: transactionResult.conversation.id,
+        message: {
+          id: transactionResult.message.id,
+          content: transactionResult.message.content,
+          fromMe: transactionResult.message.fromMe,
+          timestamp: transactionResult.message.timestamp,
+          messageType: transactionResult.message.messageType,
+          mediaUrl: transactionResult.message.mediaUrl,
+          caption: transactionResult.message.caption,
+          fileName: transactionResult.message.fileName
+        }
+      });
+
+      // Emit conversation update with fresh data
+      const freshConversation = await this.conversationRepository.findById(transactionResult.conversation.id);
+      if (freshConversation) {
+        this.socketService.emitToInstance(instanceId, 'conversation:updated', {
+          ...freshConversation,
+          lastMessagePreview: {
+            content: caption || `[${mediaType.toUpperCase()}]`,
+            fromMe: true,
+            timestamp: new Date(),
+            messageType: mediaType.toUpperCase()
+          }
+        });
+      }
+
+      return transactionResult.message;
+
+    } catch (error) {
+      console.error('❌ [sendMediaMessageAtomic] Transaction failed:', error);
       throw error;
     }
   }

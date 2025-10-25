@@ -1,10 +1,21 @@
 import { Request, Response } from 'express';
 import { ConversationService } from '../../services/conversation-service';
 import { z } from 'zod';
+import { prisma } from '../../database/prisma';
+import { MediaStorageService } from '../../services/media-storage';
+import multer from 'multer';
 
 const sendMessageSchema = z.object({
   remoteJid: z.string().min(1, 'Número do destinatário é obrigatório'),
   content: z.string().min(1, 'Conteúdo da mensagem é obrigatório')
+});
+
+const sendMediaSchema = z.object({
+  remoteJid: z.string().min(1, 'Número do destinatário é obrigatório'),
+  mediaUrl: z.string().min(1, 'URL da mídia é obrigatória'),
+  mediaType: z.enum(['image', 'video', 'audio', 'document', 'sticker']),
+  caption: z.string().optional(),
+  fileName: z.string().optional()
 });
 
 const getMessagesSchema = z.object({
@@ -14,9 +25,21 @@ const getMessagesSchema = z.object({
 
 export class ConversationController {
   private conversationService: ConversationService;
+  private mediaStorageService: MediaStorageService;
 
   constructor() {
     this.conversationService = new ConversationService();
+
+    // Initialize DigitalOcean Spaces service
+    const spacesConfig = {
+      accessKeyId: process.env['DO_SPACES_ACCESS_KEY'] || '',
+      secretAccessKey: process.env['DO_SPACES_SECRET_KEY'] || '',
+      region: process.env['DO_SPACES_REGION'] || 'sfo3',
+      bucket: process.env['DO_SPACES_BUCKET'] || 'whatsais3',
+      endpoint: process.env['DO_SPACES_ENDPOINT'] || 'https://sfo3.digitaloceanspaces.com'
+    };
+
+    this.mediaStorageService = new MediaStorageService(spacesConfig);
   }
 
   async getConversations(req: Request, res: Response): Promise<void> {
@@ -294,6 +317,238 @@ export class ConversationController {
         error: 'Erro ao enviar mensagem'
       });
     }
+  }
+
+  async sendMediaMessage(req: Request, res: Response): Promise<void> {
+    try {
+      const { conversationId } = req.params;
+      const userId = (req as any).user?.id;
+
+      if (!conversationId) {
+        res.status(400).json({
+          success: false,
+          error: 'ID da conversa é obrigatório'
+        });
+        return;
+      }
+
+      if (!userId) {
+        res.status(401).json({
+          success: false,
+          error: 'Usuário não autenticado'
+        });
+        return;
+      }
+
+      // Verificar se a conversa existe e pertence ao usuário
+      const conversation = await this.conversationService.getConversationById(conversationId);
+
+      if (!conversation) {
+        console.log('❌ [sendMediaMessage] Conversa não encontrada:', conversationId);
+        res.status(404).json({
+          success: false,
+          error: 'Conversa não encontrada'
+        });
+        return;
+      }
+
+      // Verificar se a conversa pertence ao usuário (através da instância)
+      const instance = await prisma.whatsAppInstance.findUnique({
+        where: { id: conversation.instanceId }
+      });
+
+      if (!instance || instance.userId !== userId) {
+        console.log('❌ [sendMediaMessage] Acesso negado à conversa:', conversationId);
+        res.status(403).json({
+          success: false,
+          error: 'Acesso negado'
+        });
+        return;
+      }
+
+      const validatedData = sendMediaSchema.parse(req.body);
+      const { remoteJid, mediaUrl, mediaType, caption, fileName } = validatedData;
+
+      console.log('✅ [sendMediaMessage] Dados validados:', {
+        conversationId,
+        remoteJid,
+        mediaType,
+        hasCaption: !!caption,
+        fileName
+      });
+
+      // Usar o método atômico do conversation service
+      const message = await this.conversationService.sendMediaMessageAtomic(
+        conversation.instanceId,
+        remoteJid,
+        mediaUrl,
+        mediaType,
+        caption,
+        fileName
+      );
+
+      console.log('✅ [sendMediaMessage] Mídia enviada com sucesso:', message.id);
+
+      res.status(200).json({
+        success: true,
+        data: message
+      });
+
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        console.log('❌ [sendMediaMessage] Erro de validação:', error.errors);
+        res.status(400).json({
+          success: false,
+          error: 'Dados inválidos',
+          details: error.errors
+        });
+        return;
+      }
+
+      console.error('❌ [sendMediaMessage] Erro interno:', error);
+
+      // Verificar se é erro de WhatsApp não encontrado
+      if (error.message && error.message.includes('não possui WhatsApp')) {
+        res.status(400).json({
+          success: false,
+          error: error.message
+        });
+        return;
+      }
+
+      res.status(500).json({
+        success: false,
+        error: 'Erro ao enviar mídia'
+      });
+    }
+  }
+
+  async uploadAndSendMediaMessage(req: Request, res: Response): Promise<void> {
+    try {
+      const { conversationId } = req.params;
+      const userId = req.userId;
+
+      if (!conversationId) {
+        res.status(400).json({
+          success: false,
+          error: 'ID da conversa é obrigatório'
+        });
+        return;
+      }
+
+      if (!userId) {
+        res.status(401).json({
+          success: false,
+          error: 'Usuário não autenticado'
+        });
+        return;
+      }
+
+      // Verificar se a conversa existe e pertence ao usuário
+      const conversation = await this.conversationService.getConversationById(conversationId);
+
+      if (!conversation) {
+        console.log('❌ [uploadAndSendMediaMessage] Conversa não encontrada:', conversationId);
+        res.status(404).json({
+          success: false,
+          error: 'Conversa não encontrada'
+        });
+        return;
+      }
+
+      // Verificar se a conversa pertence ao usuário (através da instância)
+      const instance = await prisma.whatsAppInstance.findUnique({
+        where: { id: conversation.instanceId }
+      });
+
+      if (!instance || instance.userId !== userId) {
+        console.log('❌ [uploadAndSendMediaMessage] Acesso negado à conversa:', conversationId);
+        res.status(403).json({
+          success: false,
+          error: 'Acesso negado'
+        });
+        return;
+      }
+
+      // Verificar se há arquivo no upload
+      if (!req.file) {
+        res.status(400).json({
+          success: false,
+          error: 'Arquivo não encontrado no upload'
+        });
+        return;
+      }
+
+      const { buffer, originalname, mimetype, size } = req.file;
+      const { caption } = req.body;
+
+      console.log('✅ [uploadAndSendMediaMessage] Arquivo recebido:', {
+        conversationId,
+        fileName: originalname,
+        mimeType: mimetype,
+        size,
+        hasCaption: !!caption
+      });
+
+      // Determinar tipo de mídia baseado no mime type
+      const mediaType = this.getMediaTypeFromMimeType(mimetype);
+
+      // Upload para DigitalOcean Spaces e enviar mensagem
+      const result = await this.mediaStorageService.uploadAndSendMedia({
+        file: buffer,
+        fileName: originalname,
+        contentType: mimetype,
+        conversationId,
+        mediaType,
+        caption,
+        instanceId: conversation.instanceId,
+        remoteJid: conversation.remoteJid
+      });
+
+      console.log('✅ [uploadAndSendMediaMessage] Upload e envio concluídos:', {
+        messageId: result.message.id,
+        fileUrl: result.upload.url
+      });
+
+      res.status(200).json({
+        success: true,
+        data: {
+          message: result.message,
+          upload: {
+            url: result.upload.url,
+            cdnUrl: this.mediaStorageService.getCdnUrl(result.upload.key),
+            fileName: originalname,
+            size: result.upload.size
+          }
+        }
+      });
+
+    } catch (error: any) {
+      console.error('❌ [uploadAndSendMediaMessage] Erro interno:', error);
+
+      // Verificar se é erro de WhatsApp não encontrado
+      if (error.message && error.message.includes('não possui WhatsApp')) {
+        res.status(400).json({
+          success: false,
+          error: error.message
+        });
+        return;
+      }
+
+      res.status(500).json({
+        success: false,
+        error: 'Erro ao fazer upload e enviar mídia'
+      });
+    }
+  }
+
+  private getMediaTypeFromMimeType(mimeType: string): 'image' | 'video' | 'audio' | 'document' | 'sticker' {
+    if (mimeType.startsWith('image/')) {
+      return mimeType === 'image/webp' ? 'sticker' : 'image';
+    }
+    if (mimeType.startsWith('video/')) return 'video';
+    if (mimeType.startsWith('audio/')) return 'audio';
+    return 'document';
   }
 
   async markConversationAsRead(req: Request, res: Response): Promise<void> {

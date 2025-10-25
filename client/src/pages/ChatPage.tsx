@@ -1,18 +1,23 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Send, Phone, Video, MoreVertical, ArrowLeft, Search } from 'lucide-react';
+import { Send, Phone, Video, MoreVertical, ArrowLeft, Search, Paperclip } from 'lucide-react';
 import { userAuthStore } from '../features/auth/store/authStore';
 import { conversationService } from '../services/conversationService';
 import { socketService } from '../services/socketService';
 import { getDisplayName } from '../utils/contact-display';
+import { MediaMessage } from '../components/messages';
+import { FileUploadService } from '../services/fileUploadService';
 
 interface Message {
   id: string;
   content: string;
   fromMe: boolean;
   timestamp: Date;
-  messageType: 'text' | 'image' | 'audio' | 'video' | 'document';
+  messageType: 'text' | 'image' | 'audio' | 'video' | 'document' | 'sticker';
   status?: 'PENDING' | 'SENT' | 'DELIVERED' | 'READ' | 'PLAYED' | 'FAILED';
+  mediaUrl?: string;
+  fileName?: string;
+  caption?: string;
 }
 
 interface Conversation {
@@ -38,7 +43,10 @@ export const ChatPage: React.FC = () => {
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [uploadingMedia, setUploadingMedia] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Usar o store de autenticação global
   const token = userAuthStore((state) => state.token);
@@ -394,6 +402,83 @@ export const ChatPage: React.FC = () => {
     }
   };
 
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !conversation) return;
+
+    setUploadingMedia(true);
+    setUploadProgress(0);
+
+    try {
+      // Validar arquivo
+      const allowedTypes = [
+        ...FileUploadService.SUPPORTED_TYPES.image,
+        ...FileUploadService.SUPPORTED_TYPES.video,
+        ...FileUploadService.SUPPORTED_TYPES.audio,
+        ...FileUploadService.SUPPORTED_TYPES.document
+      ];
+
+      const validation = FileUploadService.validateFile(file, allowedTypes);
+      if (!validation.valid) {
+        alert(validation.error);
+        return;
+      }
+
+      // Upload do arquivo com progresso (agora usa servidor)
+      if (!token) {
+        alert('Token de autenticação não encontrado');
+        return;
+      }
+
+      const uploadResult = await FileUploadService.uploadFile(
+        file,
+        (progress) => {
+          setUploadProgress(progress.percentage);
+        },
+        undefined, // signal
+        conversationId,
+        token
+      );
+
+      // A mensagem já foi enviada pelo servidor, apenas adicionar localmente
+      const tempMessage: Message = {
+        id: Date.now().toString(),
+        content: '',
+        fromMe: true,
+        timestamp: new Date(),
+        messageType: uploadResult.mediaType.toUpperCase() as Message['messageType'],
+        mediaUrl: uploadResult.url,
+        fileName: uploadResult.fileName,
+        status: 'SENT'
+      };
+
+      setMessages(prev => [...prev, tempMessage]);
+      setUploadProgress(0);
+    } catch (error: any) {
+      console.error('Erro ao enviar arquivo:', error);
+
+      // Verificar se é um erro do FileUploadService
+      if (error.code) {
+        alert(`Erro no upload: ${error.message}`);
+      } else {
+        alert('Erro ao enviar arquivo. Verifique sua conexão e tente novamente.');
+      }
+    } finally {
+      setUploadingMedia(false);
+      setUploadProgress(0);
+      // Limpar input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+
+
+  const handleAttachClick = () => {
+    fileInputRef.current?.click();
+  };
+
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -508,7 +593,24 @@ export const ChatPage: React.FC = () => {
                     : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-bl-none shadow-sm'
                 }`}
               >
-                <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+                {/* Renderizar mídia se existir */}
+                {message.mediaUrl && (
+                  <div className="mb-2">
+                    <MediaMessage
+                      mediaUrl={message.mediaUrl}
+                      mediaType={message.messageType?.toLowerCase() as any || 'image'}
+                      fileName={message.fileName}
+                      caption={message.caption}
+                    />
+                  </div>
+                )}
+
+                {/* Renderizar texto se existir */}
+                {message.content && message.content.trim() && (
+                  <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+                )}
+
+                {/* Timestamp e status */}
                 <div className="flex items-center justify-end space-x-1 mt-1">
                   <span className={`text-xs ${
                     message.fromMe ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'
@@ -529,6 +631,48 @@ export const ChatPage: React.FC = () => {
       {/* Message Input */}
       <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4">
         <div className="flex items-end space-x-3">
+          {/* Input file oculto */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            onChange={handleFileSelect}
+            accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt"
+            className="hidden"
+          />
+
+          {/* Botão de anexar */}
+          <div className="relative">
+            <button
+              onClick={handleAttachClick}
+              disabled={uploadingMedia}
+              className="p-3 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title={uploadingMedia ? `Enviando... ${uploadProgress}%` : "Anexar arquivo"}
+            >
+              {uploadingMedia ? (
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-500"></div>
+              ) : (
+                <Paperclip className="h-5 w-5" />
+              )}
+            </button>
+
+            {/* Barra de progresso */}
+            {uploadingMedia && uploadProgress > 0 && (
+              <div className="absolute -top-2 -left-2 -right-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-md p-2 shadow-lg">
+                <div className="flex items-center space-x-2">
+                  <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                    <div
+                      className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${uploadProgress}%` }}
+                    ></div>
+                  </div>
+                  <span className="text-xs text-gray-600 dark:text-gray-400 min-w-[3rem]">
+                    {uploadProgress}%
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="flex-1">
             <textarea
               value={newMessage}
