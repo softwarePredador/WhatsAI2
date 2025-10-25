@@ -35,9 +35,8 @@ export class WebhookController {
   }
 
   private logWebhook(webhookData: any, instanceId: string): void {
-    // Logging desabilitado temporariamente para análise
-    return;
-    
+    // Logging reativado para debug
+    console.log(`📝 [LOG_WEBHOOK] Iniciando log para ${instanceId}, event: ${webhookData.event}`);
     try {
       const timestamp = new Date().toISOString();
       const logEntry = `
@@ -86,6 +85,7 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
       const webhookData = webhookEventSchema.parse(req.body);
 
       // 📝 LOG TODOS OS WEBHOOKS RECEBIDOS
+      console.log(`📝 [WEBHOOK] Salvando log para webhook de ${instanceId}`);
       this.logWebhook(webhookData, instanceId);
       
       console.log(`🔔 Received Evolution webhook for instance ${instanceId}:`, webhookData);
@@ -143,6 +143,7 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
         // 📥 Process incoming messages (MESSAGES_UPSERT) - ATOMIC VERSION
         if (webhookData.event === 'messages.upsert' && webhookData.data['key'] && webhookData.data['message']) {
           console.log(`💬 [MESSAGES_UPSERT] Processing message for instance ${instanceId} (ATOMIC)`);
+          console.log(`💬 [MESSAGES_UPSERT] Message data:`, JSON.stringify(webhookData.data, null, 2));
           await this.conversationService.handleIncomingMessageAtomic(instanceId, webhookData.data);
         }
         

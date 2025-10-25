@@ -50,6 +50,7 @@ export const ConversationList: React.FC = () => {
 
     // 🔌 Fazer join na sala da instância para receber eventos
     socketService.joinInstance(instanceId);
+    console.log(`🔌 [ConversationList] Fez join na sala instance_${instanceId}`);
 
     const handleConversationUpdated = (updatedConversation: any) => {
       console.log('🔔 [ConversationList] RECEBEU EVENTO conversation:updated:', updatedConversation);
@@ -58,6 +59,7 @@ export const ConversationList: React.FC = () => {
       console.log('🔔 [ConversationList] lastMessagePreview:', updatedConversation.lastMessagePreview);
       console.log('🔔 [ConversationList] lastMessageAt:', updatedConversation.lastMessageAt);
       console.log('🔔 [ConversationList] instanceId atual:', instanceId);
+      console.log('🔔 [ConversationList] Socket conectado?', socketService.isConnected);
       
       // Normalizar os dados recebidos
       const normalizedConversation: ConversationSummary = {
