@@ -1,4 +1,15 @@
 // index.js - Webhook receiver para EasyPanel
+// 
+// 🎯 COMPATÍVEL COM EVOLUTION API v2.3.5+
+// 
+// Melhorias da v2.3.5/v2.3.6:
+// ✅ @lid automaticamente convertido para número real (não precisa mais resolver manualmente)
+// ✅ messageId incluído em messages.update para atualizar status no banco
+// ✅ Cache de @lid/PN/g.us corrigido
+// ✅ Status detalhados: READ, PLAYED, DELIVERED
+// 
+// Se você ver @lid nos logs, significa que a Evolution API não está na v2.3.5+
+//
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
 
@@ -27,30 +38,58 @@ app.post('/api/webhooks/evolution/:instanceId', async (req, res) => {
     console.log(`📨 Webhook recebido para instância ${instanceId}:`, JSON.stringify(webhookData, null, 2));
 
     // ========================================
-    // PROCESSAR messages.update PARA MAPEAR @lid → número real
+    // PROCESSAR messages.update (ATUALIZAR STATUS DAS MENSAGENS)
+    // Evolution API v2.3.6+ envia status updates com messageId
     // ========================================
     if (webhookData.event === 'messages.update' && webhookData.data) {
-      const { keyId, remoteJid } = webhookData.data;
+      const { messageId, keyId, remoteJid, status, fromMe } = webhookData.data;
       
-      if (keyId && remoteJid) {
-        // Se for número real (@s.whatsapp.net), armazenar no cache
-        if (remoteJid.includes('@s.whatsapp.net')) {
-          keyIdToRealNumberCache.set(keyId, remoteJid);
-          console.log(`🔑 [${instanceId}] Mapeamento salvo: keyId ${keyId} → ${remoteJid}`);
-        }
-        // Se for @lid, tentar buscar o número real do cache
-        else if (remoteJid.includes('@lid')) {
-          const realNumber = keyIdToRealNumberCache.get(keyId);
-          if (realNumber) {
-            console.log(`✅ [${instanceId}] @lid resolvido: ${remoteJid} → ${realNumber} (via keyId ${keyId})`);
+      console.log(`📬 [${instanceId}] Status update: ${status} (messageId: ${messageId || 'N/A'}, keyId: ${keyId})`);
+      
+      // Normalizar status da Evolution API para nosso schema
+      const normalizedStatus = {
+        'PENDING': 'PENDING',
+        'SERVER_ACK': 'SENT',
+        'DELIVERY_ACK': 'DELIVERED',
+        'READ': 'READ',
+        'PLAYED': 'PLAYED',
+        'ERROR': 'FAILED'
+      }[status] || status;
+      
+      // Se tiver messageId, atualizar status no banco
+      if (messageId && normalizedStatus) {
+        try {
+          const updated = await prisma.message.updateMany({
+            where: { 
+              id: messageId,
+              // Segurança: garantir que é da instância correta
+              conversation: {
+                instance: {
+                  evolutionInstanceName: instanceId
+                }
+              }
+            },
+            data: {
+              status: normalizedStatus
+            }
+          });
+          
+          if (updated.count > 0) {
+            console.log(`✅ [${instanceId}] Status atualizado: ${messageId} → ${normalizedStatus}`);
           } else {
-            console.log(`⚠️ [${instanceId}] @lid ${remoteJid} ainda não tem mapeamento (keyId: ${keyId})`);
+            console.log(`⚠️ [${instanceId}] Mensagem não encontrada: ${messageId}`);
           }
+        } catch (error) {
+          console.error(`❌ [${instanceId}] Erro ao atualizar status:`, error.message);
         }
       }
       
-      // messages.update não precisa criar conversa/mensagem, só mapear
-      return res.json({ success: true, message: 'Mapping processed' });
+      // Manter cache de keyId para compatibilidade
+      if (keyId && remoteJid) {
+        keyIdToRealNumberCache.set(keyId, remoteJid);
+      }
+      
+      return res.json({ success: true, message: 'Status updated' });
     }
 
     // ========================================
@@ -65,15 +104,24 @@ app.post('/api/webhooks/evolution/:instanceId', async (req, res) => {
       const messageId = messageData.key.id;
       const fromMe = messageData.key.fromMe;
       const participant = messageData.key.participant; // Para mensagens de grupo
-      const sender = webhookData.sender; // Número real do remetente
+      const pushName = messageData.pushName; // Nome do contato
       const messageContent = messageData.message.conversation || 
                             messageData.message.extendedTextMessage?.text ||
                             'Mensagem sem texto';
       
       console.log(`💬 [${instanceId}] Processando mensagem: ${messageContent}`);
-      console.log(`📱 [${instanceId}] remoteJid original: ${remoteJid}`);
+      console.log(`📱 [${instanceId}] remoteJid: ${remoteJid}, fromMe: ${fromMe}`);
       if (participant) console.log(`👤 [${instanceId}] participant: ${participant}`);
-      if (sender) console.log(`📤 [${instanceId}] sender: ${sender}`);
+      if (pushName) console.log(`� [${instanceId}] pushName: ${pushName}`);
+      
+      // 🎯 Evolution API v2.3.5+ já converte @lid para número real!
+      // Não precisamos mais de lógica complexa de resolução
+      if (remoteJid.includes('@lid')) {
+        console.log(`⚠️ [${instanceId}] ⚠️ ALERTA: @lid detectado! Evolution API deveria ter convertido.`);
+        console.log(`⚠️ [${instanceId}] Verifique se está usando Evolution API v2.3.5 ou superior.`);
+        // Não processar mensagens @lid - Evolution API deve resolver
+        return res.json({ success: true, message: 'LID not resolved by Evolution API' });
+      }
       
       // Buscar instância PRIMEIRO (por evolutionInstanceName, não por id)
       const instance = await prisma.whatsAppInstance.findFirst({
@@ -87,52 +135,22 @@ app.post('/api/webhooks/evolution/:instanceId', async (req, res) => {
       
       console.log(`✅ [${instanceId}] Instância encontrada: ${instance.id}`);
       
-      // 🔄 NOVA LÓGICA: Se for mensagem de grupo com participant @lid, usar sender
-      if (participant && participant.includes('@lid') && sender) {
-        console.log(`✅ [${instanceId}] @lid detectado em grupo, usando sender: ${sender}`);
-        // Não fazemos nada aqui, deixamos o remoteJid como @g.us
-        // A conversa será do grupo, não do participant individual
-      }
-      // 🔄 Se remoteJid for @lid (conversa direta), tentar resolver
-      else if (remoteJid.includes('@lid')) {
-        console.log(`🔍 [${instanceId}] Tentando resolver @lid: ${remoteJid}`);
-        
-        // ESTRATÉGIA 1: Usar sender se disponível (melhor opção)
-        if (sender && sender.includes('@s.whatsapp.net')) {
-          console.log(`✅ [${instanceId}] @lid resolvido via sender: ${remoteJid} → ${sender}`);
-          remoteJid = sender;
-        }
-        // ESTRATÉGIA 2: Buscar no cache (keyId)
-        else {
-          const cachedNumber = Array.from(keyIdToRealNumberCache.values()).find(val => 
-            val.includes('@s.whatsapp.net')
-          );
-          if (cachedNumber) {
-            console.log(`✅ [${instanceId}] @lid resolvido via cache: ${remoteJid} → ${cachedNumber}`);
-            remoteJid = cachedNumber;
-          } else {
-            console.log(`⚠️ [${instanceId}] @lid não resolvido, criando conversa separada: ${remoteJid}`);
-          }
-        }
-      }
-      
       // ========================================
-      // NORMALIZAÇÃO COMPLETA (igual ao backend)
+      // NORMALIZAÇÃO SIMPLIFICADA
+      // Evolution API já resolve @lid, só precisamos normalizar formato
       // ========================================
-      // Passo 1: Detectar se é grupo ANTES de remover sufixos
       const isGroup = remoteJid.includes('@g.us') || remoteJid.includes('-');
       
-      // Passo 2: Remover device IDs (:98, :4, etc)
+      // Remover device IDs (:98, :4, etc)
       let normalizedJid = remoteJid.replace(/:\d+@/, '@');
       
-      // Passo 3: Remover todos os sufixos do WhatsApp
+      // Remover sufixos do WhatsApp
       normalizedJid = normalizedJid
         .replace('@s.whatsapp.net', '')
         .replace('@g.us', '')
-        .replace('@c.us', '')
-        .replace('@lid', '');
+        .replace('@c.us', '');
       
-      // Passo 4: Re-adicionar sufixo correto baseado na detecção anterior
+      // Re-adicionar sufixo correto
       const formattedJid = isGroup
         ? `${normalizedJid}@g.us` 
         : `${normalizedJid}@s.whatsapp.net`;
@@ -175,11 +193,12 @@ app.post('/api/webhooks/evolution/:instanceId', async (req, res) => {
             fromMe,
             content: messageContent,
             messageType: 'TEXT',
-            timestamp: new Date(messageData.messageTimestamp * 1000)
+            timestamp: new Date(messageData.messageTimestamp * 1000),
+            status: fromMe ? 'SENT' : 'DELIVERED' // Status inicial baseado em quem enviou
           }
         });
         
-        console.log(`✅ [${instanceId}] Mensagem salva: ${message.id}`);
+        console.log(`✅ [${instanceId}] Mensagem salva: ${message.id} (status: ${message.status})`);
         
       } catch (msgError) {
         // Tratar duplicata de messageId (erro P2002)

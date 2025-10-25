@@ -85,12 +85,36 @@ export class ConversationService {
     // Remove device IDs (e.g., :98, :4) before suffix
     let normalized = remoteJid.replace(/:\d+@/, '@');
     
-    // Remove WhatsApp suffixes
-    normalized = normalized
+    // Remove WhatsApp suffixes temporarily for cleaning
+    const isGroup = normalized.includes('@g.us');
+    let cleanNumber = normalized
       .replace('@s.whatsapp.net', '')
       .replace('@g.us', '')
       .replace('@c.us', '')
       .replace('@lid', '');
+    
+    // 🇧🇷 NORMALIZAÇÃO BRASIL: Adicionar 9º dígito se faltar
+    // Números BR: 55 (país) + 2 dígitos (DDD) + 9 dígitos (número com 9 na frente)
+    // Exemplo: 5541991188909 (13 dígitos) ✅
+    // Exemplo: 554191188909 (12 dígitos) ❌ falta o 9
+    if (cleanNumber.startsWith('55') && !isGroup) {
+      const withoutCountryCode = cleanNumber.substring(2); // Remove "55"
+      
+      // Se tem 10 dígitos (DDD + 8 dígitos), adicionar o 9
+      if (withoutCountryCode.length === 10) {
+        const ddd = withoutCountryCode.substring(0, 2);
+        const numero = withoutCountryCode.substring(2);
+        cleanNumber = `55${ddd}9${numero}`; // Adiciona o 9 antes do número
+        console.log(`🇧🇷 [normalizeRemoteJid] Número BR antigo detectado! Adicionando 9: ${remoteJid} → ${cleanNumber}`);
+      }
+    }
+    
+    // Add back the correct suffix (ALWAYS use @s.whatsapp.net or @g.us)
+    if (isGroup) {
+      normalized = cleanNumber + '@g.us';
+    } else {
+      normalized = cleanNumber + '@s.whatsapp.net';
+    }
     
     // Log for debugging duplicate conversations
     console.log(`📞 [normalizeRemoteJid] Input: ${remoteJid} → Output: ${normalized}`);
@@ -199,7 +223,29 @@ export class ConversationService {
     }
 
     // Emit conversation update to frontend
-    this.socketService.emitToInstance(instanceId, 'conversation:updated', conversation);
+    console.log(`📡 [WebSocket] Emitindo conversation:updated para instância ${instanceId}:`, {
+      conversationId: conversation.id,
+      remoteJid: conversation.remoteJid,
+      contactName: conversation.contactName
+    });
+    
+    // Buscar a última mensagem para incluir no preview
+    const lastMessage = await prisma.message.findFirst({
+      where: { conversationId: conversation.id },
+      orderBy: { timestamp: 'desc' }
+    });
+    
+    const conversationWithPreview = {
+      ...conversation,
+      lastMessagePreview: lastMessage ? {
+        content: lastMessage.content,
+        timestamp: lastMessage.timestamp,
+        fromMe: lastMessage.fromMe,
+        messageType: lastMessage.messageType
+      } : undefined
+    };
+    
+    this.socketService.emitToInstance(instanceId, 'conversation:updated', conversationWithPreview);
 
     return conversation;
   }
@@ -344,12 +390,59 @@ export class ConversationService {
 
   async handleIncomingMessage(instanceId: string, messageData: any): Promise<void> {
     try {
+      console.log(`📨 [handleIncomingMessage] instanceId recebido do webhook: ${instanceId}`);
       console.log(`📨 [handleIncomingMessage] RAW messageData.key:`, JSON.stringify(messageData.key, null, 2));
+      
+      // 🔍 Verificar se a instância existe no banco (buscar por evolutionInstanceName)
+      const instance = await prisma.whatsAppInstance.findUnique({
+        where: { evolutionInstanceName: instanceId }
+      });
+      
+      if (!instance) {
+        console.error(`❌ [handleIncomingMessage] Instância ${instanceId} NÃO EXISTE no banco!`);
+        return;
+      }
+      
+      console.log(`✅ [handleIncomingMessage] Instância encontrada: ${instance.name} (DB ID: ${instance.id})`);
       
       let remoteJid = messageData.key.remoteJid;
       
-      // 🔄 Try to resolve @lid to real number
+      // � PRIORIDADE: Se tiver remoteJidAlt com número real, usar ele
+      if (messageData.key.remoteJidAlt && !messageData.key.remoteJidAlt.includes('@lid')) {
+        // remoteJidAlt é um número real, usar ele ao invés do @lid
+        console.log(`🔄 [handleIncomingMessage] Usando remoteJidAlt: ${remoteJid} → ${messageData.key.remoteJidAlt}`);
+        remoteJid = messageData.key.remoteJidAlt;
+        
+        // Adicionar @s.whatsapp.net se não tiver domínio
+        if (!remoteJid.includes('@')) {
+          remoteJid = `${remoteJid}@s.whatsapp.net`;
+        }
+      } else if (messageData.key.remoteJidAlt && messageData.key.remoteJidAlt.includes('@lid')) {
+        // Salvar mapeamento @lid → número real para uso futuro
+        if (remoteJid.includes('@s.whatsapp.net')) {
+          this.lidToRealNumberCache.set(messageData.key.remoteJidAlt, remoteJid);
+          console.log(`✅ [handleIncomingMessage] Mapeado @lid: ${messageData.key.remoteJidAlt} → ${remoteJid}`);
+        }
+      }
+      
+      // �🇧🇷 NORMALIZAR NÚMERO BRASILEIRO PRIMEIRO (antes de qualquer processamento)
+      if (remoteJid.includes('@s.whatsapp.net')) {
+        const cleanNumber = remoteJid.replace('@s.whatsapp.net', '');
+        if (cleanNumber.startsWith('55') && cleanNumber.length === 12) {
+          // Número brasileiro sem o 9 (formato antigo)
+          const ddd = cleanNumber.substring(2, 4);
+          const phoneNumber = cleanNumber.substring(4);
+          
+          if (phoneNumber.length === 8 && !phoneNumber.startsWith('9')) {
+            remoteJid = `55${ddd}9${phoneNumber}@s.whatsapp.net`;
+            console.log(`🇧🇷 [handleIncomingMessage] Número brasileiro corrigido: ${messageData.key.remoteJid} → ${remoteJid}`);
+          }
+        }
+      }
+      
+      // 🔄 Try to resolve @lid to real number (fallback se não tiver remoteJidAlt)
       remoteJid = this.resolveLidToRealNumber(remoteJid);
+
       
       // Normalize remoteJid to avoid duplicate conversations
       const normalizedRemoteJid = this.normalizeRemoteJid(remoteJid);
@@ -357,21 +450,32 @@ export class ConversationService {
       
       console.log(`📨 [handleIncomingMessage] Normalized: ${messageData.key.remoteJid} → ${formattedRemoteJid}`);
       
-      // Create or update conversation first
-      const conversation = await this.createOrUpdateConversation(instanceId, formattedRemoteJid, {
-        contactName: messageData.pushName,
+      // Create or update conversation first (usar o DB ID da instância)
+      // 🚨 IMPORTANTE: Só atualizar contactName quando a mensagem NÃO for sua (fromMe: false)
+      const conversationData: any = {
         isGroup: messageData.key.remoteJid.includes('@g.us')
-      });
+      };
+      
+      // Se a mensagem foi RECEBIDA (não enviada por você), atualizar o nome do contato
+      if (!messageData.key.fromMe && messageData.pushName) {
+        conversationData.contactName = messageData.pushName;
+        console.log(`👤 [handleIncomingMessage] Atualizando contactName: ${messageData.pushName}`);
+      } else if (messageData.key.fromMe) {
+        console.log(`⏩ [handleIncomingMessage] Mensagem enviada por você - mantendo contactName existente`);
+      }
+      
+      const conversation = await this.createOrUpdateConversation(instance.id, formattedRemoteJid, conversationData);
 
       // Now save the message with conversation link
       const messageCreateData = {
-        instanceId,
+        instanceId: instance.id, // Usar DB ID
         remoteJid: formattedRemoteJid, // Use normalized version
         fromMe: messageData.key.fromMe || false,
         messageType: this.getMessageType(messageData),
         content: this.extractMessageContent(messageData),
         messageId: messageData.key.id,
         timestamp: new Date(messageData.messageTimestamp * 1000),
+        status: messageData.key.fromMe ? 'SENT' : 'DELIVERED', // Status inicial: SENT se foi você, DELIVERED se recebeu
         mediaUrl: messageData.message?.imageMessage?.url || messageData.message?.videoMessage?.url || messageData.message?.audioMessage?.url,
         fileName: messageData.message?.documentMessage?.fileName,
         caption: messageData.message?.imageMessage?.caption || messageData.message?.videoMessage?.caption,
@@ -420,11 +524,8 @@ export class ConversationService {
         console.log(`🤖 Auto-marking message as read in Evolution API (conversation is active)`);
         try {
           const evolutionApi = new EvolutionApiService();
-          const instance = await prisma.whatsAppInstance.findUnique({
-            where: { id: instanceId }
-          });
           
-          if (instance?.evolutionInstanceName) {
+          if (instance.evolutionInstanceName) {
             await evolutionApi.markMessageAsRead(instance.evolutionInstanceName, [{
               remoteJid: formattedRemoteJid, // Use normalized version
               fromMe: messageData.key.fromMe || false,
@@ -437,7 +538,7 @@ export class ConversationService {
       }
 
       // Emit real-time update to frontend
-      this.socketService.emitToInstance(instanceId, 'message:received', {
+      this.socketService.emitToInstance(instance.id, 'message:received', {
         conversationId: conversation.id,
         message: {
           id: message.id,
@@ -451,10 +552,29 @@ export class ConversationService {
         }
       });
 
-      // Update conversation list in frontend
-      const updatedConversation = await this.conversationRepository.findByInstanceAndRemoteJid(instanceId, formattedRemoteJid);
+      // Update conversation list in frontend (usar DB ID)
+      const updatedConversation = await this.conversationRepository.findByInstanceAndRemoteJid(instance.id, formattedRemoteJid);
       if (updatedConversation) {
-        this.socketService.emitToInstance(instanceId, 'conversation:updated', updatedConversation);
+        console.log(`📡 [handleIncomingMessage] Emitindo conversation:updated para instância ${instance.id}:`, {
+          conversationId: updatedConversation.id,
+          remoteJid: updatedConversation.remoteJid,
+          lastMessage: updatedConversation.lastMessage
+        });
+        
+        // Incluir lastMessagePreview para exibir na lista
+        const conversationWithPreview = {
+          ...updatedConversation,
+          lastMessagePreview: message ? {
+            content: message.content,
+            timestamp: message.timestamp,
+            fromMe: message.fromMe,
+            messageType: message.messageType
+          } : undefined
+        };
+        
+        this.socketService.emitToInstance(instance.id, 'conversation:updated', conversationWithPreview);
+      } else {
+        console.error(`❌ [handleIncomingMessage] Não foi possível buscar conversa atualizada para ${formattedRemoteJid}`);
       }
 
     } catch (error) {
@@ -474,7 +594,8 @@ export class ConversationService {
       
       // Get the instance to find the evolutionInstanceName
       const instance = await prisma.whatsAppInstance.findUnique({
-        where: { id: instanceId }
+        where: { id: instanceId },
+        select: { id: true, evolutionInstanceName: true } // ⚡ Apenas campos necessários
       });
 
       if (!instance) {
@@ -484,61 +605,67 @@ export class ConversationService {
 
       console.log(`✅ [sendMessage] Instância encontrada: ${instance.evolutionInstanceName}`);
 
-      // Send message via Evolution API using the evolutionInstanceName
-      const evolutionResponse = await this.evolutionApiService.sendTextMessage(
-        instance.evolutionInstanceName, 
-        formattedRemoteJid, // Use normalized version
-        content
-      );
+      // ⚡ Criar/atualizar conversa em paralelo com envio da mensagem
+      const [evolutionResponse, conversation] = await Promise.all([
+        this.evolutionApiService.sendTextMessage(
+          instance.evolutionInstanceName, 
+          formattedRemoteJid,
+          content
+        ),
+        this.createOrUpdateConversation(instanceId, formattedRemoteJid)
+      ]);
 
       console.log(`✅ [sendMessage] Mensagem enviada via Evolution API:`, evolutionResponse);
-
-      // Create or update conversation
-      const conversation = await this.createOrUpdateConversation(instanceId, formattedRemoteJid);
 
       // Save message to database
       const message = await this.messageRepository.create({
         instanceId,
-        remoteJid: formattedRemoteJid, // Use normalized version
+        remoteJid: formattedRemoteJid,
         fromMe: true,
         messageType: 'TEXT',
         content,
         messageId: evolutionResponse.key?.id || `msg_${Date.now()}`,
         timestamp: new Date(),
-        conversationId: conversation.id // ✅ Link to conversation
+        status: 'SENT',
+        conversationId: conversation.id
       });
 
-      // Update conversation with last message
-      await this.conversationRepository.update(conversation.id, {
-        lastMessage: content,
-        lastMessageAt: new Date()
-      });
+      // ⚡ Executar atualizações e emissões em paralelo (não esperar)
+      Promise.all([
+        this.conversationRepository.update(conversation.id, {
+          lastMessage: content,
+          lastMessageAt: new Date()
+        }),
+        // Emitir eventos em paralelo
+        (async () => {
+          this.socketService.emitToInstance(instanceId, 'message:sent', {
+            conversationId: conversation.id,
+            message: {
+              id: message.id,
+              content: message.content,
+              fromMe: message.fromMe,
+              timestamp: message.timestamp,
+              messageType: message.messageType
+            }
+          });
 
-      // Emit real-time update to frontend
-      this.socketService.emitToInstance(instanceId, 'message:sent', {
-        conversationId: conversation.id,
-        message: {
-          id: message.id,
-          content: message.content,
-          fromMe: message.fromMe,
-          timestamp: message.timestamp,
-          messageType: message.messageType
-        }
-      });
-
-      // ✨ NOVO: Emitir atualização da conversa para atualizar a lista do lado esquerdo
-      const updatedConversation = await this.conversationRepository.findById(conversation.id);
-      if (updatedConversation) {
-        this.socketService.emitToInstance(instanceId, 'conversation:updated', {
-          ...updatedConversation,
-          lastMessagePreview: {
-            content: content,
-            fromMe: true,
-            timestamp: new Date(),
-            messageType: 'TEXT'
+          // ✅ Buscar conversa atualizada do banco para emitir com dados corretos
+          const updatedConversation = await this.conversationRepository.findById(conversation.id);
+          if (updatedConversation) {
+            this.socketService.emitToInstance(instanceId, 'conversation:updated', {
+              ...updatedConversation,
+              lastMessagePreview: {
+                content: content,
+                fromMe: true,
+                timestamp: new Date(),
+                messageType: 'TEXT'
+              }
+            });
           }
-        });
-      }
+        })()
+      ]).catch(error => {
+        console.error('⚠️ Erro em operações pós-envio (não crítico):', error);
+      });
 
       console.log(`✅ [sendMessage] Mensagem salva no banco de dados:`, message.id);
       return message;
@@ -913,6 +1040,55 @@ export class ConversationService {
       console.log(`✅ All contacts updated for instance ${instanceId}`);
     } catch (error) {
       console.error('❌ Error updating all contacts info:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Handle message status updates from Evolution API webhook
+   * Updates message status (SENT  DELIVERED  READ  PLAYED)
+   */
+  async handleMessageStatusUpdate(instanceId: string, data: {
+    messageId: string;
+    status: string;
+    remoteJid?: string;
+  }): Promise<void> {
+    try {
+      console.log(' [handleMessageStatusUpdate] Updating message ' + data.messageId + ' to status: ' + data.status);
+      
+      const message = await prisma.message.findUnique({
+        where: { messageId: data.messageId }
+      });
+
+      if (!message) {
+        console.log(' Message ' + data.messageId + ' not found in database');
+        return;
+      }
+
+      const validStatuses = ['PENDING', 'SENT', 'DELIVERED', 'READ', 'PLAYED', 'FAILED'];
+      const normalizedStatus = data.status.toUpperCase();
+      
+      if (!validStatuses.includes(normalizedStatus)) {
+        console.log(' Invalid status: ' + data.status);
+        return;
+      }
+
+      await prisma.message.update({
+        where: { id: message.id },
+        data: { status: normalizedStatus }
+      });
+
+      console.log(' Message ' + data.messageId + ' status updated to: ' + normalizedStatus);
+
+      this.socketService.emitToInstance(instanceId, 'message:status', {
+        messageId: message.id,
+        whatsappMessageId: data.messageId,
+        status: normalizedStatus,
+        conversationId: message.conversationId
+      });
+
+    } catch (error) {
+      console.error(' Error updating message status:', error);
       throw error;
     }
   }

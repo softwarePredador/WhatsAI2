@@ -76,6 +76,9 @@ model Message {
   messageId String   @unique
   timestamp DateTime
 
+  // Message status tracking (Evolution API v2.3.6+)
+  status String? @default("PENDING") // PENDING, SENT, DELIVERED, READ, PLAYED, FAILED
+
   // Timestamps
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

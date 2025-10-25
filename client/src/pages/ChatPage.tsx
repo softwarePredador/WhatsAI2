@@ -4,6 +4,7 @@ import { Send, Phone, Video, MoreVertical, ArrowLeft, Search } from 'lucide-reac
 import { userAuthStore } from '../features/auth/store/authStore';
 import { conversationService } from '../services/conversationService';
 import { socketService } from '../services/socketService';
+import { getDisplayName } from '../utils/contact-display';
 
 interface Message {
   id: string;
@@ -11,7 +12,7 @@ interface Message {
   fromMe: boolean;
   timestamp: Date;
   messageType: 'text' | 'image' | 'audio' | 'video' | 'document';
-  status?: 'sent' | 'delivered' | 'read';
+  status?: 'PENDING' | 'SENT' | 'DELIVERED' | 'READ' | 'PLAYED' | 'FAILED';
 }
 
 interface Conversation {
@@ -28,6 +29,8 @@ interface Conversation {
 }
 
 export const ChatPage: React.FC = () => {
+  // instanceId vem da URL, mas não é usado diretamente aqui (ChatLayout gerencia a conexão)
+  // @ts-ignore - instanceId é necessário na URL mas não usado no componente
   const { instanceId, conversationId } = useParams<{ instanceId: string; conversationId: string }>();
   const navigate = useNavigate();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -40,6 +43,70 @@ export const ChatPage: React.FC = () => {
   // Usar o store de autenticação global
   const token = userAuthStore((state) => state.token);
   const logout = userAuthStore((state) => state.logout);
+
+  // Componente de check mark do WhatsApp
+  const MessageStatusCheck = ({ status }: { status?: Message['status'] }) => {
+    if (!status) return null;
+
+    const CheckIcon = () => (
+      <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor">
+        <path d="M5.5 8.5L2 5l-1 1 4.5 4.5L15 1l-1-1z"/>
+      </svg>
+    );
+
+    const DoubleCheckIcon = () => (
+      <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor">
+        <path d="M11 1l-1 1 4.5 4.5L11 10l1 1 5.5-5.5z"/>
+        <path d="M5.5 8.5L2 5l-1 1 4.5 4.5L15 1l-1-1z"/>
+      </svg>
+    );
+
+    switch (status) {
+      case 'PENDING':
+        return (
+          <div className="inline-flex items-center ml-1">
+            <svg width="12" height="12" viewBox="0 0 12 12" className="text-gray-400 opacity-60">
+              <circle cx="6" cy="6" r="5" fill="none" stroke="currentColor" strokeWidth="1.5"/>
+            </svg>
+          </div>
+        );
+      
+      case 'SENT':
+        return (
+          <div className="inline-flex items-center ml-1 text-gray-400">
+            <CheckIcon />
+          </div>
+        );
+      
+      case 'DELIVERED':
+        return (
+          <div className="inline-flex items-center ml-1 text-gray-400">
+            <DoubleCheckIcon />
+          </div>
+        );
+      
+      case 'READ':
+      case 'PLAYED':
+        return (
+          <div className="inline-flex items-center ml-1 text-blue-500">
+            <DoubleCheckIcon />
+          </div>
+        );
+      
+      case 'FAILED':
+        return (
+          <div className="inline-flex items-center ml-1 text-red-500" title="Falha no envio">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+              <circle cx="6" cy="6" r="5" fill="none" stroke="currentColor" strokeWidth="1.5"/>
+              <path d="M6 3v3M6 8v1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+          </div>
+        );
+      
+      default:
+        return null;
+    }
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -54,22 +121,18 @@ export const ChatPage: React.FC = () => {
       loadConversation();
       loadMessages();
       
-      // 🔗 Conectar ao WebSocket e notificar conversa aberta
-      socketService.connect(token || undefined);
-      if (instanceId) {
-        socketService.joinInstance(instanceId);
-      }
+      console.log('🔌 [ChatPage] Notificando conversa aberta:', conversationId);
+      
+      // � Notificar que a conversa foi aberta
       socketService.openConversation(conversationId);
       
       // 📱 Cleanup: notificar quando a conversa for fechada
       return () => {
+        console.log('🔌 [ChatPage] Notificando conversa fechada:', conversationId);
         socketService.closeConversation(conversationId);
-        if (instanceId) {
-          socketService.leaveInstance(instanceId);
-        }
       };
     }
-  }, [conversationId, instanceId, token]);
+  }, [conversationId]);
 
   // 🔗 Setup WebSocket listeners for real-time updates
   useEffect(() => {
@@ -84,7 +147,7 @@ export const ChatPage: React.FC = () => {
           fromMe: data.message.fromMe,
           timestamp: new Date(data.message.timestamp),
           messageType: data.message.messageType || 'text',
-          status: data.message.fromMe ? 'sent' : undefined
+          status: data.message.status || (data.message.fromMe ? 'SENT' : undefined)
         };
         
         setMessages(prev => [...prev, newMessage]);
@@ -100,12 +163,26 @@ export const ChatPage: React.FC = () => {
       }
     };
 
+    // Listen for message status updates (READ, DELIVERED, etc.)
+    const handleMessageStatusUpdate = (data: { messageId: string; status: string; conversationId: string }) => {
+      if (data.conversationId === conversationId) {
+        setMessages(prev => prev.map(msg => 
+          msg.id === data.messageId 
+            ? { ...msg, status: data.status as Message['status'] }
+            : msg
+        ));
+        console.log(`✅ Status da mensagem ${data.messageId} atualizado para: ${data.status}`);
+      }
+    };
+
     socketService.on('message:received', handleNewMessage);
     socketService.on('conversation:updated', handleConversationUpdate);
+    socketService.on('message:status', handleMessageStatusUpdate);
 
     return () => {
       socketService.off('message:received', handleNewMessage);
       socketService.off('conversation:updated', handleConversationUpdate);
+      socketService.off('message:status', handleMessageStatusUpdate);
     };
   }, [conversationId]);
 
@@ -215,6 +292,18 @@ export const ChatPage: React.FC = () => {
         console.log('Dados recebidos do backend:', data);
         // O backend retorna data.data.messages, não data.data
         const messages = data.data?.messages || [];
+        
+        // Debug: verificar se status está vindo
+        if (messages.length > 0) {
+          console.log('🔍 Primeira mensagem (verificar status):', {
+            id: messages[0].id,
+            content: messages[0].content?.substring(0, 50),
+            fromMe: messages[0].fromMe,
+            status: messages[0].status,
+            hasStatus: 'status' in messages[0]
+          });
+        }
+        
         // Converter timestamps string para Date
         const processedMessages = messages.map((msg: any) => ({
           ...msg,
@@ -268,7 +357,7 @@ export const ChatPage: React.FC = () => {
           fromMe: true,
           timestamp: new Date(),
           messageType: 'text',
-          status: 'sent'
+          status: 'SENT'
         };
         
         setMessages(prev => [...prev, tempMessage]);
@@ -370,7 +459,11 @@ export const ChatPage: React.FC = () => {
               </div>
               <div>
                 <h2 className="font-medium text-gray-900 dark:text-gray-100">
-                  {conversation.contactName || 'Contato sem nome'}
+                  {getDisplayName({
+                    nickname: (conversation as any).nickname,
+                    contactName: conversation.contactName,
+                    remoteJid: conversation.remoteJid
+                  })}
                 </h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                   {conversation.isGroup ? 'Grupo' : 'Online'}
@@ -409,32 +502,21 @@ export const ChatPage: React.FC = () => {
               className={`flex ${message.fromMe ? 'justify-end' : 'justify-start'}`}
             >
               <div
-                className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                className={`max-w-[85%] sm:max-w-[70%] lg:max-w-[60%] px-4 py-2 rounded-lg break-words ${
                   message.fromMe
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100'
+                    ? 'bg-blue-500 text-white rounded-br-none'
+                    : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-bl-none shadow-sm'
                 }`}
               >
-                <p className="text-sm">{message.content}</p>
+                <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
                 <div className="flex items-center justify-end space-x-1 mt-1">
                   <span className={`text-xs ${
                     message.fromMe ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'
                   }`}>
                     {formatTime(message.timestamp)}
                   </span>
-                  {message.fromMe && message.status && (
-                    <div className="flex space-x-1">
-                      <div className={`w-1 h-1 rounded-full ${
-                        message.status === 'sent' ? 'bg-blue-200' :
-                        message.status === 'delivered' ? 'bg-blue-200' :
-                        'bg-blue-200'
-                      }`} />
-                      {message.status !== 'sent' && (
-                        <div className={`w-1 h-1 rounded-full ${
-                          message.status === 'delivered' ? 'bg-blue-200' : 'bg-blue-200'
-                        }`} />
-                      )}
-                    </div>
+                  {message.fromMe && (
+                    <MessageStatusCheck status={message.status} />
                   )}
                 </div>
               </div>

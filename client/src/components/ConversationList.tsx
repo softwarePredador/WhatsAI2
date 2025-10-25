@@ -4,6 +4,7 @@ import { Search, MessageSquare, Archive, Pin, MoreVertical, Check, Mail } from '
 import { userAuthStore } from '../features/auth/store/authStore';
 import { conversationService } from '../services/conversationService';
 import { socketService } from '../services/socketService';
+import { getDisplayName } from '../utils/contact-display';
 
 interface ConversationSummary {
   id: string;
@@ -43,14 +44,20 @@ export const ConversationList: React.FC = () => {
   useEffect(() => {
     if (!instanceId) return;
 
+    console.log('🔌 [ConversationList] Conectando WebSocket para instanceId:', instanceId);
+
     const handleConversationUpdated = (updatedConversation: ConversationSummary) => {
       console.log('🔔 [ConversationList] Conversa atualizada via WebSocket:', updatedConversation);
+      console.log('🔔 [ConversationList] instanceId atual:', instanceId);
       
       setConversations(prevConversations => {
+        console.log('🔔 [ConversationList] Conversas antes da atualização:', prevConversations.length);
+        
         // Encontrar e atualizar a conversa na lista
         const index = prevConversations.findIndex(c => c.id === updatedConversation.id);
         
         if (index !== -1) {
+          console.log(`🔔 [ConversationList] Atualizando conversa existente (index ${index})`);
           // Atualizar conversa existente
           const updated = [...prevConversations];
           updated[index] = {
@@ -65,19 +72,33 @@ export const ConversationList: React.FC = () => {
             return timeB - timeA;
           });
         } else {
+          console.log('🔔 [ConversationList] Adicionando nova conversa');
           // Nova conversa - adicionar no início
           return [updatedConversation, ...prevConversations];
         }
       });
     };
 
-    // Conectar ao WebSocket quando tiver instanceId
-    socketService.joinInstance(instanceId);
+    // Listener para quando conversa é marcada como lida
+    const handleConversationRead = (data: { conversationId: string; unreadCount: number }) => {
+      console.log('� [ConversationList] Conversa marcada como lida:', data);
+      setConversations(prevConversations =>
+        prevConversations.map(conv =>
+          conv.id === data.conversationId
+            ? { ...conv, unreadCount: 0 }
+            : conv
+        )
+      );
+    };
+
+    console.log('🔌 [ConversationList] Registrando listeners');
     socketService.on('conversation:updated', handleConversationUpdated);
+    socketService.on('conversation:read', handleConversationRead);
 
     return () => {
+      console.log('🔌 [ConversationList] Removendo listeners');
       socketService.off('conversation:updated', handleConversationUpdated);
-      socketService.leaveInstance(instanceId);
+      socketService.off('conversation:read', handleConversationRead);
     };
   }, [instanceId]);
 
@@ -128,6 +149,18 @@ export const ConversationList: React.FC = () => {
       if (response.ok) {
         const data = await response.json();
         console.log('✅ Conversas carregadas:', data.data?.length || 0);
+        
+        // Debug: verificar se as conversas têm lastMessage ou lastMessagePreview
+        if (data.data && data.data.length > 0) {
+          console.log('🔍 Primeira conversa (debug):', {
+            id: data.data[0].id,
+            contactName: data.data[0].contactName,
+            lastMessage: data.data[0].lastMessage,
+            lastMessagePreview: data.data[0].lastMessagePreview,
+            lastMessageAt: data.data[0].lastMessageAt
+          });
+        }
+        
         setConversations(data.data || []);
       } else {
         console.error('❌ Erro na resposta:', response.status, response.statusText);
@@ -303,7 +336,11 @@ export const ConversationList: React.FC = () => {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
                         <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                          {conversation.contactName || conversation.remoteJid}
+                          {getDisplayName({
+                            nickname: (conversation as any).nickname,
+                            contactName: conversation.contactName,
+                            remoteJid: conversation.remoteJid
+                          })}
                           {conversation.isGroup && (
                             <span className="ml-1 text-xs text-gray-500">(Grupo)</span>
                           )}
@@ -341,22 +378,35 @@ export const ConversationList: React.FC = () => {
                       </div>
                       
                       <div className="mt-1">
-                        {conversation.lastMessagePreview ? (
-                          <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
-                            {conversation.lastMessagePreview.fromMe && (
-                              <span className="text-blue-500">Você: </span>
-                            )}
-                            {truncateMessage(conversation.lastMessagePreview.content)}
-                          </p>
-                        ) : conversation.lastMessage ? (
-                          <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
-                            {truncateMessage(conversation.lastMessage)}
-                          </p>
-                        ) : (
-                          <p className="text-sm text-gray-400 dark:text-gray-500 italic">
-                            Nenhuma mensagem
-                          </p>
-                        )}
+                        {(() => {
+                          // Priorizar lastMessagePreview (mais completo)
+                          if (conversation.lastMessagePreview?.content) {
+                            return (
+                              <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
+                                {conversation.lastMessagePreview.fromMe && (
+                                  <span className="text-blue-500">Você: </span>
+                                )}
+                                {truncateMessage(conversation.lastMessagePreview.content)}
+                              </p>
+                            );
+                          }
+                          
+                          // Fallback para lastMessage
+                          if (conversation.lastMessage) {
+                            return (
+                              <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
+                                {truncateMessage(conversation.lastMessage)}
+                              </p>
+                            );
+                          }
+                          
+                          // Nenhuma mensagem disponível
+                          return (
+                            <p className="text-sm text-gray-400 dark:text-gray-500 italic">
+                              Nenhuma mensagem
+                            </p>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>

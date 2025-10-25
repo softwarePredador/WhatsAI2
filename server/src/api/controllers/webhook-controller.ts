@@ -26,9 +26,17 @@ export class WebhookController {
 
   handleEvolutionWebhook = async (req: Request, res: Response): Promise<void> => {
     try {
+      console.log(`🚨 [WEBHOOK] ========================================`);
+      console.log(`🚨 [WEBHOOK] Requisição chegou! Method: ${req.method}, Path: ${req.path}`);
+      console.log(`🚨 [WEBHOOK] Body:`, JSON.stringify(req.body, null, 2));
+      console.log(`🚨 [WEBHOOK] ========================================`);
+      
       const { instanceId } = req.params;
       
+      console.log(`🚨 [WEBHOOK] instanceId do params: ${instanceId}`);
+      
       if (!instanceId) {
+        console.log(`❌ [WEBHOOK] instanceId não fornecido!`);
         res.status(400).json({
           success: false,
           error: 'Instance ID is required'
@@ -44,17 +52,32 @@ export class WebhookController {
       if (webhookData.data && typeof webhookData.data === 'object') {
         // 🗺️ CRITICAL: Capture @lid to real number mapping from messages.update
         if (webhookData.event === 'messages.update') {
-          const data = webhookData.data as any;
-          const remoteJid = data.remoteJid;
-          const keyId = data.keyId;
+          const updates = Array.isArray(webhookData.data) ? webhookData.data : [webhookData.data];
           
-          if (remoteJid && keyId) {
-            if (remoteJid.includes('@lid')) {
-              console.log(`🗺️ Found @lid in update: ${remoteJid} (keyId: ${keyId})`);
-              await this.conversationService.recordLidMapping(keyId, remoteJid, null);
-            } else if (remoteJid.includes('@s.whatsapp.net')) {
-              console.log(`🗺️ Found real number in update: ${remoteJid} (keyId: ${keyId})`);
-              await this.conversationService.recordLidMapping(keyId, null, remoteJid);
+          for (const data of updates) {
+            const remoteJid = data.remoteJid;
+            const keyId = data.key?.id || data.keyId;
+            const status = data.status;
+            
+            // 🗺️ Mapear @lid → número real
+            if (remoteJid && keyId) {
+              if (remoteJid.includes('@lid')) {
+                console.log(`🗺️ Found @lid in update: ${remoteJid} (keyId: ${keyId})`);
+                await this.conversationService.recordLidMapping(keyId, remoteJid, null);
+              } else if (remoteJid.includes('@s.whatsapp.net')) {
+                console.log(`🗺️ Found real number in update: ${remoteJid} (keyId: ${keyId})`);
+                await this.conversationService.recordLidMapping(keyId, null, remoteJid);
+              }
+            }
+            
+            // ✅ Atualizar status da mensagem (SENT → DELIVERED → READ)
+            if (keyId && status) {
+              console.log(`📬 [MESSAGES_UPDATE] Updating message ${keyId} status to: ${status}`);
+              await this.conversationService.handleMessageStatusUpdate(instanceId, {
+                messageId: keyId,
+                status: status.toUpperCase(),
+                remoteJid
+              });
             }
           }
         }

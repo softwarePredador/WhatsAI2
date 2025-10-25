@@ -90,7 +90,13 @@ export class ConversationRepository {
       include: {
         messages: {
           take: 1,
-          orderBy: { timestamp: 'desc' }
+          orderBy: { timestamp: 'desc' },
+          select: {
+            content: true,
+            fromMe: true,
+            timestamp: true,
+            messageType: true
+          }
         }
       }
     });
@@ -114,7 +120,19 @@ export class ConversationRepository {
         messages: {
           take: limit,
           skip: offset,
-          orderBy: { timestamp: 'desc' }
+          orderBy: { timestamp: 'desc' },
+          select: {
+            id: true,
+            content: true,
+            fromMe: true,
+            messageType: true,
+            timestamp: true,
+            messageId: true,
+            status: true,
+            mediaUrl: true,
+            fileName: true,
+            caption: true
+          }
         }
       }
     });
@@ -140,6 +158,22 @@ export class ConversationRepository {
   }
 
   async upsert(instanceId: string, remoteJid: string, data: Partial<CreateConversationData>): Promise<Conversation> {
+    // Prepare update data - only include fields that have values
+    const updateData: any = {
+      lastMessageAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    // Only update contactName if provided and not null
+    if (data.contactName) {
+      updateData.contactName = data.contactName;
+    }
+    
+    // Only update contactPicture if provided and not null
+    if (data.contactPicture) {
+      updateData.contactPicture = data.contactPicture;
+    }
+    
     return (this.prisma as any).conversation.upsert({
       where: {
         instanceId_remoteJid: {
@@ -155,12 +189,7 @@ export class ConversationRepository {
         isGroup: data.isGroup || false,
         lastMessageAt: new Date()
       },
-      update: {
-        contactName: data.contactName || null,
-        contactPicture: data.contactPicture || null,
-        lastMessageAt: new Date(),
-        updatedAt: new Date()
-      }
+      update: updateData
     });
   }
 

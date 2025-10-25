@@ -25,6 +25,7 @@ export interface CreateMessageData {
   content: string;
   messageId: string;
   timestamp: Date;
+  status?: string; // Status da mensagem: PENDING, SENT, DELIVERED, READ, PLAYED, FAILED
   mediaUrl?: string;
   fileName?: string;
   caption?: string;
@@ -81,8 +82,14 @@ export class MessageRepository {
   }
 
   async create(data: CreateMessageData): Promise<Message> {
-    return this.prisma.message.create({
-      data
+    // Use upsert to avoid unique constraint errors if message already exists
+    return this.prisma.message.upsert({
+      where: { messageId: data.messageId },
+      update: {
+        content: data.content,
+        updatedAt: new Date()
+      },
+      create: data
     });
   }
 

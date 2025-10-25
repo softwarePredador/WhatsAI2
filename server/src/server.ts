@@ -1,3 +1,6 @@
+// IMPORTANT: Import Sentry instrumentation FIRST, before anything else
+import './instrument';
+
 import { App } from './core/app';
 import { env } from './config/env';
 

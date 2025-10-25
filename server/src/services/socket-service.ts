@@ -70,11 +70,21 @@ export class SocketService {
 
   emitToInstance(instanceId: string, event: string, data: any): void {
     if (!this.io) {
-      console.warn('Socket.IO not initialized');
+      console.warn('⚠️ [WebSocket] Socket.IO not initialized');
       return;
     }
 
-    this.io.to(`instance_${instanceId}`).emit(event, data);
+    const room = `instance_${instanceId}`;
+    const socketsInRoom = this.io.sockets.adapter.rooms.get(room);
+    const clientCount = socketsInRoom ? socketsInRoom.size : 0;
+    
+    console.log(`📡 [WebSocket] Emitindo "${event}" para sala "${room}" (${clientCount} clientes)`);
+    
+    if (clientCount === 0) {
+      console.warn(`⚠️ [WebSocket] Nenhum cliente conectado na sala ${room}`);
+    }
+    
+    this.io.to(room).emit(event, data);
   }
 
   emitToAll(event: string, data: any): void {

@@ -43,8 +43,9 @@ class SocketService {
   // Join instance room
   joinInstance(instanceId: string): void {
     if (this.socket) {
+      const room = `instance_${instanceId}`;
       this.socket.emit('join_instance', instanceId);
-      console.log(`📱 Joined instance room: ${instanceId}`);
+      console.log(`📱 [socketService] Joining room: ${room} (instanceId: ${instanceId})`);
     }
   }
 

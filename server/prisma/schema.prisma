@@ -6,8 +6,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
@@ -56,7 +56,7 @@ model WhatsAppInstance {
   updatedAt DateTime @updatedAt
 
   // Relations
-  messages Message[]
+  messages      Message[]
   conversations Conversation[]
 
   @@map("whatsapp_instances")
@@ -77,44 +77,55 @@ model Message {
   messageId String   @unique
   timestamp DateTime
 
+  // Message status tracking (Evolution API v2.3.6+)
+  status String? @default("PENDING") // PENDING, SENT, DELIVERED, READ, PLAYED, FAILED
+
   // Timestamps
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relations
-  instance WhatsAppInstance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
-  conversation Conversation? @relation(fields: [conversationId], references: [id])
+  instance       WhatsAppInstance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  conversation   Conversation?    @relation(fields: [conversationId], references: [id])
   conversationId String?
 
+  // Performance indexes
+  @@index([instanceId])
+  @@index([conversationId, timestamp(sort: Desc)])
+  @@index([remoteJid])
   @@map("messages")
 }
 
 model Conversation {
-  id         String  @id @default(cuid())
+  id         String @id @default(cuid())
   instanceId String
   remoteJid  String // WhatsApp contact ID
-  
+
   // Contact information
-  contactName  String?
+  nickname       String? // User-editable custom name (priority 1)
+  contactName    String? // WhatsApp pushName (priority 2)
   contactPicture String?
-  isGroup      Boolean @default(false)
-  
+  isGroup        Boolean @default(false)
+
   // Conversation state
-  lastMessage    String?
-  lastMessageAt  DateTime?
-  unreadCount    Int @default(0)
-  isArchived     Boolean @default(false)
-  isPinned       Boolean @default(false)
-  
+  lastMessage   String?
+  lastMessageAt DateTime?
+  unreadCount   Int       @default(0)
+  isArchived    Boolean   @default(false)
+  isPinned      Boolean   @default(false)
+
   // Timestamps
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   // Relations
   instance WhatsAppInstance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   messages Message[]
-  
+
   @@unique([instanceId, remoteJid])
+  // Performance indexes
+  @@index([instanceId, lastMessageAt(sort: Desc)])
+  @@index([remoteJid])
   @@map("conversations")
 }
 
@@ -133,17 +144,17 @@ model WebhookEvent {
 }
 
 model UserSettings {
-  id     String  @id @default(cuid())
-  userId String  @unique
+  id     String @id @default(cuid())
+  userId String @unique
 
   // Profile Settings
-  displayName     String?
-  profilePicture  String?
-  bio             String?
+  displayName    String?
+  profilePicture String?
+  bio            String?
 
   // Theme Settings
-  theme           String  @default("light") // light, dark, auto
-  language        String  @default("pt-BR")
+  theme    String @default("light") // light, dark, auto
+  language String @default("pt-BR")
 
   // Notification Settings
   emailNotifications    Boolean @default(true)
@@ -156,7 +167,7 @@ model UserSettings {
   autoRefreshInterval Int     @default(30) // seconds
 
   // Privacy Settings
-  showOnlineStatus Boolean @default(true)
+  showOnlineStatus    Boolean @default(true)
   allowDataCollection Boolean @default(false)
 
   // Timestamps

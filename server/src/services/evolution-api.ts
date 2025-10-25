@@ -10,6 +10,11 @@ interface EvolutionApiConfig {
 export class EvolutionApiService {
   private client: AxiosInstance;
   private config: EvolutionApiConfig;
+  
+  // Cache de falhas de foto de perfil: Map<número, { tentativas: number, bloqueadoAte: Date }>
+  private profilePictureFailCache = new Map<string, { attempts: number, blockedUntil: Date }>();
+  private readonly MAX_ATTEMPTS = 2; // Máximo de tentativas
+  private readonly BLOCK_DURATION_MS = 24 * 60 * 60 * 1000; // 24 horas
 
   constructor(baseURL?: string, apiKey?: string) {
     this.config = {
@@ -395,6 +400,24 @@ export class EvolutionApiService {
     profilePictureUrl: string | null;
   }> {
     try {
+      // Verificar se o número está bloqueado temporariamente
+      const cacheKey = `${instanceName}:${number}`;
+      const cachedFailure = this.profilePictureFailCache.get(cacheKey);
+      
+      if (cachedFailure) {
+        const now = new Date();
+        
+        // Se ainda está bloqueado, retornar null sem tentar
+        if (now < cachedFailure.blockedUntil) {
+          const hoursRemaining = Math.ceil((cachedFailure.blockedUntil.getTime() - now.getTime()) / (1000 * 60 * 60));
+          console.log(`⏳ Profile picture fetch bloqueado para ${number} (tentará novamente em ~${hoursRemaining}h)`);
+          return { profilePictureUrl: null };
+        }
+        
+        // Se o bloqueio expirou, remover do cache
+        this.profilePictureFailCache.delete(cacheKey);
+      }
+      
       console.log(`📸 Fetching profile picture for ${number} on instance ${instanceName}`);
       
       // Endpoint correto segundo documentação: fetchProfilePictureUrl (com 'u' minúsculo)
@@ -403,11 +426,39 @@ export class EvolutionApiService {
       });
 
       console.log(`✅ Profile picture fetched successfully:`, response.data?.profilePictureUrl ? 'Found' : 'Not found');
+      
+      // Se teve sucesso e estava no cache de falhas, remover
+      if (cachedFailure) {
+        this.profilePictureFailCache.delete(cacheKey);
+      }
+      
       return {
         profilePictureUrl: response.data?.profilePictureUrl || null
       };
     } catch (error: any) {
       console.error('❌ Error fetching profile picture:', error.response?.data || error.message);
+      
+      // Gerenciar cache de falhas
+      const cacheKey = `${instanceName}:${number}`;
+      const cachedFailure = this.profilePictureFailCache.get(cacheKey);
+      
+      if (cachedFailure) {
+        // Incrementar tentativas
+        cachedFailure.attempts++;
+        
+        // Se atingiu o máximo de tentativas, bloquear por 24h
+        if (cachedFailure.attempts >= this.MAX_ATTEMPTS) {
+          cachedFailure.blockedUntil = new Date(Date.now() + this.BLOCK_DURATION_MS);
+          console.log(`🚫 Número ${number} bloqueado após ${cachedFailure.attempts} tentativas. Próxima tentativa: ${cachedFailure.blockedUntil.toLocaleString('pt-BR')}`);
+        }
+      } else {
+        // Primeira falha, adicionar ao cache
+        this.profilePictureFailCache.set(cacheKey, {
+          attempts: 1,
+          blockedUntil: new Date(0) // Não bloqueado ainda
+        });
+      }
+      
       // Retorna null em vez de lançar erro, pois nem todos os contatos têm foto
       return { profilePictureUrl: null };
     }

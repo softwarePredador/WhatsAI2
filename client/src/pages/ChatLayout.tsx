@@ -5,6 +5,7 @@ import { ChatPage } from './ChatPage';
 import { MessageSquare } from 'lucide-react';
 import { useInstanceStore } from '../features/instances/store/instanceStore';
 import { userAuthStore } from '../features/auth/store/authStore';
+import { socketService } from '../services/socketService';
 
 export const ChatLayout: React.FC = () => {
   const { instanceId, conversationId } = useParams<{ 
@@ -16,9 +17,17 @@ export const ChatLayout: React.FC = () => {
   const token = userAuthStore((state) => state.token);
   const [loading, setLoading] = useState(true);
 
+  console.log('🔍 [ChatLayout] Renderizando com:', { instanceId, conversationId });
+
   useEffect(() => {
+    console.log('🔍 [ChatLayout] useEffect 1 - Verificando instanceId e conversationId');
+    console.log('   - instanceId:', instanceId);
+    console.log('   - conversationId:', conversationId);
+    console.log('   - instances.length:', instances.length);
+    
     // Se não tiver instanceId mas tiver conversationId
     if (!instanceId && conversationId) {
+      console.log('⚠️ [ChatLayout] Sem instanceId mas com conversationId - buscando instâncias');
       // Buscar instanceId da primeira instância conectada
       if (instances.length === 0 && token) {
         fetchInstances(token).then(() => setLoading(false));
@@ -26,15 +35,31 @@ export const ChatLayout: React.FC = () => {
         setLoading(false);
         const firstInstance = instances.find(i => i.status === 'connected') || instances[0];
         if (firstInstance) {
+          console.log('📍 [ChatLayout] Redirecionando para:', `/chat/${firstInstance.id}/${conversationId}`);
           navigate(`/chat/${firstInstance.id}/${conversationId}`, { replace: true });
         } else {
+          console.log('📍 [ChatLayout] Sem instâncias - redirecionando para /instances');
           navigate('/instances', { replace: true });
         }
       }
     } else {
+      console.log('✅ [ChatLayout] Tudo OK - não redirecionando');
       setLoading(false);
     }
   }, [instanceId, conversationId, instances, token, fetchInstances, navigate]);
+  
+  // 🔌 Conectar à sala da instância quando instanceId mudar
+  useEffect(() => {
+    if (instanceId) {
+      console.log('🔌 [ChatLayout] Joining instance room:', instanceId);
+      socketService.joinInstance(instanceId);
+      
+      return () => {
+        console.log('🔌 [ChatLayout] Leaving instance room:', instanceId);
+        socketService.leaveInstance(instanceId);
+      };
+    }
+  }, [instanceId]);
 
   if (loading) {
     return (

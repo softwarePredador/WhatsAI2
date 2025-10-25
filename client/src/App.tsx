@@ -16,6 +16,7 @@ import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage';
 import { ChatLayout } from './pages/ChatLayout';
 import { useTheme } from './hooks/useTheme';
+import { socketService } from './services/socketService';
 
 function RegisterPage() {
   return (
@@ -230,6 +231,8 @@ const AppLayout = () => {
   const location = useLocation();
   const isHomePage = location.pathname === '/';
 
+  console.log('🌐 [AppLayout] Renderizando rota:', location.pathname);
+
   return (
     <div className="flex flex-col min-h-screen overflow-x-hidden">
       {/* Background for dark and light modes - only shown on non-homepage routes */}
@@ -254,6 +257,21 @@ export function App() {
   // Aplicar tema globalmente
   useTheme();
   
+  const token = userAuthStore((state) => state.token);
+  
+  // 🔌 Conectar WebSocket globalmente quando o app inicia
+  useEffect(() => {
+    if (token) {
+      console.log('🔌 [App] Conectando WebSocket globalmente');
+      socketService.connect(token);
+      
+      return () => {
+        console.log('🔌 [App] Desconectando WebSocket');
+        socketService.disconnect();
+      };
+    }
+  }, [token]);
+  
   return (
     <BrowserRouter>
       <Toaster
@@ -277,7 +295,7 @@ export function App() {
       />
         <Routes>
           <Route element={<AppLayout />}>
-            <Route index element={<HomePage />} />
+            <Route path="/" element={<HomePage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route
@@ -322,15 +340,6 @@ export function App() {
               />
             <Route
               path="/chat/:instanceId/:conversationId"
-              element={
-                <ProtectedRoute>
-                  <ChatLayout />
-                </ProtectedRoute>
-              }
-              />
-            {/* Fallback: Se acessar /chat/:id sem instanceId, redirecionar para dashboard */}
-            <Route
-              path="/chat/:conversationId"
               element={
                 <ProtectedRoute>
                   <ChatLayout />
