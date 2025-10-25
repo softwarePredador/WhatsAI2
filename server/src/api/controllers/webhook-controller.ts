@@ -147,6 +147,29 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
           await this.conversationService.handleIncomingMessageAtomic(instanceId, webhookData.data);
         }
         
+        // 📤 Process sent messages (SEND_MESSAGE) - MENSAGENS ENVIADAS PELO USUÁRIO!
+        if (webhookData.event === 'send.message' && webhookData.data['key'] && webhookData.data['message']) {
+          console.log(`📤 [SEND_MESSAGE] Processing sent message for instance ${instanceId}`);
+          console.log(`📤 [SEND_MESSAGE] Message data:`, JSON.stringify(webhookData.data, null, 2));
+          
+          // Criar um messages.upsert artificial para reaproveitar a lógica existente
+          const upsertData = {
+            key: {
+              ...webhookData.data['key'],
+              fromMe: true
+            },
+            pushName: webhookData.data['pushName'] || 'Você',
+            status: 'SENT',
+            message: webhookData.data['message'],
+            messageTimestamp: Math.floor(Date.now() / 1000),
+            instanceId: webhookData.data['instanceId'],
+            source: 'web'
+          };
+          
+          console.log(`📤 [SEND_MESSAGE] Converting to upsert format:`, JSON.stringify(upsertData, null, 2));
+          await this.conversationService.handleIncomingMessageAtomic(instanceId, upsertData);
+        }
+        
         // 👤 Process contact updates (CONTACTS_UPDATE) - FOTO E NOME AUTOMÁTICOS!
         if (webhookData.event === 'contacts.update') {
           console.log(`👤 [CONTACTS_UPDATE] Processing contacts update for instance ${instanceId}`);
