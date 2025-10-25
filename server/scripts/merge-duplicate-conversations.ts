@@ -33,10 +33,13 @@ async function mergeConversations(keepId: string, deleteId: string) {
 
   if (keepConv && deleteConv) {
     // Usar a última mensagem mais recente entre as duas
+    const deleteLastMsg = deleteConv.messages[0];
+    const keepLastMsg = keepConv.messages[0];
+    
     const lastMessage = 
-      (deleteConv.messages[0]?.timestamp > keepConv.messages[0]?.timestamp)
-        ? deleteConv.messages[0]
-        : keepConv.messages[0];
+      (deleteLastMsg && keepLastMsg && deleteLastMsg.timestamp > keepLastMsg.timestamp)
+        ? deleteLastMsg
+        : (deleteLastMsg || keepLastMsg);
 
     await prisma.conversation.update({
       where: { id: keepId },
@@ -95,16 +98,27 @@ async function findAndMergeDuplicates(instanceId: string) {
       duplicatesFound++;
       console.log(`\n⚠️  Duplicata encontrada: ${number}`);
       
+      if (convs.length === 0) {
+        console.log(`   ⚠️  Nenhuma conversa encontrada para ${number}`);
+        continue;
+      }
+
       convs.forEach((c, i) => {
         console.log(`   ${i + 1}. ${c.remoteJid} (ID: ${c.id.slice(0, 8)}...) - ${c.createdAt.toISOString()}`);
       });
 
-      // Perguntar qual manter
-      console.log(`\n   → Mantendo a primeira (mais antiga): ${convs[0].remoteJid}`);
+      // Manter a primeira (mais antiga) e mesclar as outras nela
+      const firstConv = convs[0];
+      if (!firstConv) continue;
+      
+      console.log(`\n   → Mantendo a primeira (mais antiga): ${firstConv.remoteJid}`);
       
       // Mesclar todas as outras na primeira
       for (let i = 1; i < convs.length; i++) {
-        await mergeConversations(convs[0].id, convs[i].id);
+        const convToMerge = convs[i];
+        if (!convToMerge) continue;
+        
+        await mergeConversations(firstConv.id, convToMerge.id);
         mergedCount++;
       }
     }
@@ -131,8 +145,14 @@ async function main() {
     }
 
     // Usar a primeira instância (ou você pode escolher)
-    const instanceId = instances[0].id;
-    console.log(`\n🎯 Usando instância: ${instances[0].name}`);
+    const firstInstance = instances[0];
+    if (!firstInstance) {
+      console.log('❌ Erro: primeira instância é undefined');
+      return;
+    }
+    
+    const instanceId = firstInstance.id;
+    console.log(`\n🎯 Usando instância: ${firstInstance.name}`);
 
     await findAndMergeDuplicates(instanceId);
 

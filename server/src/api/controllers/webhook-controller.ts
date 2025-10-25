@@ -3,6 +3,9 @@ import { z } from 'zod';
 import { WebhookEvent } from '../../types';
 import { SocketService } from '../../services/socket-service';
 import { ConversationService } from '../../services/conversation-service';
+import { prisma } from '../../database/prisma';
+import * as fs from 'fs';
+import * as path from 'path';
 
 // Validation schema for webhook events (Evolution API format)
 const webhookEventSchema = z.object({
@@ -18,10 +21,46 @@ const webhookEventSchema = z.object({
 export class WebhookController {
   private socketService: SocketService;
   private conversationService: ConversationService;
+  private webhookLogPath: string;
 
   constructor() {
     this.socketService = SocketService.getInstance();
     this.conversationService = new ConversationService();
+    this.webhookLogPath = path.join(process.cwd(), 'webhook-logs.txt');
+
+    // Criar arquivo de log se não existir
+    if (!fs.existsSync(this.webhookLogPath)) {
+      fs.writeFileSync(this.webhookLogPath, '=== WEBHOOK LOGS - INÍCIO ===\n\n', 'utf8');
+    }
+  }
+
+  private logWebhook(webhookData: any, instanceId: string): void {
+    // Logging desabilitado temporariamente para análise
+    return;
+    
+    try {
+      const timestamp = new Date().toISOString();
+      const logEntry = `
+[${timestamp}] INSTANCE: ${instanceId}
+=== WEBHOOK DATA ===
+${JSON.stringify(webhookData, null, 2)}
+=== RAW BODY ===
+${JSON.stringify(webhookData, null, 2)}
+=== EXTRACTED INFO ===
+Event: ${webhookData.event || 'N/A'}
+RemoteJid: ${webhookData.data?.key?.remoteJid || webhookData.data?.remoteJid || 'N/A'}
+RemoteJidAlt: ${webhookData.data?.key?.remoteJidAlt || 'N/A'}
+PushName: ${webhookData.data?.pushName || 'N/A'}
+Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).substring(0, 200) + '...' : 'N/A'}
+=== END ENTRY ===
+
+`;
+
+      fs.appendFileSync(this.webhookLogPath, logEntry, 'utf8');
+      console.log(`📝 [WEBHOOK LOG] Saved webhook to ${this.webhookLogPath}`);
+    } catch (error) {
+      console.error('❌ [WEBHOOK LOG] Failed to save webhook:', error);
+    }
   }
 
   handleEvolutionWebhook = async (req: Request, res: Response): Promise<void> => {
@@ -45,8 +84,27 @@ export class WebhookController {
       }
 
       const webhookData = webhookEventSchema.parse(req.body);
+
+      // 📝 LOG TODOS OS WEBHOOKS RECEBIDOS
+      this.logWebhook(webhookData, instanceId);
       
       console.log(`🔔 Received Evolution webhook for instance ${instanceId}:`, webhookData);
+
+      // 🔍 Check if instance exists in database
+      const instance = await prisma.whatsAppInstance.findUnique({
+        where: { evolutionInstanceName: instanceId }
+      });
+
+      if (!instance) {
+        console.log(`⚠️ [WEBHOOK] Instance ${instanceId} not found in database - ignoring webhook`);
+        res.status(200).json({
+          success: true,
+          message: 'Webhook ignored - instance not found in database'
+        });
+        return;
+      }
+
+      console.log(`✅ [WEBHOOK] Instance found: ${instance.name} (ID: ${instance.id})`);
 
       // Process different types of webhook events
       if (webhookData.data && typeof webhookData.data === 'object') {
@@ -82,21 +140,25 @@ export class WebhookController {
           }
         }
         
-        // 📥 Process incoming messages (MESSAGES_UPSERT)
+        // 📥 Process incoming messages (MESSAGES_UPSERT) - ATOMIC VERSION
         if (webhookData.event === 'messages.upsert' && webhookData.data['key'] && webhookData.data['message']) {
-          console.log(`💬 [MESSAGES_UPSERT] Processing message for instance ${instanceId}`);
-          await this.conversationService.handleIncomingMessage(instanceId, webhookData.data);
+          console.log(`💬 [MESSAGES_UPSERT] Processing message for instance ${instanceId} (ATOMIC)`);
+          await this.conversationService.handleIncomingMessageAtomic(instanceId, webhookData.data);
         }
         
         // 👤 Process contact updates (CONTACTS_UPDATE) - FOTO E NOME AUTOMÁTICOS!
         if (webhookData.event === 'contacts.update') {
+          console.log(`👤 [CONTACTS_UPDATE] Processing contacts update for instance ${instanceId}`);
           // Pode vir como array ou objeto
           const contacts = Array.isArray(webhookData.data) ? webhookData.data : [webhookData.data];
+          console.log(`👤 [CONTACTS_UPDATE] Found ${contacts.length} contact(s) to update`);
           
           for (const contactData of contacts) {
             const remoteJid = contactData.remoteJid;
             const profilePicUrl = contactData.profilePicUrl;
             const pushName = contactData.pushName;
+            
+            console.log(`👤 [CONTACTS_UPDATE] Processing contact: remoteJid=${remoteJid}, pushName=${pushName}, hasPic=${!!profilePicUrl}`);
             
             if (remoteJid && (profilePicUrl || pushName)) {
               console.log(`👤 [CONTACTS_UPDATE] ${pushName || remoteJid}: foto=${!!profilePicUrl}, nome=${!!pushName}`);
@@ -104,6 +166,8 @@ export class WebhookController {
                 contactName: pushName,
                 contactPicture: profilePicUrl
               });
+            } else {
+              console.log(`👤 [CONTACTS_UPDATE] Skipping contact ${remoteJid} - no updates needed`);
             }
           }
         }
@@ -143,17 +207,89 @@ export class WebhookController {
           }
         }
         
-        // 🔗 Process connection updates (CONNECTION_UPDATE)
+        // 🔗 Process connection updates (CONNECTION_UPDATE) - CRÍTICO!
         if (webhookData.event === 'connection.update') {
-          const state = webhookData.data['state'];
-          console.log(`🔗 [CONNECTION_UPDATE] Instance ${instanceId}: ${state}`);
-          // TODO: Update instance status in database
+          const state = webhookData.data['state']; // open, close, connecting
+          const statusCode = webhookData.data['statusCode'];
+          console.log(`🔗 [CONNECTION_UPDATE] Instance ${instanceId}: state=${state}, code=${statusCode}`);
+          
+          // Mapear state para InstanceStatus
+          let instanceStatus: string;
+          if (state === 'open') {
+            instanceStatus = 'CONNECTED';
+          } else if (state === 'connecting') {
+            instanceStatus = 'CONNECTING';
+          } else if (state === 'close') {
+            instanceStatus = 'DISCONNECTED';
+          } else {
+            instanceStatus = 'DISCONNECTED'; // fallback
+          }
+          
+          // Atualizar instância no banco
+          try {
+            const instance = await prisma.whatsAppInstance.findUnique({
+              where: { evolutionInstanceName: instanceId }
+            });
+            
+            if (instance) {
+              await prisma.whatsAppInstance.update({
+                where: { id: instance.id },
+                data: {
+                  status: instanceStatus,
+                  connected: instanceStatus === 'CONNECTED',
+                  updatedAt: new Date()
+                }
+              });
+              
+              // Emitir para frontend
+              this.socketService.emitToInstance(instance.id, 'instance:status', {
+                status: instanceStatus,
+                state,
+                statusCode,
+                connected: instanceStatus === 'CONNECTED'
+              });
+              
+              console.log(`✅ [CONNECTION_UPDATE] Status atualizado: ${instanceStatus}`);
+            }
+          } catch (error) {
+            console.error(`❌ [CONNECTION_UPDATE] Erro ao atualizar:`, error);
+          }
         }
         
-        // 📱 Process QR code updates (QRCODE_UPDATED)
+        // 📱 Process QR code updates (QRCODE_UPDATED) - CRÍTICO para UX!
         if (webhookData.event === 'qrcode.updated') {
+          const qrCode = webhookData.data['qrcode']; // base64
           console.log(`📱 [QRCODE_UPDATED] New QR available for ${instanceId}`);
-          // TODO: Emit new QR via WebSocket
+          
+          if (qrCode) {
+            try {
+              const instance = await prisma.whatsAppInstance.findUnique({
+                where: { evolutionInstanceName: instanceId }
+              });
+              
+              if (instance) {
+                // Salvar QR no banco
+                await prisma.whatsAppInstance.update({
+                  where: { id: instance.id },
+                  data: {
+                    qrCode,
+                    lastSeen: new Date(),
+                    updatedAt: new Date()
+                  }
+                });
+                
+                // Emitir novo QR para frontend via WebSocket
+                this.socketService.emitToInstance(instance.id, 'qrcode:updated', {
+                  qrCode,
+                  timestamp: new Date().toISOString()
+                });
+                
+                console.log(`✅ [QRCODE_UPDATED] QR Code atualizado e emitido para frontend`);
+              }
+            } catch (error) {
+              console.error(`❌ [QRCODE_UPDATED] Erro ao atualizar QR:`, error);
+            }
+          }
         }
         
         // Handle other webhook events (status changes, etc.)

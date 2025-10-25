@@ -1,17 +1,50 @@
-// index.js - Webhook receiver para EasyPanel
-// 
-// 🎯 COMPATÍVEL COM EVOLUTION API v2.3.5+
-// 
-// Melhorias da v2.3.5/v2.3.6:
-// ✅ @lid automaticamente convertido para número real (não precisa mais resolver manualmente)
-// ✅ messageId incluído em messages.update para atualizar status no banco
-// ✅ Cache de @lid/PN/g.us corrigido
-// ✅ Status detalhados: READ, PLAYED, DELIVERED
-// 
-// Se você ver @lid nos logs, significa que a Evolution API não está na v2.3.5+
-//
+// Imports necessários
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
+
+// Função para normalizar números brasileiros
+function normalizeBrazilianNumber(remoteJid) {
+  if (!remoteJid.includes('@s.whatsapp.net')) {
+    return remoteJid; // Não é um número individual
+  }
+  
+  const number = remoteJid.replace('@s.whatsapp.net', '');
+  
+  // Se for brasileiro, garantir que tenha o formato correto com 9º dígito
+  if (number.startsWith('55')) {
+    // Verificar se é um número brasileiro válido
+    const withoutCountry = number.substring(2); // Remove "55"
+    
+    if (withoutCountry.length === 10) {
+      // 10 dígitos (DDD + 8 dígitos do telefone) - adicionar 9º dígito
+      const ddd = withoutCountry.substring(0, 2);
+      const phone = withoutCountry.substring(2);
+      const normalized = `55${ddd}9${phone}@s.whatsapp.net`;
+      console.log(`🇧🇷 Normalizando brasileiro (10→11 dígitos): ${remoteJid} → ${normalized}`);
+      return normalized;
+    } else if (withoutCountry.length === 9) {
+      // 9 dígitos (DDD + 7 dígitos do telefone) - adicionar 9º dígito
+      const ddd = withoutCountry.substring(0, 2);
+      const phone = withoutCountry.substring(2);
+      const normalized = `55${ddd}9${phone}@s.whatsapp.net`;
+      console.log(`🇧🇷 Normalizando brasileiro (9→11 dígitos): ${remoteJid} → ${normalized}`);
+      return normalized;
+    } else if (withoutCountry.length === 11) {
+      // Já tem 11 dígitos (DDD + 9 + 8 dígitos) - formato correto
+      return remoteJid;
+    } else if (withoutCountry.length === 8) {
+      // 8 dígitos (telefone antigo sem DDD) - adicionar DDD 11 + 9º dígito
+      const normalized = `55119${number.substring(2)}@s.whatsapp.net`;
+      console.log(`🇧🇷 Normalizando brasileiro (8→11 dígitos): ${remoteJid} → ${normalized}`);
+      return normalized;
+    }
+  }
+  
+  return remoteJid; // Já está no formato correto ou não é brasileiro
+}
+
+// Carregar variáveis de ambiente
+require('dotenv').config();
 
 const PORT = process.env.PORT || 3002;
 
@@ -19,7 +52,7 @@ const app = express();
 const prisma = new PrismaClient({
   datasources: {
     db: {
-      url: "postgres://postgres:78ffa3b05805066f6719@143.198.230.247:5432/halder?sslmode=disable"
+      url: process.env.DATABASE_URL || "postgres://postgres:78ffa3b05805066f6719@banco_halder-db:5432/halder?sslmode=disable"
     }
   }
 });
@@ -151,9 +184,14 @@ app.post('/api/webhooks/evolution/:instanceId', async (req, res) => {
         .replace('@c.us', '');
       
       // Re-adicionar sufixo correto
-      const formattedJid = isGroup
+      let formattedJid = isGroup
         ? `${normalizedJid}@g.us` 
         : `${normalizedJid}@s.whatsapp.net`;
+      
+      // Aplicar normalização brasileira se for número individual
+      if (!isGroup) {
+        formattedJid = normalizeBrazilianNumber(formattedJid);
+      }
       
       console.log(`🔄 [${instanceId}] Normalização: ${remoteJid} → ${formattedJid}`);
       

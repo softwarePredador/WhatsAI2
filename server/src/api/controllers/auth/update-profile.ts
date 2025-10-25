@@ -62,7 +62,7 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response) =>
     console.log(`Profile updated successfully for user: ${email}`);
 
     // Return success response with updated user data
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: 'Perfil atualizado com sucesso',
       data: {
@@ -96,7 +96,7 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response) =>
     }
 
     // Handle other errors
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Erro interno do servidor'
     });

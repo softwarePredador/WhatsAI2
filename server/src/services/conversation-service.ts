@@ -123,6 +123,92 @@ export class ConversationService {
   }
 
   /**
+   * UNIFIED METHOD: Normalize WhatsApp number applying all rules in correct order
+   * Returns always format: number@s.whatsapp.net or number@g.us
+   *
+   * Order of operations:
+   * 1. Use remoteJidAlt if it's a real number (not @lid)
+   * 2. Resolve @lid if possible (cache or remoteJidAlt)
+   * 3. Clean suffixes and device IDs
+   * 4. Brazilian number normalization (+9)
+   * 5. Format with correct suffix
+   */
+  private normalizeWhatsAppNumber(
+    remoteJid: string,
+    remoteJidAlt?: string | null,
+    isGroup: boolean = false
+  ): string {
+
+    // 1. PRIORITY: Use remoteJidAlt if it's a real number (not @lid)
+    let number = remoteJid;
+    if (remoteJidAlt && !remoteJidAlt.includes('@lid')) {
+      console.log(`🔄 [normalizeWhatsAppNumber] Using remoteJidAlt: ${remoteJid} → ${remoteJidAlt}`);
+      number = remoteJidAlt;
+    }
+
+    // 2. Resolve @lid if possible (cache or remoteJidAlt)
+    if (number.includes('@lid')) {
+      if (remoteJidAlt && remoteJidAlt.includes('@s.whatsapp.net')) {
+        console.log(`🔄 [normalizeWhatsAppNumber] Resolving @lid via remoteJidAlt: ${number} → ${remoteJidAlt}`);
+        number = remoteJidAlt;
+      } else {
+        const cached = this.lidToRealNumberCache.get(number);
+        if (cached) {
+          console.log(`🔄 [normalizeWhatsAppNumber] Resolving @lid via cache: ${number} → ${cached}`);
+          number = cached;
+        } else {
+          console.warn(`⚠️ [normalizeWhatsAppNumber] Could not resolve @lid: ${number} - removing @lid and assuming direct number`);
+          // Fallback: remove @lid and assume it's a direct number
+          number = number.replace('@lid', '');
+        }
+      }
+    }
+
+    // 3. Clean suffixes and device IDs
+    let cleanNumber = number
+      .replace(/:\d+@/, '@')  // Remove device ID (e.g., :98@)
+      .replace('@s.whatsapp.net', '')
+      .replace('@g.us', '')
+      .replace('@c.us', '')
+      .replace('@lid', '');
+
+    // 4. Brazilian number normalization - COMPREHENSIVE normalization to avoid duplicates
+    if (cleanNumber.startsWith('55') && !isGroup) {
+      const withoutCountry = cleanNumber.substring(2); // Remove "55"
+
+      if (withoutCountry.length === 8) {
+        // Old Brazilian format (8 digits) - assume DDD 11 + add 9th digit
+        const phone = withoutCountry;
+        cleanNumber = `55119${phone}`;
+        console.log(`🇧🇷 [normalizeWhatsAppNumber] Brazilian 8→11 digits: ${number} → ${cleanNumber}`);
+      } else if (withoutCountry.length === 9) {
+        // 9 digits (DDD + 8 digits phone) - add 9th digit after DDD
+        const ddd = withoutCountry.substring(0, 2);
+        const phone = withoutCountry.substring(2);
+        cleanNumber = `55${ddd}9${phone}`;
+        console.log(`🇧🇷 [normalizeWhatsAppNumber] Brazilian 9→11 digits: ${number} → ${cleanNumber}`);
+      } else if (withoutCountry.length === 10) {
+        // 10 digits (DDD + 9 digits) - check if phone part has 8 digits (missing 9th)
+        const ddd = withoutCountry.substring(0, 2);
+        const phone = withoutCountry.substring(2);
+        if (phone.length === 8) {
+          // Missing 9th digit
+          cleanNumber = `55${ddd}9${phone}`;
+          console.log(`🇧🇷 [normalizeWhatsAppNumber] Brazilian 10→11 digits: ${number} → ${cleanNumber}`);
+        }
+        // If phone.length === 9, already has 9th digit, keep as is
+      }
+      // If already 11 digits, keep as is (modern format with 9th digit)
+    }
+
+    // 5. Format with correct suffix
+    const result = isGroup ? `${cleanNumber}@g.us` : `${cleanNumber}@s.whatsapp.net`;
+
+    console.log(`📞 [normalizeWhatsAppNumber] Final: ${remoteJid} → ${result}`);
+    return result;
+  }
+
+  /**
    * Format number with @s.whatsapp.net suffix for Evolution API
    * NEVER use @lid - always convert to @s.whatsapp.net
    */
@@ -331,12 +417,12 @@ export class ConversationService {
    */
   async updateContactFromWebhook(instanceId: string, remoteJid: string, data: { contactName?: string; contactPicture?: string }): Promise<void> {
     try {
-      const normalizedJid = this.normalizeRemoteJid(remoteJid);
-      const formattedJid = this.formatRemoteJid(normalizedJid);
+      // Use unified normalization
+      const normalizedJid = this.normalizeWhatsAppNumber(remoteJid, null, false);
       
       // Find conversation by remoteJid
       const conversations = await this.conversationRepository.findByInstanceId(instanceId);
-      const conversation = conversations.find(c => c.remoteJid === formattedJid);
+      const conversation = conversations.find(c => c.remoteJid === normalizedJid);
       
       if (conversation) {
         const updateData: any = {};
@@ -407,45 +493,14 @@ export class ConversationService {
       
       let remoteJid = messageData.key.remoteJid;
       
-      // � PRIORIDADE: Se tiver remoteJidAlt com número real, usar ele
-      if (messageData.key.remoteJidAlt && !messageData.key.remoteJidAlt.includes('@lid')) {
-        // remoteJidAlt é um número real, usar ele ao invés do @lid
-        console.log(`🔄 [handleIncomingMessage] Usando remoteJidAlt: ${remoteJid} → ${messageData.key.remoteJidAlt}`);
-        remoteJid = messageData.key.remoteJidAlt;
-        
-        // Adicionar @s.whatsapp.net se não tiver domínio
-        if (!remoteJid.includes('@')) {
-          remoteJid = `${remoteJid}@s.whatsapp.net`;
-        }
-      } else if (messageData.key.remoteJidAlt && messageData.key.remoteJidAlt.includes('@lid')) {
-        // Salvar mapeamento @lid → número real para uso futuro
-        if (remoteJid.includes('@s.whatsapp.net')) {
-          this.lidToRealNumberCache.set(messageData.key.remoteJidAlt, remoteJid);
-          console.log(`✅ [handleIncomingMessage] Mapeado @lid: ${messageData.key.remoteJidAlt} → ${remoteJid}`);
-        }
-      }
+      // 🔄 UNIFIED NORMALIZATION: Aplicar todas as regras em ordem correta
+      const normalizedRemoteJid = this.normalizeWhatsAppNumber(
+        remoteJid,
+        messageData.key.remoteJidAlt,
+        false // Not a group for incoming messages
+      );
       
-      // �🇧🇷 NORMALIZAR NÚMERO BRASILEIRO PRIMEIRO (antes de qualquer processamento)
-      if (remoteJid.includes('@s.whatsapp.net')) {
-        const cleanNumber = remoteJid.replace('@s.whatsapp.net', '');
-        if (cleanNumber.startsWith('55') && cleanNumber.length === 12) {
-          // Número brasileiro sem o 9 (formato antigo)
-          const ddd = cleanNumber.substring(2, 4);
-          const phoneNumber = cleanNumber.substring(4);
-          
-          if (phoneNumber.length === 8 && !phoneNumber.startsWith('9')) {
-            remoteJid = `55${ddd}9${phoneNumber}@s.whatsapp.net`;
-            console.log(`🇧🇷 [handleIncomingMessage] Número brasileiro corrigido: ${messageData.key.remoteJid} → ${remoteJid}`);
-          }
-        }
-      }
-      
-      // 🔄 Try to resolve @lid to real number (fallback se não tiver remoteJidAlt)
-      remoteJid = this.resolveLidToRealNumber(remoteJid);
-
-      
-      // Normalize remoteJid to avoid duplicate conversations
-      const normalizedRemoteJid = this.normalizeRemoteJid(remoteJid);
+      // Format for Evolution API (ensure @s.whatsapp.net)
       const formattedRemoteJid = this.formatRemoteJid(normalizedRemoteJid);
       
       console.log(`📨 [handleIncomingMessage] Normalized: ${messageData.key.remoteJid} → ${formattedRemoteJid}`);
@@ -585,11 +640,10 @@ export class ConversationService {
 
   async sendMessage(instanceId: string, remoteJid: string, content: string): Promise<Message> {
     try {
-      // Normalize remoteJid to avoid duplicate conversations
-      const normalizedRemoteJid = this.normalizeRemoteJid(remoteJid);
-      const formattedRemoteJid = this.formatRemoteJid(normalizedRemoteJid);
+      // Use unified normalization
+      const normalizedRemoteJid = this.normalizeWhatsAppNumber(remoteJid, null, false);
       
-      console.log(`📤 [sendMessage] Normalized: ${remoteJid} → ${formattedRemoteJid}`);
+      console.log(`📤 [sendMessage] Normalized: ${remoteJid} → ${normalizedRemoteJid}`);
       console.log(`🔍 [sendMessage] Procurando instância ${instanceId} para obter evolutionInstanceName`);
       
       // Get the instance to find the evolutionInstanceName
@@ -609,10 +663,10 @@ export class ConversationService {
       const [evolutionResponse, conversation] = await Promise.all([
         this.evolutionApiService.sendTextMessage(
           instance.evolutionInstanceName, 
-          formattedRemoteJid,
+          normalizedRemoteJid,
           content
         ),
-        this.createOrUpdateConversation(instanceId, formattedRemoteJid)
+        this.createOrUpdateConversation(instanceId, normalizedRemoteJid)
       ]);
 
       console.log(`✅ [sendMessage] Mensagem enviada via Evolution API:`, evolutionResponse);
@@ -620,7 +674,7 @@ export class ConversationService {
       // Save message to database
       const message = await this.messageRepository.create({
         instanceId,
-        remoteJid: formattedRemoteJid,
+        remoteJid: normalizedRemoteJid,
         fromMe: true,
         messageType: 'TEXT',
         content,
@@ -1054,14 +1108,13 @@ export class ConversationService {
     remoteJid?: string;
   }): Promise<void> {
     try {
-      console.log(' [handleMessageStatusUpdate] Updating message ' + data.messageId + ' to status: ' + data.status);
+      console.log('📬 [handleMessageStatusUpdate] Updating message ' + data.messageId + ' to status: ' + data.status);
       
-      const message = await prisma.message.findUnique({
-        where: { messageId: data.messageId }
-      });
+      // ✅ Usar repository em vez de Prisma direto
+      const message = await this.messageRepository.findByMessageId(data.messageId);
 
       if (!message) {
-        console.log(' Message ' + data.messageId + ' not found in database');
+        console.log('⚠️ Message ' + data.messageId + ' not found in database');
         return;
       }
 
@@ -1069,16 +1122,16 @@ export class ConversationService {
       const normalizedStatus = data.status.toUpperCase();
       
       if (!validStatuses.includes(normalizedStatus)) {
-        console.log(' Invalid status: ' + data.status);
+        console.log('⚠️ Invalid status: ' + data.status);
         return;
       }
 
-      await prisma.message.update({
-        where: { id: message.id },
-        data: { status: normalizedStatus }
+      // ✅ Usar repository para atualizar
+      await this.messageRepository.update(message.id, {
+        status: normalizedStatus
       });
 
-      console.log(' Message ' + data.messageId + ' status updated to: ' + normalizedStatus);
+      console.log('✅ Message ' + data.messageId + ' status updated to: ' + normalizedStatus);
 
       this.socketService.emitToInstance(instanceId, 'message:status', {
         messageId: message.id,
@@ -1088,7 +1141,374 @@ export class ConversationService {
       });
 
     } catch (error) {
-      console.error(' Error updating message status:', error);
+      console.error('❌ Error updating message status:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 🚨 ATOMIC VERSION: handleIncomingMessage with database transactions
+   * Ensures all database operations are atomic - either all succeed or all rollback
+   */
+  async handleIncomingMessageAtomic(instanceId: string, messageData: any): Promise<void> {
+    try {
+      console.log(`📨 [handleIncomingMessageAtomic] instanceId: ${instanceId}`);
+      console.log(`📨 [handleIncomingMessageAtomic] RAW messageData.key:`, JSON.stringify(messageData.key, null, 2));
+
+      // 🔍 Verificar se a instância existe
+      const instance = await prisma.whatsAppInstance.findUnique({
+        where: { evolutionInstanceName: instanceId }
+      });
+
+      if (!instance) {
+        console.error(`❌ [handleIncomingMessageAtomic] Instância ${instanceId} NÃO EXISTE!`);
+        return;
+      }
+
+      console.log(`✅ [handleIncomingMessageAtomic] Instância: ${instance.name} (DB ID: ${instance.id})`);
+
+      // 🔄 Unified normalization
+      const normalizedRemoteJid = this.normalizeWhatsAppNumber(
+        messageData.key.remoteJid,
+        messageData.key.remoteJidAlt,
+        false
+      );
+
+      const formattedRemoteJid = this.formatRemoteJid(normalizedRemoteJid);
+      console.log(`📨 [handleIncomingMessageAtomic] Normalized: ${messageData.key.remoteJid} → ${formattedRemoteJid}`);
+
+      // 🚨 ATOMIC TRANSACTION: All critical database operations in one transaction
+      const transactionResult = await prisma.$transaction(async (tx) => {
+        // Prepare conversation data
+        const conversationData: any = {
+          isGroup: messageData.key.remoteJid.includes('@g.us')
+        };
+
+        if (!messageData.key.fromMe && messageData.pushName) {
+          conversationData.contactName = messageData.pushName;
+          console.log(`👤 [handleIncomingMessageAtomic] contactName: ${messageData.pushName}`);
+        }
+
+        // 1. Create or update conversation within transaction
+        let conversation = await tx.conversation.findFirst({
+          where: {
+            instanceId: instance.id,
+            remoteJid: formattedRemoteJid
+          }
+        });
+
+        if (!conversation) {
+          conversation = await tx.conversation.create({
+            data: {
+              instanceId: instance.id,
+              remoteJid: formattedRemoteJid,
+              ...conversationData
+            }
+          });
+          console.log(`📁 [handleIncomingMessageAtomic] Conversation CREATED: ${conversation.id}`);
+        } else {
+          conversation = await tx.conversation.update({
+            where: { id: conversation.id },
+            data: conversationData
+          });
+          console.log(`📁 [handleIncomingMessageAtomic] Conversation UPDATED: ${conversation.id}`);
+        }
+
+        // Prepare message data
+        const messageCreateData = {
+          instanceId: instance.id,
+          remoteJid: formattedRemoteJid,
+          fromMe: messageData.key.fromMe || false,
+          messageType: this.getMessageType(messageData),
+          content: this.extractMessageContent(messageData),
+          messageId: messageData.key.id,
+          timestamp: new Date(messageData.messageTimestamp * 1000),
+          status: messageData.key.fromMe ? 'SENT' : 'DELIVERED',
+          mediaUrl: messageData.message?.imageMessage?.url || messageData.message?.videoMessage?.url || messageData.message?.audioMessage?.url,
+          fileName: messageData.message?.documentMessage?.fileName,
+          caption: messageData.message?.imageMessage?.caption || messageData.message?.videoMessage?.caption,
+          conversationId: conversation.id
+        };
+
+        // 2. Create message within transaction
+        let message;
+        try {
+          message = await tx.message.create({
+            data: messageCreateData
+          });
+          console.log(`💬 [handleIncomingMessageAtomic] Message CREATED: ${message.id}`);
+        } catch (error: any) {
+          if (error.code === 'P2002' && error.meta?.target?.includes('messageId')) {
+            console.log(`⚠️ Message ${messageData.key.id} already exists, getting existing...`);
+            message = await tx.message.findFirst({
+              where: { messageId: messageData.key.id }
+            });
+            if (!message) {
+              throw new Error(`Message ${messageData.key.id} exists but not found`);
+            }
+          } else {
+            throw error;
+          }
+        }
+
+        // Smart unread logic
+        const isConversationActive = this.socketService.isConversationActive(conversation.id);
+        const shouldMarkAsRead = messageData.key.fromMe || isConversationActive;
+
+        console.log(`📱 Smart read logic: fromMe=${messageData.key.fromMe}, active=${isConversationActive}, markRead=${shouldMarkAsRead}`);
+
+        // 3. Update conversation with lastMessage within transaction
+        const updatedConversation = await tx.conversation.update({
+          where: { id: conversation.id },
+          data: {
+            lastMessage: this.extractMessageContent(messageData),
+            lastMessageAt: new Date(messageData.messageTimestamp * 1000),
+            unreadCount: shouldMarkAsRead ? 0 : conversation.unreadCount + 1
+          }
+        });
+
+        return { conversation: updatedConversation, message };
+      });
+
+      // 📤 Post-transaction operations (non-critical, execute even if they fail)
+
+      // Auto-mark as read in Evolution API if conversation is active
+      if (this.socketService.isConversationActive(transactionResult.conversation.id) && !messageData.key.fromMe) {
+        console.log(`🤖 Auto-marking as read in Evolution API`);
+        try {
+          const evolutionApi = new EvolutionApiService();
+          if (instance.evolutionInstanceName) {
+            await evolutionApi.markMessageAsRead(instance.evolutionInstanceName, [{
+              remoteJid: formattedRemoteJid,
+              fromMe: messageData.key.fromMe || false,
+              id: messageData.key.id
+            }]);
+          }
+        } catch (error) {
+          console.error('❌ Error auto-marking as read:', error);
+          // Not critical - data is already saved consistently
+        }
+      }
+
+      // Emit real-time updates
+      this.socketService.emitToInstance(instance.id, 'message:received', {
+        conversationId: transactionResult.conversation.id,
+        message: {
+          id: transactionResult.message.id,
+          content: transactionResult.message.content,
+          fromMe: transactionResult.message.fromMe,
+          timestamp: transactionResult.message.timestamp,
+          messageType: transactionResult.message.messageType,
+          mediaUrl: transactionResult.message.mediaUrl,
+          fileName: transactionResult.message.fileName,
+          caption: transactionResult.message.caption
+        }
+      });
+
+      // Update conversation list
+      const updatedConversation = await this.conversationRepository.findByInstanceAndRemoteJid(instance.id, formattedRemoteJid);
+      if (updatedConversation) {
+        console.log(`📡 [handleIncomingMessageAtomic] Emitting conversation:updated`);
+        this.socketService.emitToInstance(instance.id, 'conversation:updated', updatedConversation);
+      }
+
+    } catch (error) {
+      console.error('❌ [handleIncomingMessageAtomic] Transaction failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 🚨 ATOMIC VERSION: sendMessage with database transactions
+   * Ensures message sending is atomic - either all database operations succeed or all rollback
+   */
+  async sendMessageAtomic(instanceId: string, remoteJid: string, content: string): Promise<Message> {
+    try {
+      // Use unified normalization
+      let normalizedRemoteJid = this.normalizeWhatsAppNumber(remoteJid, null, false);
+      console.log(`📤 [sendMessageAtomic] Normalized: ${remoteJid} → ${normalizedRemoteJid}`);
+
+      // Get instance
+      const instance = await prisma.whatsAppInstance.findUnique({
+        where: { id: instanceId },
+        select: { id: true, evolutionInstanceName: true }
+      });
+
+      if (!instance) {
+        throw new Error(`Instance not found: ${instanceId}`);
+      }
+
+      console.log(`✅ [sendMessageAtomic] Instance: ${instance.evolutionInstanceName}`);
+
+      // 🚨 Send to Evolution API FIRST (before transaction)
+      // If this fails, we don't want to save anything to database
+      const evolutionResponse = await this.evolutionApiService.sendTextMessage(
+        instance.evolutionInstanceName,
+        normalizedRemoteJid,
+        content
+      );
+
+      console.log(`✅ [sendMessageAtomic] Sent to Evolution API:`, evolutionResponse);
+
+      // 🚨 ATOMIC TRANSACTION: All database operations in one transaction
+      const transactionResult = await prisma.$transaction(async (tx) => {
+        // 1. Create or update conversation within transaction
+        // PROACTIVE DUPLICATE DETECTION: Always check for existing conversations with either Brazilian format
+        let conversation = null;
+        // normalizedRemoteJid is already defined above, we'll update it if we find an existing format
+
+        if (normalizedRemoteJid.includes('@s.whatsapp.net')) {
+          const numberPart = normalizedRemoteJid.replace('@s.whatsapp.net', '');
+
+          if (numberPart.startsWith('55')) {
+            // For Brazilian numbers, check BOTH formats proactively
+            const formatsToCheck = [];
+
+            if (numberPart.length === 12) {
+              // Current format has 9th digit, check both with and without
+              formatsToCheck.push(normalizedRemoteJid); // With 9th digit
+              const without9th = numberPart.substring(0, 4) + numberPart.substring(5);
+              formatsToCheck.push(`${without9th}@s.whatsapp.net`); // Without 9th digit
+            } else if (numberPart.length === 11) {
+              // Current format doesn't have 9th digit, check both with and without
+              formatsToCheck.push(normalizedRemoteJid); // Without 9th digit
+              const ddd = numberPart.substring(2, 4);
+              const phone = numberPart.substring(4);
+              const with9th = `55${ddd}9${phone}`;
+              formatsToCheck.push(`${with9th}@s.whatsapp.net`); // With 9th digit
+            } else {
+              // Not a standard Brazilian format, just check the normalized one
+              formatsToCheck.push(normalizedRemoteJid);
+            }
+
+            // Check all possible formats for existing conversations
+            for (const format of formatsToCheck) {
+              conversation = await tx.conversation.findFirst({
+                where: {
+                  instanceId: instance.id,
+                  remoteJid: format
+                }
+              });
+
+              if (conversation) {
+                console.log(`🔄 [sendMessageAtomic] Found existing conversation with format: ${format}`);
+                normalizedRemoteJid = format; // Use the existing format
+                break;
+              }
+            }
+          } else {
+            // Not Brazilian, just check the normalized format
+            conversation = await tx.conversation.findFirst({
+              where: {
+                instanceId: instance.id,
+                remoteJid: normalizedRemoteJid
+              }
+            });
+          }
+        } else {
+          // Not a WhatsApp individual number, just check normally
+          conversation = await tx.conversation.findFirst({
+            where: {
+              instanceId: instance.id,
+              remoteJid: normalizedRemoteJid
+            }
+          });
+        }
+
+        if (!conversation) {
+          conversation = await tx.conversation.create({
+            data: {
+              instanceId: instance.id,
+              remoteJid: normalizedRemoteJid,
+              isGroup: false,
+              unreadCount: 0,
+              isArchived: false,
+              isPinned: false
+            }
+          });
+          console.log(`📁 [sendMessageAtomic] Conversation CREATED: ${conversation.id}`);
+        }
+
+        // 2. Create message within transaction
+        // Generate unique messageId to avoid duplicates
+        let messageId = evolutionResponse.key?.id || `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        // Check if messageId already exists and generate a new one if needed
+        let existingMessage = await tx.message.findUnique({
+          where: { messageId }
+        });
+        
+        let attempts = 0;
+        while (existingMessage && attempts < 10) {
+          messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${attempts}`;
+          existingMessage = await tx.message.findUnique({
+            where: { messageId }
+          });
+          attempts++;
+        }
+        
+        if (existingMessage) {
+          throw new Error(`Unable to generate unique messageId after ${attempts} attempts`);
+        }
+
+        const message = await tx.message.create({
+          data: {
+            instanceId: instance.id,
+            remoteJid: normalizedRemoteJid,
+            fromMe: true,
+            messageType: 'TEXT',
+            content,
+            messageId: messageId,
+            timestamp: new Date(),
+            status: 'SENT',
+            conversationId: conversation.id
+          }
+        });
+
+        console.log(`💬 [sendMessageAtomic] Message CREATED: ${message.id}`);
+
+        // 3. Update conversation within transaction
+        const updatedConversation = await tx.conversation.update({
+          where: { id: conversation.id },
+          data: {
+            lastMessage: content,
+            lastMessageAt: new Date()
+          }
+        });
+
+        return { conversation: updatedConversation, message };
+      });
+
+      // 📤 Post-transaction operations (emit events)
+      this.socketService.emitToInstance(instanceId, 'message:sent', {
+        conversationId: transactionResult.conversation.id,
+        message: {
+          id: transactionResult.message.id,
+          content: transactionResult.message.content,
+          fromMe: transactionResult.message.fromMe,
+          timestamp: transactionResult.message.timestamp,
+          messageType: transactionResult.message.messageType
+        }
+      });
+
+      // Emit conversation update with fresh data
+      const freshConversation = await this.conversationRepository.findById(transactionResult.conversation.id);
+      if (freshConversation) {
+        this.socketService.emitToInstance(instanceId, 'conversation:updated', {
+          ...freshConversation,
+          lastMessagePreview: {
+            content: content,
+            fromMe: true,
+            timestamp: new Date(),
+            messageType: 'TEXT'
+          }
+        });
+      }
+
+      return transactionResult.message;
+
+    } catch (error) {
+      console.error('❌ [sendMessageAtomic] Transaction failed:', error);
       throw error;
     }
   }

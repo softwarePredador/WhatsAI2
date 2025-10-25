@@ -12,9 +12,10 @@ type Message = {
   caption?: string | null;
   messageId: string;
   timestamp: Date;
+  status?: string | null;
   createdAt: Date;
   updatedAt: Date;
-  conversationId?: string | null;
+  conversationId: string | null; // Temporário: Prisma ainda retorna nullable
 };
 
 export interface CreateMessageData {
@@ -37,6 +38,7 @@ export interface UpdateMessageData {
   mediaUrl?: string;
   fileName?: string;
   caption?: string;
+  status?: string; // ✅ ADICIONADO: Permite atualizar status
 }
 
 export class MessageRepository {

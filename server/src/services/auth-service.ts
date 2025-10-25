@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import jwt, { SignOptions } from 'jsonwebtoken';
 import { prisma } from '@/database/prisma';
 
 interface RegisterData {
@@ -21,11 +21,11 @@ interface TokenPayload {
 
 export class AuthService {
   private readonly JWT_SECRET: string;
-  private readonly JWT_EXPIRES_IN: string;
+  private readonly JWT_EXPIRES_IN: string | number;
 
   constructor() {
-    this.JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-key-change-in-production';
-    this.JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
+    this.JWT_SECRET = process.env['JWT_SECRET'] || 'your-super-secret-key-change-in-production';
+    this.JWT_EXPIRES_IN = process.env['JWT_EXPIRES_IN'] || '7d';
   }
 
   /**
@@ -158,9 +158,10 @@ export class AuthService {
    * Generate JWT token
    */
   private generateToken(payload: TokenPayload): string {
-    return jwt.sign(payload, this.JWT_SECRET, {
-      expiresIn: this.JWT_EXPIRES_IN
-    });
+    const options: SignOptions = {
+      expiresIn: this.JWT_EXPIRES_IN as any
+    };
+    return jwt.sign(payload, this.JWT_SECRET, options);
   }
 
   /**

@@ -1,6 +1,22 @@
-// webhook-receiver.js - Para rodar no Digital Ocean
-const express = require('express');
-const { PrismaClient } = require('@prisma/client');
+// Função para normalizar números brasileiros
+function normalizeBrazilianNumber(remoteJid) {
+  if (!remoteJid.includes('@s.whatsapp.net')) {
+    return remoteJid; // Não é um número individual
+  }
+  
+  const number = remoteJid.replace('@s.whatsapp.net', '');
+  
+  // Se for brasileiro e tiver 11 dígitos (sem 9º dígito), adicionar o 9º dígito
+  if (number.startsWith('55') && number.length === 11) {
+    const ddd = number.substring(2, 4);
+    const phone = number.substring(4);
+    const normalized = `55${ddd}9${phone}@s.whatsapp.net`;
+    console.log(`🇧🇷 Normalizando brasileiro: ${remoteJid} → ${normalized}`);
+    return normalized;
+  }
+  
+  return remoteJid; // Já está no formato correto ou não é brasileiro
+}
 
 const app = express();
 const prisma = new PrismaClient({
@@ -26,7 +42,8 @@ app.post('/api/webhooks/evolution/:instanceId', async (req, res) => {
       const messageData = webhookData.data;
       
       // Extrair dados da mensagem
-      const remoteJid = messageData.key.remoteJid;
+      const rawRemoteJid = messageData.key.remoteJid;
+      const remoteJid = normalizeBrazilianNumber(rawRemoteJid);
       const messageId = messageData.key.id;
       const fromMe = messageData.key.fromMe;
       const messageContent = messageData.message.conversation || 

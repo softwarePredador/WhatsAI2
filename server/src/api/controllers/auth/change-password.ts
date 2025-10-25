@@ -77,7 +77,7 @@ export const changePassword = async (req: AuthenticatedRequest, res: Response) =
     console.log(`Password changed successfully for user: ${user.email}`);
 
     // Return success response
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: 'Senha alterada com sucesso'
     });
@@ -98,7 +98,7 @@ export const changePassword = async (req: AuthenticatedRequest, res: Response) =
     }
 
     // Handle other errors
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Erro interno do servidor'
     });

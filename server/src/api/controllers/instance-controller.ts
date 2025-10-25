@@ -275,6 +275,19 @@ export class WhatsAppInstanceController {
         return;
       }
 
+      // Validate that instance exists
+      const instances = await this.instanceService.getAllInstances();
+      const instance = instances.find(inst => inst.id === instanceId);
+      
+      if (!instance) {
+        console.error(`❌ [sendMessage] Instance ${instanceId} not found in database`);
+        res.status(404).json({
+          success: false,
+          error: 'Instance not found'
+        });
+        return;
+      }
+
       const validatedData = sendMessageSchema.parse(req.body);
       
       const result = await this.instanceService.sendMessage(

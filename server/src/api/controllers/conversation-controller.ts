@@ -169,7 +169,7 @@ export class ConversationController {
             content 
           });
 
-          const message = await this.conversationService.sendMessage(
+          const message = await this.conversationService.sendMessageAtomic(
             conversation.instanceId, 
             remoteJid, 
             content
@@ -206,7 +206,7 @@ export class ConversationController {
           const { remoteJid, content } = sendMessageSchema.parse(req.body);
           console.log('✅ [sendMessage] Dados validados:', { instanceId, remoteJid, content });
 
-          const message = await this.conversationService.sendMessage(instanceId, remoteJid, content);
+          const message = await this.conversationService.sendMessageAtomic(instanceId, remoteJid, content);
           console.log('✅ [sendMessage] Mensagem enviada com sucesso:', message.id);
 
           res.json({

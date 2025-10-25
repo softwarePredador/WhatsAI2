@@ -86,8 +86,8 @@ model Message {
 
   // Relations
   instance       WhatsAppInstance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
-  conversation   Conversation?    @relation(fields: [conversationId], references: [id])
-  conversationId String?
+  conversation   Conversation     @relation(fields: [conversationId], references: [id])
+  conversationId String
 
   // Performance indexes
   @@index([instanceId])

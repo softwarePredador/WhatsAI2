@@ -257,38 +257,56 @@ export class EvolutionApiService {
 
   async sendTextMessage(instanceName: string, number: string, text: string): Promise<any> {
     try {
-      // Garantir que o número esteja no formato correto do WhatsApp
-      const formattedNumber = number.includes('@') ? number : `${number}@s.whatsapp.net`;
-      
+      // Garantir que o número esteja no formato correto do WhatsApp (sem @s.whatsapp.net para Evolution API)
+      const cleanNumber = number.includes('@') ? number.replace('@s.whatsapp.net', '').replace('@g.us', '') : number;
+
+      console.log(`📤 [sendTextMessage] Sending message to ${cleanNumber} via instance ${instanceName}`);
+      console.log(`📤 [sendTextMessage] Original number: ${number}, Clean number: ${cleanNumber}`);
+
+      // TEMPORARIAMENTE DESABILITADO: Verificar se o número tem WhatsApp antes de enviar
+      console.log(`⚠️ [sendTextMessage] Skipping WhatsApp number validation (temporarily disabled)`);
+      /*
       // Verificar se o número tem WhatsApp antes de enviar
       console.log(`🔍 [sendTextMessage] Verificando se ${formattedNumber} tem WhatsApp...`);
-      
+
       const whatsappCheck = await this.checkIsWhatsApp(instanceName, [formattedNumber]);
-      
+
       // A resposta geralmente vem como array de objetos com exists: boolean
-      const numberInfo = whatsappCheck.find((info: any) => 
+      const numberInfo = whatsappCheck.find((info: any) =>
         info.jid === formattedNumber || info.number === formattedNumber
       );
-      
+
       if (!numberInfo || !numberInfo.exists) {
         console.log(`❌ [sendTextMessage] Número ${formattedNumber} não tem WhatsApp`);
         throw new Error(`O número ${number} não possui WhatsApp`);
       }
-      
+
       console.log(`✅ [sendTextMessage] Número ${formattedNumber} tem WhatsApp, enviando mensagem...`);
-      
+      */
+
       // Formato correto baseado na documentação Evolution API v2
       const payload = {
-        number: formattedNumber,
+        number: cleanNumber,
         text: text,
         delay: 1200,
         linkPreview: false
       };
-      
+
+      console.log(`📤 [sendTextMessage] Payload:`, JSON.stringify(payload, null, 2));
+      console.log(`📤 [sendTextMessage] URL: /message/sendText/${instanceName}`);
+
       const response = await this.client.post(`/message/sendText/${instanceName}`, payload);
+      console.log(`✅ [sendTextMessage] Success response:`, response.data);
       return response.data;
     } catch (error) {
-      console.error('Error sending text message:', error);
+      console.error('❌ [sendTextMessage] Error details:', error);
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as any;
+        if (axiosError.response) {
+          console.error('❌ [sendTextMessage] Response status:', axiosError.response.status);
+          console.error('❌ [sendTextMessage] Response data:', axiosError.response.data);
+        }
+      }
       throw error;
     }
   }

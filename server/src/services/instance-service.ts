@@ -376,15 +376,39 @@ export class WhatsAppInstanceService {
         throw new Error('Instance not found');
       }
 
-      if (instance.status !== InstanceStatus.CONNECTED) {
-        throw new Error('Instance is not connected');
+      // 🔄 Check real-time status with Evolution API before sending
+      console.log(`🔍 [sendMessage] Checking real-time status for instance ${instance.name}...`);
+      const currentApiStatus = await this.evolutionApi.getInstanceStatus(instance.evolutionInstanceName);
+      console.log(`🔍 [sendMessage] Instance ${instance.name}: Cached=${instance.status}, API=${currentApiStatus}`);
+
+      // Update cached status if different
+      if (instance.status !== currentApiStatus) {
+        console.log(`🔄 [sendMessage] Updating cached status for ${instance.name} from ${instance.status} to ${currentApiStatus}`);
+        instance.status = currentApiStatus;
+        instance.connected = currentApiStatus === InstanceStatus.CONNECTED;
+        instance.updatedAt = new Date();
+        this.instances.set(instanceId, instance);
+
+        // Update database
+        await this.repository.update(instanceId, {
+          status: currentApiStatus,
+          connected: currentApiStatus === InstanceStatus.CONNECTED,
+          updatedAt: new Date()
+        });
       }
+
+      if (currentApiStatus !== InstanceStatus.CONNECTED && currentApiStatus !== InstanceStatus.CONNECTING) {
+        console.error(`❌ [sendMessage] Instance ${instance.name} is not connected! Status: ${currentApiStatus}`);
+        throw new Error(`Instance is not connected (current status: ${currentApiStatus})`);
+      }
+
+      console.log(`✅ [sendMessage] Instance ${instance.name} is ${currentApiStatus}, proceeding with message send...`);
 
       // Format the remoteJid properly (WhatsApp format)
       const remoteJid = number.includes('@') ? number : `${number}@s.whatsapp.net`;
 
-      // Use conversationService.sendMessage instead to ensure message is saved
-      const result = await this.conversationService.sendMessage(
+      // Use conversationService.sendMessageAtomic for atomic operations
+      const result = await this.conversationService.sendMessageAtomic(
         instanceId,
         remoteJid,
         text
@@ -400,12 +424,12 @@ export class WhatsAppInstanceService {
       return result;
     } catch (error: any) {
       console.error('Error sending message:', error);
-      
+
       // Se for erro de WhatsApp não encontrado, propagar a mensagem específica
       if (error.message && error.message.includes('não possui WhatsApp')) {
         throw error; // Propagar o erro original com a mensagem específica
       }
-      
+
       throw new Error('Failed to send message');
     }
   }
