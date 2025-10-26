@@ -591,6 +591,80 @@ export class EvolutionApiService {
   }
 
   /**
+   * Find group information by JID
+   * @param instanceName - Nome da instância
+   * @param groupJid - JID do grupo (ex: 120363129197033819@g.us)
+   * @returns Informações detalhadas do grupo
+   */
+  async findGroupByJid(instanceName: string, groupJid: string): Promise<{
+    id: string;
+    subject: string;
+    subjectOwner: string;
+    subjectTime: number;
+    pictureUrl?: string;
+    size: number;
+    creation: number;
+    owner: string;
+    desc?: string;
+    descId?: string;
+    restrict: boolean;
+    announce: boolean;
+    participants?: Array<{
+      id: string;
+      admin: string;
+    }>;
+  } | null> {
+    try {
+      console.log(`👥 Finding group info for ${groupJid} on instance ${instanceName}`);
+
+      const response = await this.client.get(`/group/findGroupInfos/${instanceName}?groupJid=${encodeURIComponent(groupJid)}`);
+
+      console.log(`✅ Group info fetched successfully for ${groupJid}: ${response.data?.subject || 'No subject'}`);
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ Error finding group by JID:', error.response?.data || error.message);
+      return null;
+    }
+  }
+
+  /**
+   * Fetch all groups for an instance
+   * @param instanceName - Nome da instância
+   * @param getParticipants - Se deve incluir participantes
+   * @returns Array com informações de todos os grupos
+   */
+  async fetchAllGroups(instanceName: string, getParticipants: boolean = false): Promise<Array<{
+    id: string;
+    subject: string;
+    subjectOwner: string;
+    subjectTime: number;
+    pictureUrl?: string;
+    size: number;
+    creation: number;
+    owner: string;
+    desc?: string;
+    descId?: string;
+    restrict: boolean;
+    announce: boolean;
+    participants?: Array<{
+      id: string;
+      admin: string;
+    }>;
+  }>> {
+    try {
+      console.log(`👥 Fetching all groups for instance ${instanceName}`);
+
+      const response = await this.client.get(`/group/fetchAllGroups/${instanceName}?getParticipants=${getParticipants}`);
+
+      console.log(`✅ All groups fetched successfully: ${response.data?.length || 0} groups`);
+      return response.data || [];
+    } catch (error: any) {
+      console.error('❌ Error fetching all groups:', error.response?.data || error.message);
+      return [];
+    }
+  }
+
+  /**
    * Format phone number for display
    * Example: 5511999999999 -> +55 (11) 99999-9999
    */

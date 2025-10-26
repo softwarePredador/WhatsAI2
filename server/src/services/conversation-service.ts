@@ -443,26 +443,76 @@ export class ConversationService {
    * Avoids unnecessary API calls for profile pictures and names
    */
   async updateContactFromWebhook(instanceId: string, remoteJid: string, data: { contactName?: string; contactPicture?: string }): Promise<void> {
+    console.log(`🚨🚨🚨 [CONTACT_UPDATE] FUNÇÃO CHAMADA! instanceId=${instanceId}, remoteJid=${remoteJid}, data=`, data);
     try {
-      // Use unified normalization
+      console.log(`👤 [CONTACT_UPDATE] Starting update for ${remoteJid} with data:`, data);
+
+      // Estratégia 1: Tentar normalização padrão
       const normalizedJid = this.normalizeWhatsAppNumber(remoteJid, null, false);
+      console.log(`👤 [CONTACT_UPDATE] Normalized JID: ${normalizedJid}`);
 
-      // Find conversation by remoteJid
-      const conversations = await this.conversationRepository.findByInstanceId(instanceId);
-      let conversation = conversations.find(c => c.remoteJid === normalizedJid);
+      // Buscar todas as conversas da instância para matching (incluindo arquivadas)
+      const allConversations = await this.conversationRepository.findAllByInstanceId(instanceId);
+      console.log(`👤 [CONTACT_UPDATE] Found ${allConversations.length} conversations in database (including archived)`);
 
-      // If not found and remoteJid contains @lid, try to find by resolving @lid or by number pattern
+      let conversation = allConversations.find(c => c.remoteJid === normalizedJid);
+      console.log(`👤 [CONTACT_UPDATE] Direct match found:`, !!conversation);
+
+      // Estratégia 2: Se não encontrou e é @lid, tentar múltiplas abordagens
       if (!conversation && remoteJid.includes('@lid')) {
         const lidNumber = remoteJid.replace('@lid', '');
+        console.log(`👤 [CONTACT_UPDATE] Trying @lid resolution strategies for number: ${lidNumber}`);
 
-        // Try to find conversation by matching the number part
-        conversation = conversations.find(c => {
+        // Estratégia 2a: Procurar por conversas que contenham o número @lid
+        conversation = allConversations.find(c => {
           const convNumber = c.remoteJid.replace('@s.whatsapp.net', '').replace('@g.us', '');
           return convNumber === lidNumber || c.remoteJid.includes(lidNumber);
         });
 
         if (conversation) {
-          console.log(`🔄 [CONTACTS_UPDATE] Found conversation by @lid resolution: ${remoteJid} → ${conversation.remoteJid}`);
+          console.log(`🔄 [CONTACT_UPDATE] Found by @lid number matching: ${remoteJid} → ${conversation.remoteJid}`);
+        } else {
+          // Estratégia 2b: Tentar buscar no banco por padrões similares
+          console.log(`👤 [CONTACT_UPDATE] @lid number matching failed, trying pattern search...`);
+
+          // Procurar por conversas que terminem com o número (ignorando domínio)
+          conversation = allConversations.find(c => {
+            const convBase = c.remoteJid.split('@')[0];
+            return convBase === lidNumber;
+          });
+
+          if (conversation) {
+            console.log(`🔄 [CONTACT_UPDATE] Found by base number matching: ${remoteJid} → ${conversation.remoteJid}`);
+          } else {
+            // Estratégia 2c: Tentar consultar Evolution API para resolver @lid
+            console.log(`👤 [CONTACT_UPDATE] Local search failed, trying Evolution API resolution...`);
+            try {
+              // Aqui poderíamos adicionar uma chamada para a Evolution API
+              // para resolver o @lid para @s.whatsapp.net
+              // Por enquanto, vamos logar que não conseguimos resolver
+              console.log(`⚠️ [CONTACT_UPDATE] Could not resolve @lid ${remoteJid} - Evolution API resolution not implemented yet`);
+            } catch (apiError) {
+              console.log(`❌ [CONTACT_UPDATE] Evolution API resolution failed:`, apiError instanceof Error ? apiError.message : String(apiError));
+            }
+          }
+        }
+      }
+
+      // Estratégia 3: Se ainda não encontrou, tentar variações do número
+      if (!conversation && !remoteJid.includes('@g.us')) {
+        console.log(`👤 [CONTACT_UPDATE] Trying number variations...`);
+
+        const baseNumber = remoteJid.split('@')[0];
+        if (baseNumber) {
+          conversation = allConversations.find(c => {
+            const convBase = c.remoteJid.split('@')[0];
+            // Tentar sem o 55 do Brasil se existir
+            return convBase === baseNumber || convBase === baseNumber.replace(/^55/, '');
+          });
+
+          if (conversation) {
+            console.log(`🔄 [CONTACT_UPDATE] Found by number variation: ${remoteJid} → ${conversation.remoteJid}`);
+          }
         }
       }
 
@@ -472,21 +522,25 @@ export class ConversationService {
         if (data.contactPicture) updateData.contactPicture = data.contactPicture;
 
         if (Object.keys(updateData).length > 0) {
+          console.log(`📝 [CONTACT_UPDATE] Updating conversation ${conversation.id} with:`, updateData);
           await this.conversationRepository.update(conversation.id, updateData);
-        }
 
-        console.log(`✅ Updated contact from webhook: ${data.contactName || remoteJid}`);
+          // Notify frontend
+          const updated = await this.conversationRepository.findById(conversation.id);
+          if (updated) {
+            this.socketService.emitToInstance(instanceId, 'conversation:updated', updated);
+          }
 
-        // Notify frontend
-        const updated = await this.conversationRepository.findById(conversation.id);
-        if (updated) {
-          this.socketService.emitToInstance(instanceId, 'conversation:updated', updated);
+          console.log(`✅ [CONTACT_UPDATE] Successfully updated contact: ${data.contactName || remoteJid}`);
+        } else {
+          console.log(`⚠️ [CONTACT_UPDATE] No update data provided for ${remoteJid}`);
         }
       } else {
-        console.log(`⚠️ [CONTACTS_UPDATE] Conversation not found for remoteJid: ${remoteJid} (normalized: ${normalizedJid})`);
+        console.log(`❌ [CONTACT_UPDATE] Conversation not found for remoteJid: ${remoteJid} (normalized: ${normalizedJid})`);
+        console.log(`📊 [CONTACT_UPDATE] Available conversations sample:`, allConversations.slice(0, 3).map(c => c.remoteJid));
       }
     } catch (error) {
-      console.log(`⚠️ Failed to update contact from webhook:`, error);
+      console.log(`❌ [CONTACT_UPDATE] Failed to update contact from webhook:`, error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -658,7 +712,8 @@ export class ConversationService {
       });
 
       // Update conversation list in frontend (usar DB ID)
-      const updatedConversation = await this.conversationRepository.findByInstanceAndRemoteJid(instance.id, formattedRemoteJid);
+      const allConversations = await this.conversationRepository.findAllByInstanceId(instance.id);
+      const updatedConversation = allConversations.find(c => c.remoteJid === formattedRemoteJid);
       if (updatedConversation) {
         console.log(`📡 [handleIncomingMessage] Emitindo conversation:updated para instância ${instance.id}:`, {
           conversationId: updatedConversation.id,
@@ -1362,7 +1417,8 @@ export class ConversationService {
       });
 
       // Update conversation list
-      const updatedConversation = await this.conversationRepository.findByInstanceAndRemoteJid(instance.id, formattedRemoteJid);
+      const allConversations = await this.conversationRepository.findAllByInstanceId(instance.id);
+      const updatedConversation = allConversations.find(c => c.remoteJid === formattedRemoteJid);
       if (updatedConversation) {
         console.log(`📡 [handleIncomingMessageAtomic] Emitting conversation:updated`);
         this.socketService.emitToInstance(instance.id, 'conversation:updated', updatedConversation);

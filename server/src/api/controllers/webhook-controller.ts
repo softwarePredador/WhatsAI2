@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { WebhookEvent } from '../../types';
 import { SocketService } from '../../services/socket-service';
 import { ConversationService } from '../../services/conversation-service';
+import { EvolutionApiService } from '../../services/evolution-api';
 import { prisma } from '../../database/prisma';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -21,11 +22,13 @@ const webhookEventSchema = z.object({
 export class WebhookController {
   private socketService: SocketService;
   private conversationService: ConversationService;
+  private evolutionApiService: EvolutionApiService;
   private webhookLogPath: string;
 
   constructor() {
     this.socketService = SocketService.getInstance();
     this.conversationService = new ConversationService();
+    this.evolutionApiService = new EvolutionApiService();
     this.webhookLogPath = path.join(process.cwd(), 'webhook-logs.txt');
 
     // Criar arquivo de log se não existir
@@ -84,11 +87,9 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
 
       const webhookData = webhookEventSchema.parse(req.body);
 
-      // 📝 LOG TODOS OS WEBHOOKS RECEBIDOS
-      console.log(`📝 [WEBHOOK] Salvando log para webhook de ${instanceId}`);
-      this.logWebhook(webhookData, instanceId);
-      
-      console.log(`🔔 Received Evolution webhook for instance ${instanceId}:`, webhookData);
+      // 🔍 LOG DO EVENTO PARA DEBUG
+      console.log(`🔍 [WEBHOOK] Evento recebido: ${webhookData.event}`);
+      console.log(`🔍 [WEBHOOK] Dados do webhook:`, JSON.stringify(webhookData, null, 2));
 
       // 🔍 Check if instance exists in database
       const instance = await prisma.whatsAppInstance.findUnique({
@@ -105,6 +106,13 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
       }
 
       console.log(`✅ [WEBHOOK] Instance found: ${instance.name} (ID: ${instance.id})`);
+
+      // 🔍 LOG ANTES DA CONDIÇÃO PRINCIPAL
+      console.log(`🔍 [WEBHOOK] Verificando webhookData.data:`, {
+        hasData: !!webhookData.data,
+        dataType: typeof webhookData.data,
+        event: webhookData.event
+      });
 
       // Process different types of webhook events
       if (webhookData.data && typeof webhookData.data === 'object') {
@@ -145,6 +153,80 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
           console.log(`💬 [MESSAGES_UPSERT] Processing message for instance ${instanceId} (ATOMIC)`);
           console.log(`💬 [MESSAGES_UPSERT] Message data:`, JSON.stringify(webhookData.data, null, 2));
           await this.conversationService.handleIncomingMessageAtomic(instanceId, webhookData.data);
+
+          // 🎯 GROUP NAME AUTO-UPDATE: Se for mensagem de grupo, verificar se precisamos buscar nome
+          const remoteJid = webhookData.data['key']?.remoteJid;
+          if (remoteJid && remoteJid.endsWith('@g.us')) {
+            console.log(`👥 [GROUP_CHECK] Message from group ${remoteJid}, checking if name needs update...`);
+
+            try {
+              // Verificar se o grupo já tem nome no banco
+              const existingConversation = await prisma.conversation.findFirst({
+                where: {
+                  remoteJid: remoteJid,
+                  instance: {
+                    evolutionInstanceName: instanceId
+                  }
+                },
+                select: {
+                  id: true,
+                  contactName: true,
+                  isGroup: true
+                }
+              });
+
+              console.log(`👥 [GROUP_CHECK] Found conversation in DB:`, existingConversation);
+
+              // Se não tem nome ou nome é genérico (apenas números), buscar informações do grupo
+              const needsNameUpdate = !existingConversation?.contactName ||
+                existingConversation.contactName === remoteJid ||
+                /^\d+$/.test(existingConversation.contactName.replace('@g.us', ''));
+
+              console.log(`👥 [GROUP_CHECK] Needs name update: ${needsNameUpdate} (current: "${existingConversation?.contactName || 'none'}")`);
+
+              if (needsNameUpdate) {
+                console.log(`📝 [GROUP_UPDATE] Group ${remoteJid} needs name update. Current name: "${existingConversation?.contactName || 'none'}"`);
+
+                // Buscar informações do grupo na Evolution API
+                const groupInfo = await this.evolutionApiService.findGroupByJid(instanceId, remoteJid);
+                console.log(`📝 [GROUP_UPDATE] Group info from API:`, groupInfo);
+
+                if (groupInfo?.subject) {
+                  console.log(`✅ [GROUP_UPDATE] Found group name: "${groupInfo.subject}" for ${remoteJid}`);
+
+                  // Atualizar nome do grupo no banco
+                  const updateResult = await prisma.conversation.updateMany({
+                    where: {
+                      remoteJid: remoteJid,
+                      instance: {
+                        evolutionInstanceName: instanceId
+                      }
+                    },
+                    data: {
+                      contactName: groupInfo.subject,
+                      contactPicture: groupInfo.pictureUrl || null,
+                      isGroup: true
+                    }
+                  });
+
+                  console.log(`✅ [GROUP_UPDATE] Update result:`, updateResult);
+
+                  // Notificar frontend sobre a atualização
+                  this.socketService.emitToInstance(instanceId, 'conversation:updated', {
+                    conversationId: existingConversation?.id,
+                    contactName: groupInfo.subject,
+                    contactPicture: groupInfo.pictureUrl
+                  });
+                } else {
+                  console.log(`⚠️ [GROUP_UPDATE] Could not find group name for ${remoteJid}`);
+                }
+              } else {
+                console.log(`✅ [GROUP_CHECK] Group ${remoteJid} already has name: "${existingConversation.contactName}"`);
+              }
+            } catch (error) {
+              console.error(`❌ [GROUP_UPDATE] Error updating group name for ${remoteJid}:`, error);
+            }
+          }
         }
         
         // 📤 Process sent messages (SEND_MESSAGE) - MENSAGENS ENVIADAS PELO USUÁRIO!
@@ -171,6 +253,7 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
         }
         
         // 👤 Process contact updates (CONTACTS_UPDATE) - FOTO E NOME AUTOMÁTICOS!
+        console.log(`🔍 [WEBHOOK] Checking event: ${webhookData.event}`);
         if (webhookData.event === 'contacts.update') {
           console.log(`👤 [CONTACTS_UPDATE] Processing contacts update for instance ${instanceId}`);
           // Pode vir como array ou objeto

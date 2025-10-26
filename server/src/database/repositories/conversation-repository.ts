@@ -117,15 +117,18 @@ export class ConversationRepository {
     return result;
   }
 
-  async findByInstanceAndRemoteJid(instanceId: string, remoteJid: string): Promise<Conversation | null> {
-    return (this.prisma as any).conversation.findUnique({
+  async findAllByInstanceId(instanceId: string): Promise<Conversation[]> {
+    const result = await (this.prisma as any).conversation.findMany({
       where: {
-        instanceId_remoteJid: {
-          instanceId,
-          remoteJid
-        }
-      }
+        instanceId
+      },
+      orderBy: [
+        { isPinned: 'desc' },
+        { lastMessageAt: 'desc' }
+      ]
     });
+
+    return result;
   }
 
   async findByIdWithMessages(conversationId: string, limit: number = 50, offset: number = 0): Promise<ConversationWithMessages | null> {

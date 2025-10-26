@@ -1,0 +1,15 @@
+{
+  "event": "contacts.update",
+  "data": {
+    "remoteJid": "79512746377469@lid",
+    "pushName": "Flávia Araújo Teste",
+    "profilePicUrl": "https://example.com/photo.jpg",
+    "instanceId": "test-instance-id"
+  },
+  "sender": "554191188909@s.whatsapp.net",
+  "instance": "whatsai_cd62f330_1abb_47c8_a4c0_73d21b9a8fc6",
+  "destination": "http://localhost:3000/api/webhooks/evolution/whatsai_cd62f330_1abb_47c8_a4c0_73d21b9a8fc6",
+  "date_time": "2025-10-26T12:00:00.000Z",
+  "server_url": "https://test-server.com",
+  "apikey": "TEST-API-KEY"
+}
