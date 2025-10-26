@@ -1,28 +1,14 @@
-import { animate, motion, useMotionTemplate, useMotionValue } from "framer-motion";
+import { motion } from "framer-motion";
 import { ArrowRight, MessageSquare, Zap, Shield, Users } from "lucide-react";
-import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-const COLORS = [
-  "#2563eb", // azul profissional
-  "#6366f1", // roxo suave
-  "#64748b", // cinza azulado
-  "#0ea5e9"  // azul claro
-];
-
 function HomePage() {
-  const color = useMotionValue(COLORS[0]);
-  const backgroundImage = useMotionTemplate`radial-gradient(125% 125% at 50% 0%,
-      hsl(var(--b1)) 50%,${color})`;
   const navigate = useNavigate();
 
   return (
     <div className="homepage-wrapper min-h-screen bg-base-100">
       {/* Hero Section */}
       <motion.section
-        style={{
-          backgroundImage,
-        }}
         className="relative grid min-h-screen place-content-center overflow-hidden px-4 py-24"
       >
         <div className='relative z-10 flex flex-col items-center justify-center text-center max-w-4xl mx-auto'>
