@@ -209,6 +209,95 @@ export class WhatsAppInstanceService {
     return Array.from(this.instances.values());
   }
 
+  async getUserInstances(userId: string): Promise<WhatsAppInstance[]> {
+    // Get instances from database for this user
+    const dbInstances = await this.repository.findByUserId(userId);
+
+    // Update cache with user's instances
+    dbInstances.forEach(instance => {
+      this.instances.set(instance.id, instance);
+    });
+
+    // Filter instances for this user and sync status
+    const userInstances = dbInstances;
+
+    console.log(`🔄 [getUserInstances] Syncing status for ${userInstances.length} instances of user ${userId}...`);
+
+    await Promise.all(
+      userInstances.map(async (instance) => {
+        try {
+          const apiStatus = await this.evolutionApi.getInstanceStatus(instance.evolutionInstanceName);
+          console.log(`🔍 [getUserInstances] Instance ${instance.name}: Current=${instance.status}, API=${apiStatus}`);
+
+          // Se a instância não existe mais na Evolution API, deletar do banco
+          if (apiStatus === InstanceStatus.NOT_FOUND) {
+            console.log(`🗑️  [getUserInstances] Removendo instância ${instance.name} do banco (não existe mais na API)`);
+
+            // Remover do cache
+            this.instances.delete(instance.id);
+
+            // Remover do banco de dados
+            await this.repository.delete(instance.id);
+
+            // Emitir evento de remoção
+            this.socketService.emitToAll('instance_deleted', {
+              instanceId: instance.id,
+              name: instance.name,
+              reason: 'not_found_in_api'
+            });
+
+            return; // Não processar mais esta instância
+          }
+
+          // Always try to get QR code if status is connecting
+          if (apiStatus === InstanceStatus.CONNECTING) {
+            try {
+              const qrCodeString = await this.evolutionApi.getQRCode(instance.evolutionInstanceName);
+              if (qrCodeString) {
+                instance.qrCode = qrCodeString;
+                instance.lastSeen = new Date();
+                await this.repository.update(instance.id, { qrCode: qrCodeString, lastSeen: new Date() });
+              }
+            } catch (qrError) {
+              console.error(`⚠️ [getUserInstances] Could not get QR code for ${instance.name}:`, qrError);
+            }
+          }
+
+          // Update status if different
+          if (instance.status !== apiStatus) {
+            const wasConnected = instance.connected;
+            const isNowConnected = apiStatus === InstanceStatus.CONNECTED;
+
+            instance.status = apiStatus;
+            instance.connected = isNowConnected;
+
+            if (isNowConnected && !wasConnected) {
+              instance.connectedAt = new Date();
+            }
+
+            await this.repository.updateStatus(instance.id, apiStatus, isNowConnected);
+
+            console.log(`💾 [getUserInstances] Database updated for ${instance.name}`);
+
+            // Emit status change event
+            this.socketService.emitToAll('instance_status_changed', {
+              instanceId: instance.id,
+              name: instance.name,
+              status: apiStatus,
+              connected: isNowConnected,
+              qrCode: instance.qrCode
+            });
+          }
+        } catch (error) {
+          console.error(`❌ [getUserInstances] Error syncing status for ${instance.name}:`, error);
+        }
+      })
+    );
+
+    // Return only the user's instances that still exist
+    return userInstances.filter(instance => this.instances.has(instance.id));
+  }
+
   async getInstanceById(instanceId: string): Promise<WhatsAppInstance | null> {
     // Try to get from cache first
     let instance = this.instances.get(instanceId) || null;

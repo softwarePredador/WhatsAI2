@@ -9,8 +9,8 @@ class SocketService {
       return;
     }
 
-    // Backend WebSocket runs on port 3001, API proxy handles HTTP requests
-    const SERVER_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3001';
+    // Use relative URL so Vite proxy handles WebSocket connections
+    const SERVER_URL = import.meta.env.VITE_SOCKET_URL || '/';
     
     this.socket = io(SERVER_URL, {
       auth: {

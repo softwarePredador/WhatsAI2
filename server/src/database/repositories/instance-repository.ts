@@ -43,6 +43,15 @@ export class PrismaInstanceRepository {
     return instance ? this.mapToWhatsAppInstance(instance) : null;
   }
 
+  async findByUserId(userId: string): Promise<WhatsAppInstance[]> {
+    const instances = await prisma.whatsAppInstance.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return instances.map(this.mapToWhatsAppInstance);
+  }
+
   async findByEvolutionName(evolutionInstanceName: string): Promise<WhatsAppInstance | null> {
     const instance = await prisma.whatsAppInstance.findUnique({
       where: { evolutionInstanceName },

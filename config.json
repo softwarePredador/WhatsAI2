@@ -1,0 +1,25 @@
+{
+  "name": "WhatsAI Configuration",
+  "version": "1.0.0",
+  "ports": {
+    "frontend": 3000,
+    "backend": 3001,
+    "websocket": 3001
+  },
+  "urls": {
+    "frontend": "http://localhost:3000",
+    "backend": "http://localhost:3001",
+    "api": "http://localhost:3001/api",
+    "websocket": "ws://localhost:3001"
+  },
+  "services": {
+    "evolutionApi": {
+      "url": "https://hsapi.studio/",
+      "key": "Pz6qEerZE5IYwaoc8ZCQxmBdLAinX4dl"
+    }
+  },
+  "environment": {
+    "node_env": "development",
+    "cors_origins": ["http://localhost:3000", "http://127.0.0.1:3000"]
+  }
+}

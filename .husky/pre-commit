@@ -1,0 +1,4 @@
+# Run client tests before commit
+cd client && npm run test:run
+
+# Run linting (removed - no lint script in client)

@@ -73,14 +73,24 @@ export class WhatsAppInstanceController {
 
   listInstances = async (req: Request, res: Response): Promise<void> => {
     try {
-      const instances = await this.instanceService.getAllInstances();
-      
+      const userId = req.userId;
+
+      if (!userId) {
+        res.status(401).json({
+          success: false,
+          error: 'Unauthorized'
+        });
+        return;
+      }
+
+      const instances = await this.instanceService.getUserInstances(userId);
+
       res.json({
         success: true,
         data: instances
       });
     } catch (error) {
-      console.error('Error listing instances:', error);
+      console.error('Error listing user instances:', error);
       res.status(500).json({
         success: false,
         error: 'Failed to list instances'

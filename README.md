@@ -31,12 +31,12 @@ A powerful multi-instance WhatsApp manager built with TypeScript, Node.js, and E
 - 🔄 **Auto-refresh Settings**: Configurable refresh intervals
 - 👤 **Profile Management**: User profile customization
 
-### 🛠️ **Technical Features**
-- 🛡️ **TypeScript Safety**: Full TypeScript implementation with strict typing
-- 🧪 **Testing Ready**: Jest testing framework configured
-- 🐳 **Docker Support**: Full Docker configuration for easy deployment
-- 💾 **Prisma ORM**: Type-safe database access with SQLite/PostgreSQL support
-- 📝 **API Documentation**: Comprehensive API documentation
+### 🧪 **Testing & Quality Assurance**
+- 🧪 **Comprehensive Test Suite**: Automated tests for frontend configuration validation
+- 🔄 **CI/CD Pipeline**: GitHub Actions for automated testing and deployment
+- 🪝 **Pre-commit Hooks**: Husky pre-commit hooks to prevent configuration regressions
+- ✅ **Connectivity Testing**: Automated tests to prevent ERR_CONNECTION_REFUSED issues
+- � **Configuration Validation**: Tests ensure Vite proxy and WebSocket configurations remain correct
 
 ## 🏗️ Architecture
 
@@ -107,21 +107,71 @@ WhatsAI2/
 
 4. **Start Development Servers**
    ```bash
-   # Start backend (Terminal 1)
-   cd server
+   # 🚀 One command to rule them all
    npm run dev
-   
-   # Start frontend (Terminal 2) 
-   cd client
-   npm run dev
+
+   # This will:
+   # ✅ Kill any existing processes
+   # 🚀 Start backend server (Port 3001)
+   # 🎨 Start frontend (Port 3000)
+   # 🌐 Start ngrok tunnel for external access
+   # 📊 Show status when ready
    ```
 
 5. **Access Applications**
-   - Backend API: `http://localhost:3001`
-   - Frontend App: `http://localhost:3000`
-   - Test Client: `http://localhost:3001/test`
+   - **Frontend App**: `http://localhost:3000`
+   - **Backend API**: `http://localhost:3001`
+   - **Health Check**: `http://localhost:3001/health`
+
+6. **Project Management**
+   ```bash
+   # Check status of all services
+   npm run status
+
+   # Kill all running services
+   npm run kill:all
+
+   # Start everything (recommended)
+   npm run dev
+
+   # Individual services (if needed)
+   npm run dev:server   # Backend only
+   npm run dev:client   # Frontend only
+   npm run tunnel       # Ngrok only
+   ```
 
 ## 🔧 Configuration
+
+### Port Configuration
+```
+Frontend (Vite):     Port 3000
+Backend (Express):   Port 3001
+WebSocket:           Port 3001
+```
+
+### 🚀 Development with External Access (ngrok)
+
+For webhook testing and external access, use the integrated ngrok tunnel:
+
+```bash
+# Start everything with ngrok tunnel
+npm run dev:full
+
+# Or start ngrok separately
+npm run tunnel
+```
+
+**What happens with `npm run dev:full`:**
+1. ✅ Kills any existing Node.js processes
+2. 🚀 Starts backend server (Port 3001)
+3. 🎨 Starts frontend (Port 3000)
+4. 🌐 Starts ngrok tunnel to backend (Port 3001)
+5. 📊 Shows status of all services
+
+**ngrok URLs:**
+- **Backend API**: `https://xxxxx.ngrok.io` (points to localhost:3001)
+- **Frontend**: `http://localhost:3000` (local only)
+- **Webhooks**: Configure Evolution API to send to `https://xxxxx.ngrok.io/api/webhooks`
 
 ### Environment Variables
 
@@ -371,10 +421,41 @@ npm test
 npm run test:coverage
 npm run test:watch
 
-# Frontend tests  
+# Frontend tests
 cd client
 npm test
 npm run test:coverage
+
+# Run all tests (monorepo)
+npm run test          # Run all tests
+npm run test:client   # Run only client tests
+npm run test:server   # Run only server tests
+npm run test:watch    # Run tests in watch mode
+```
+
+### 🛡️ Preventive Testing Infrastructure
+
+This project includes comprehensive automated tests to prevent configuration regressions that could cause connectivity issues:
+
+#### Frontend Configuration Tests
+- **socketService.test.ts**: Validates WebSocket connections use relative URLs for Vite proxy compatibility
+- **instanceService.test.ts**: Ensures API services are configured for proxy-based communication
+- **vite.config.test.ts**: Verifies Vite proxy configuration remains correct
+
+#### CI/CD Integration
+- **GitHub Actions**: Automated testing on every push and pull request
+- **Pre-commit Hooks**: Husky prevents commits that break configuration
+- **Multi-environment Testing**: Tests run on Node.js 18.x and 20.x
+
+#### Preventing ERR_CONNECTION_REFUSED Issues
+The test suite specifically prevents the connectivity issues you experienced by:
+- Validating that WebSocket connections use `/socket.io` instead of direct backend URLs
+- Ensuring API calls use relative paths that work with Vite's proxy configuration
+- Monitoring Vite proxy settings to prevent misconfigurations
+
+```bash
+# Run preventive tests
+npm run test:client  # Validates frontend connectivity configuration
 ```
 
 ## 🏗️ Build and Deploy

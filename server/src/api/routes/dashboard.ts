@@ -12,11 +12,20 @@ router.use(authMiddleware);
 router.get('/metrics', async (req, res) => {
   try {
     // Get user from auth middleware
-    const user = (req as any).user;
+    const userId = req.userId;
+    const userRole = req.userRole;
+
+    if (!userId) {
+      res.status(401).json({
+        success: false,
+        message: 'User not authenticated'
+      });
+      return;
+    }
 
     // Get user's instances first
     const userInstances = await prisma.whatsAppInstance.findMany({
-      where: { userId: user.id },
+      where: { userId: userId },
       select: { id: true }
     });
 
@@ -38,15 +47,15 @@ router.get('/metrics', async (req, res) => {
       // Active instances (connected status)
       prisma.whatsAppInstance.count({
         where: {
-          userId: user.id,
+          userId: userId,
           status: 'CONNECTED'
         }
       }),
 
       // Total users (for admin, or just current user)
-      user.role === 'ADMIN'
+      userRole === 'ADMIN'
         ? prisma.user.count()
-        : prisma.user.count({ where: { id: user.id } }),
+        : prisma.user.count({ where: { id: userId } }),
 
       // Total conversations
       prisma.conversation.count({
@@ -82,7 +91,7 @@ router.get('/metrics', async (req, res) => {
     const metrics = {
       totalMessages,
       activeInstances,
-      totalUsers: user.role === 'ADMIN' ? totalUsers : 1,
+      totalUsers: userRole === 'ADMIN' ? totalUsers : 1,
       deliveryRate: Math.round(deliveryRate * 100) / 100, // Round to 2 decimal places
       storageUsed: storageStats * 1024 * 1024, // Assume 1MB per media message
       costs
@@ -101,11 +110,19 @@ router.get('/metrics', async (req, res) => {
 // GET /api/dashboard/messages/chart - Get message chart data
 router.get('/messages/chart', async (req, res) => {
   try {
-    const user = (req as any).user;
+    const userId = req.userId;
+
+    if (!userId) {
+      res.status(401).json({
+        success: false,
+        message: 'User not authenticated'
+      });
+      return;
+    }
 
     // Get user's instances
     const userInstances = await prisma.whatsAppInstance.findMany({
-      where: { userId: user.id },
+      where: { userId: userId },
       select: { id: true }
     });
 

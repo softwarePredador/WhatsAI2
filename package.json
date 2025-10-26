@@ -4,7 +4,8 @@
   "private": true,
   "description": "WhatsAI Multi-Instance Manager - Monorepo (Frontend + Backend)",
   "scripts": {
-    "dev": "concurrently -n \"BACK,FRONT\" -c \"bgBlue.bold,bgMagenta.bold\" \"npm run dev:server\" \"npm run dev:client\"",
+    "predev": "powershell -Command \"try { Get-Process ngrok -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue; npx kill-port-process 3001 3000; Write-Host '🧹 Processes and Ports cleaned' } catch { Write-Host 'ℹ️  No processes to clean or cleanup failed' }\"",
+    "dev": "concurrently -n \"BACK,FRONT,NGROK\" -c \"bgBlue.bold,bgMagenta.bold,bgYellow.bold\" \"npm run dev:server\" \"npm run dev:client\" \"npm run tunnel\"",
     "dev:server": "cd server && npm run dev",
     "dev:client": "cd client && npm run dev",
     "build": "npm run build:server && npm run build:client",
@@ -13,7 +14,8 @@
     "start": "npm run start:server",
     "start:server": "cd server && npm start",
     "install:all": "npm install && cd server && npm install && cd ../client && npm install",
-    "clean": "Remove-Item -Recurse -Force server/node_modules,server/dist,client/node_modules,client/dist,node_modules -ErrorAction SilentlyContinue"
+    "clean": "Remove-Item -Recurse -Force server/node_modules,server/dist,client/node_modules,client/dist,node_modules -ErrorAction SilentlyContinue",
+    "tunnel": "ngrok http 3001"
   },
   "workspaces": [
     "server",
@@ -31,7 +33,8 @@
   "license": "MIT",
   "devDependencies": {
     "concurrently": "^8.2.2",
-    "daisyui": "^5.3.7"
+    "daisyui": "^5.3.7",
+    "kill-port-process": "^3.2.1"
   },
   "engines": {
     "node": ">=18.0.0",
