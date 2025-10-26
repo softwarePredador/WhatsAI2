@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Play, Pause, Download, Image as ImageIcon, File, Music, AlertCircle, Loader } from 'lucide-react';
-import { useTheme } from '../../hooks/useTheme';
 
 interface MediaMessageProps {
   mediaUrl: string;
@@ -15,8 +14,6 @@ export const MediaMessage: React.FC<MediaMessageProps> = ({
   fileName,
   caption
 }) => {
-  const theme = useTheme();
-  const isDark = theme === 'dark';
   const [isPlaying, setIsPlaying] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -195,7 +192,7 @@ export const MediaMessage: React.FC<MediaMessageProps> = ({
       {/* Modal para visualizar imagem em tamanho maior */}
       {showImageModal && mediaType === 'image' && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-base-300 bg-opacity-90 backdrop-blur-sm flex items-center justify-center z-50 p-4"
           onClick={() => setShowImageModal(false)}
         >
           <div className="relative max-w-4xl max-h-full">
@@ -206,12 +203,12 @@ export const MediaMessage: React.FC<MediaMessageProps> = ({
             />
             <button
               onClick={() => setShowImageModal(false)}
-              className="absolute top-4 right-4 text-white bg-black bg-opacity-50 rounded-full p-2 hover:bg-opacity-75 transition-colors"
+              className="absolute top-4 right-4 text-base-content bg-base-100 bg-opacity-80 hover:bg-opacity-100 rounded-full p-2 transition-colors"
             >
               ✕
             </button>
             {caption && (
-              <p className="absolute bottom-4 left-4 right-4 text-white bg-black bg-opacity-50 p-2 rounded">
+              <p className="absolute bottom-4 left-4 right-4 text-base-content bg-base-100 bg-opacity-80 p-2 rounded">
                 {caption}
               </p>
             )}

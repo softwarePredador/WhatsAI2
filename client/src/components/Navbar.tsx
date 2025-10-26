@@ -4,13 +4,10 @@ import { useEffect, useState } from "react";
 import { Menu, X } from "lucide-react";
 import UserMenu from "./UserMenu";
 import { userAuthStore } from "../features/auth/store/authStore";
-import { useTheme } from "../hooks/useTheme";
 
 function Navbar() {
   const location = useLocation();
   const { token } = userAuthStore();
-  const theme = useTheme();
-  const isDark = theme === 'dark';
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeItem, setActiveItem] = useState<string | null>(null);
   

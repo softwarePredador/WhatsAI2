@@ -6,7 +6,6 @@ import { MessageSquare } from 'lucide-react';
 import { useInstanceStore } from '../features/instances/store/instanceStore';
 import { userAuthStore } from '../features/auth/store/authStore';
 import { socketService } from '../services/socketService';
-import { useTheme } from '../hooks/useTheme';
 
 export const ChatLayout: React.FC = () => {
   const { instanceId, conversationId } = useParams<{
@@ -14,8 +13,6 @@ export const ChatLayout: React.FC = () => {
     conversationId?: string;
   }>();
   const navigate = useNavigate();
-  const theme = useTheme();
-  const isDark = theme === 'dark';
   const { instances, fetchInstances } = useInstanceStore();
   const token = userAuthStore((state) => state.token);
   const [loading, setLoading] = useState(true);

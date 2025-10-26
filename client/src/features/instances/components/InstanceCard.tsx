@@ -12,31 +12,36 @@ interface InstanceCardProps {
   loading?: boolean;
 }
 
-const statusConfig: Record<InstanceStatus, { label: string; colorClass: string; badgeClass: string }> = {
+const statusConfig: Record<InstanceStatus, { label: string; colorClass: string; badgeClass: string; icon: string }> = {
   pending: { 
     label: "Pendente", 
     colorClass: "text-base-content/60", 
-    badgeClass: "badge-ghost" 
+    badgeClass: "badge-ghost",
+    icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
   },
   disconnected: { 
     label: "Desconectado", 
     colorClass: "text-error", 
-    badgeClass: "badge-error" 
+    badgeClass: "badge-error",
+    icon: "M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
   },
   connecting: { 
     label: "Conectando", 
     colorClass: "text-warning", 
-    badgeClass: "badge-warning" 
+    badgeClass: "badge-warning",
+    icon: "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
   },
   connected: { 
     label: "Conectado", 
     colorClass: "text-success", 
-    badgeClass: "badge-success" 
+    badgeClass: "badge-success",
+    icon: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
   },
   error: { 
     label: "Erro", 
     colorClass: "text-error", 
-    badgeClass: "badge-error" 
+    badgeClass: "badge-error",
+    icon: "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
   }
 };
 
@@ -75,33 +80,45 @@ function InstanceCard({
   };
 
   return (
-    <div className="card bg-base-100 shadow-xl hover:shadow-2xl transition-all rounded-2xl border border-base-300">
+    <div className="group card bg-base-100/50 backdrop-blur-sm shadow-lg hover:shadow-xl transition-all duration-300 rounded-2xl border border-base-300/50 hover:border-base-300 hover:bg-base-100 hover:scale-[1.02]">
       <div className="card-body p-6">
         {/* Header com Badge de Status e Menu */}
         <div className="flex items-start justify-between gap-3 mb-4">
-          <div className="flex-1 min-w-0">
-            <h2 className="text-xl font-bold text-base-content mb-1 truncate">{instance.name}</h2>
-            <p className="text-xs text-base-content/50 truncate font-mono">
-              {instance.evolutionInstanceName}
-            </p>
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <div className="avatar placeholder">
+              <div className="bg-primary text-primary-content rounded-full w-10 h-10 flex items-center justify-center">
+                <span className="text-sm font-bold">{instance.name.charAt(0).toUpperCase()}</span>
+              </div>
+            </div>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-xl font-bold text-base-content mb-1 truncate">{instance.name}</h2>
+              <p className="text-xs text-base-content/50 truncate font-mono">
+                {instance.evolutionInstanceName}
+              </p>
+            </div>
           </div>
           
           <div className="flex items-center gap-2">
-            <div className={`badge ${statusInfo.badgeClass} gap-2 px-3 py-3 font-medium`}>
-              {isConnected && (
-                <div className="w-2 h-2 rounded-full bg-success animate-pulse"></div>
-              )}
-              {statusInfo.label}
+            <div className={`badge ${statusInfo.badgeClass} gap-1 px-2 py-1 font-medium text-xs`}>
+              <div className="flex items-center gap-1">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={statusInfo.icon} />
+                </svg>
+                {isConnected && (
+                  <div className="w-1.5 h-1.5 rounded-full bg-success animate-pulse flex-shrink-0"></div>
+                )}
+              </div>
+              <span className="ml-0.5">{statusInfo.label}</span>
             </div>
 
             {/* Dropdown Menu */}
             <div className="dropdown dropdown-end">
-              <label tabIndex={0} className="btn btn-ghost btn-sm btn-circle">
+              <label tabIndex={0} className="btn btn-ghost btn-sm btn-circle hover:bg-base-200 transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
                 </svg>
               </label>
-              <ul tabIndex={0} className="dropdown-content z-[1] menu p-2 shadow-lg bg-base-100 rounded-box w-52 border border-base-300">
+              <ul tabIndex={0} className="dropdown-content z-[1] menu p-2 shadow-lg bg-base-100 rounded-box w-52 border border-base-300/50 backdrop-blur-sm">
                 {isConnected && (
                   <li>
                     <button 
@@ -135,25 +152,33 @@ function InstanceCard({
 
         {/* Informações de Conexão */}
         {(instance.connectedAt || instance.lastSeen) && (
-          <div className="bg-base-200 rounded-lg p-3 space-y-1.5 mb-4">
+          <div className="bg-base-200/50 rounded-xl p-4 space-y-3 mb-4">
             {instance.connectedAt && (
-              <div className="flex items-center gap-2 text-sm">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-base-content/60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span className="text-base-content/70">Conectado em:</span>
-                <span className="font-medium text-base-content ml-auto">{formatDate(instance.connectedAt)}</span>
+              <div className="flex items-center gap-3 text-sm">
+                <div className="w-8 h-8 rounded-full bg-success/20 flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <span className="text-base-content/70 block text-xs">Conectado em</span>
+                  <span className="font-medium text-base-content">{formatDate(instance.connectedAt)}</span>
+                </div>
               </div>
             )}
             
             {instance.lastSeen && (
-              <div className="flex items-center gap-2 text-sm">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-base-content/60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                </svg>
-                <span className="text-base-content/70">Última atividade:</span>
-                <span className="font-medium text-base-content ml-auto">{formatDate(instance.lastSeen)}</span>
+              <div className="flex items-center gap-3 text-sm">
+                <div className="w-8 h-8 rounded-full bg-info/20 flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-info" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <span className="text-base-content/70 block text-xs">Última atividade</span>
+                  <span className="font-medium text-base-content">{formatDate(instance.lastSeen)}</span>
+                </div>
               </div>
             )}
           </div>
@@ -161,34 +186,38 @@ function InstanceCard({
 
         {/* Alerta de QR Code */}
         {hasQRCode && (
-          <div className="alert alert-info mb-4 py-2">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span className="text-sm">QR Code pronto para escaneamento</span>
+          <div className="alert alert-info mb-4 py-3 border border-info/20 bg-info/10">
+            <div className="w-6 h-6 rounded-full bg-info/20 flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-info" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M12 15h4.01M12 21h4.01M12 12h4.01M12 15h4.01M12 21h4.01M12 12h4.01M12 15h4.01M12 21h4.01" />
+              </svg>
+            </div>
+            <span className="text-sm font-medium">QR Code pronto para escaneamento</span>
           </div>
         )}
 
         {/* Botões de Ação - Apenas ações principais */}
-        <div className="grid grid-cols-2 gap-3 mt-2">
+        <div className="flex gap-2 mt-4">
           {/* Conectando - Ver QR */}
           {isConnecting && (
-            <button 
-              className="btn btn-info btn-sm col-span-2"
+            <button
+              className="btn btn-info btn-sm flex-1 gap-2 hover:scale-105 transition-transform"
               onClick={() => onViewQR(instance)}
               disabled={loading}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-              </svg>
+              <div className="w-5 h-5 rounded-full bg-info-content/20 flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                </svg>
+              </div>
               Ver QR Code
             </button>
           )}
 
           {/* Desconectado - Conectar */}
           {!isConnected && !isConnecting && (
-            <button 
-              className="btn btn-success btn-sm col-span-2"
+            <button
+              className="btn btn-success btn-sm flex-1 gap-2 hover:scale-105 transition-transform"
               onClick={() => onConnect(instance.id)}
               disabled={loading}
             >
@@ -196,9 +225,11 @@ function InstanceCard({
                 <span className="loading loading-spinner loading-sm"></span>
               ) : (
                 <>
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
+                  <div className="w-5 h-5 rounded-full bg-primary-content/20 flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                  </div>
                   Conectar WhatsApp
                 </>
               )}
@@ -208,25 +239,29 @@ function InstanceCard({
           {/* Conectado - Apenas ações principais (Chat e Enviar) */}
           {isConnected && (
             <>
-              <Link 
+              <Link
                 to={`/chat/${instance.id}`}
-                className="btn btn-primary btn-sm"
+                className="btn btn-primary btn-sm flex-1 gap-2 hover:scale-105 transition-transform"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                </svg>
+                <div className="w-5 h-5 rounded-full bg-primary-content/20 flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                  </svg>
+                </div>
                 Abrir Chat
               </Link>
 
               {onSendMessage && (
-                <button 
-                  className="btn btn-accent btn-sm"
+                <button
+                  className="btn btn-primary btn-sm flex-1 gap-2 hover:scale-105 transition-transform"
                   onClick={() => onSendMessage(instance)}
                   disabled={loading}
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                  </svg>
+                  <div className="w-5 h-5 rounded-full bg-primary-content/20 flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    </svg>
+                  </div>
                   Enviar Mensagem
                 </button>
               )}

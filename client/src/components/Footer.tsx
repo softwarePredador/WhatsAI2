@@ -1,9 +1,6 @@
 import { Link } from 'react-router-dom';
-import { useTheme } from '../hooks/useTheme';
 
 const Footer = () => {
-  const theme = useTheme();
-  const isDark = theme === 'dark';
 
   return (
     <footer className="footer footer-center bg-base-200 text-base-content p-10">

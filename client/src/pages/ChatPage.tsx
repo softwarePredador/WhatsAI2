@@ -7,7 +7,6 @@ import { socketService } from '../services/socketService';
 import { getDisplayName } from '../utils/contact-display';
 import { MediaMessage } from '../components/messages';
 import { FileUploadService } from '../services/fileUploadService';
-import { useTheme } from '../hooks/useTheme';
 
 interface Message {
   id: string;
@@ -39,8 +38,6 @@ export const ChatPage: React.FC = () => {
   // @ts-ignore - instanceId é necessário na URL mas não usado no componente
   const { instanceId, conversationId } = useParams<{ instanceId: string; conversationId: string }>();
   const navigate = useNavigate();
-  const theme = useTheme();
-  const isDark = theme === 'dark';
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [conversation, setConversation] = useState<Conversation | null>(null);
@@ -538,7 +535,7 @@ export const ChatPage: React.FC = () => {
                   />
                 ) : (
                   <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center">
-                    <span className="text-white font-medium">
+                    <span className="text-primary-content font-medium">
                       {(conversation.contactName || '?').charAt(0).toUpperCase()}
                     </span>
                   </div>
@@ -693,7 +690,7 @@ export const ChatPage: React.FC = () => {
             className="p-3 bg-primary text-primary-content rounded-lg hover:bg-primary-focus focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {sending ? (
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary-content"></div>
             ) : (
               <Send className="h-5 w-5" />
             )}

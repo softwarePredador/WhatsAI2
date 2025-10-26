@@ -9,7 +9,7 @@ function HomePage() {
     <div className="homepage-wrapper min-h-screen bg-base-100">
       {/* Hero Section */}
       <motion.section
-        className="relative grid min-h-screen place-content-center overflow-hidden px-4 py-24"
+        className="relative grid min-h-screen place-content-center overflow-hidden px-4 py-24 bg-base-100"
       >
         <div className='relative z-10 flex flex-col items-center justify-center text-center max-w-4xl mx-auto'>
 

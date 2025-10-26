@@ -358,7 +358,7 @@ export const ConversationList: React.FC = () => {
                         />
                       ) : (
                         <div className="h-12 w-12 rounded-full bg-primary flex items-center justify-center">
-                          <span className="text-white font-medium text-lg">
+                          <span className="text-primary-content font-medium text-lg">
                             {(conversation.contactName || '?').charAt(0).toUpperCase()}
                           </span>
                         </div>

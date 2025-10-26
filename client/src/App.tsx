@@ -45,7 +45,7 @@ const AppLayout = () => {
       {/* Background for dark and light modes - only shown on non-homepage routes */}
       {!isHomePage && (
         <>
-        <div className="fixed inset-0 -z-10 h-full w-full bg-black [background:radial-gradient(125%_125%_at_50%_10%,#fff_40%,#63e_100%)]"></div>
+        <div className="fixed inset-0 -z-10 h-full w-full bg-base-100 [background:radial-gradient(125%_125%_at_50%_10%,hsl(var(--b1))_40%,hsl(var(--p))_100%)]"></div>
         </>
       )}
 

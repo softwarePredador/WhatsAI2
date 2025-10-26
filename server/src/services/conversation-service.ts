@@ -363,18 +363,32 @@ export class ConversationService {
       const evolutionService = new EvolutionApiService(instance.evolutionApiUrl, instance.evolutionApiKey);
       const number = remoteJid.replace('@s.whatsapp.net', '').replace('@g.us', '');
       
-      // Buscar foto
+      // Buscar informações do contato (pushName + foto)
+      const contacts = await evolutionService.fetchContacts(instance.evolutionInstanceName, [number]);
+      const contactInfo = contacts.find(c => c.id === remoteJid || c.id === number);
+
+      let updateData: any = {};
+
+      // Atualizar pushName se encontrado
+      if (contactInfo?.pushName) {
+        updateData.contactName = contactInfo.pushName;
+        console.log(`👤 PushName atualizado em background para ${number}: ${contactInfo.pushName}`);
+      }
+
+      // Buscar foto de perfil
       const profilePicture = await evolutionService.fetchProfilePictureUrl(
         instance.evolutionInstanceName,
         number
       );
 
       if (profilePicture.profilePictureUrl) {
-        await this.conversationRepository.update(conversationId, {
-          contactPicture: profilePicture.profilePictureUrl
-        });
-
+        updateData.contactPicture = profilePicture.profilePictureUrl;
         console.log(`📸 Foto de perfil atualizada em background para ${number}`);
+      }
+
+      // Atualizar conversa se houver dados novos
+      if (Object.keys(updateData).length > 0) {
+        await this.conversationRepository.update(conversationId, updateData);
 
         // Notificar frontend
         const updatedConv = await this.conversationRepository.findById(conversationId);
@@ -384,7 +398,7 @@ export class ConversationService {
       }
     } catch (error) {
       // Não fazer nada, apenas log silencioso
-      console.log(`⚠️  Não foi possível buscar foto para conversa ${conversationId}`);
+      console.log(`⚠️  Não foi possível buscar informações do contato para conversa ${conversationId}`);
     }
   }
 
@@ -432,27 +446,44 @@ export class ConversationService {
     try {
       // Use unified normalization
       const normalizedJid = this.normalizeWhatsAppNumber(remoteJid, null, false);
-      
+
       // Find conversation by remoteJid
       const conversations = await this.conversationRepository.findByInstanceId(instanceId);
-      const conversation = conversations.find(c => c.remoteJid === normalizedJid);
-      
+      let conversation = conversations.find(c => c.remoteJid === normalizedJid);
+
+      // If not found and remoteJid contains @lid, try to find by resolving @lid or by number pattern
+      if (!conversation && remoteJid.includes('@lid')) {
+        const lidNumber = remoteJid.replace('@lid', '');
+
+        // Try to find conversation by matching the number part
+        conversation = conversations.find(c => {
+          const convNumber = c.remoteJid.replace('@s.whatsapp.net', '').replace('@g.us', '');
+          return convNumber === lidNumber || c.remoteJid.includes(lidNumber);
+        });
+
+        if (conversation) {
+          console.log(`🔄 [CONTACTS_UPDATE] Found conversation by @lid resolution: ${remoteJid} → ${conversation.remoteJid}`);
+        }
+      }
+
       if (conversation) {
         const updateData: any = {};
         if (data.contactName) updateData.contactName = data.contactName;
         if (data.contactPicture) updateData.contactPicture = data.contactPicture;
-        
+
         if (Object.keys(updateData).length > 0) {
           await this.conversationRepository.update(conversation.id, updateData);
         }
-        
+
         console.log(`✅ Updated contact from webhook: ${data.contactName || remoteJid}`);
-        
+
         // Notify frontend
         const updated = await this.conversationRepository.findById(conversation.id);
         if (updated) {
           this.socketService.emitToInstance(instanceId, 'conversation:updated', updated);
         }
+      } else {
+        console.log(`⚠️ [CONTACTS_UPDATE] Conversation not found for remoteJid: ${remoteJid} (normalized: ${normalizedJid})`);
       }
     } catch (error) {
       console.log(`⚠️ Failed to update contact from webhook:`, error);
