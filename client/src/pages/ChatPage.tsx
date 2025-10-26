@@ -19,6 +19,7 @@ interface Message {
   mediaUrl?: string;
   fileName?: string;
   caption?: string;
+  senderName?: string; // Nome do remetente (para mensagens de grupo)
 }
 
 interface Conversation {
@@ -159,7 +160,8 @@ export const ChatPage: React.FC = () => {
           fromMe: data.message.fromMe,
           timestamp: new Date(data.message.timestamp),
           messageType: data.message.messageType || 'text',
-          status: data.message.status || (data.message.fromMe ? 'SENT' : undefined)
+          status: data.message.status || (data.message.fromMe ? 'SENT' : undefined),
+          senderName: data.message.senderName
         };
         
         setMessages(prev => [...prev, newMessage]);
@@ -616,6 +618,13 @@ export const ChatPage: React.FC = () => {
                     : `bg-base-100 text-base-content rounded-bl-none shadow-sm`
                 }`}
               >
+                {/* Nome do remetente (apenas para mensagens de grupo recebidas) */}
+                {message.senderName && !message.fromMe && (
+                  <div className="text-xs font-medium text-base-content/80 mb-1">
+                    {message.senderName}
+                  </div>
+                )}
+
                 {/* Renderizar mídia se existir */}
                 {message.mediaUrl && (
                   <div className="mb-2">

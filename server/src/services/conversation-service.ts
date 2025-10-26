@@ -652,7 +652,8 @@ export class ConversationService {
           messageType: message.messageType,
           mediaUrl: message.mediaUrl,
           fileName: message.fileName,
-          caption: message.caption
+          caption: message.caption,
+          senderName: !message.fromMe && messageData.pushName ? messageData.pushName : undefined
         }
       });
 
