@@ -5,6 +5,7 @@ import { webhookRoutes } from './webhooks';
 import settingsRoutes from './settings';
 import accountRoutes from './account';
 import { conversationRoutes } from './conversation-routes';
+import { dashboardRoutes } from './dashboard';
 import { authMiddleware } from '@/api/middlewares/auth-middleware';
 
 const router = Router();
@@ -25,6 +26,7 @@ router.use('/auth', authRoutes);
 // Protected routes (require authentication)
 router.use('/instances', authMiddleware, instanceRoutes);
 router.use('/conversations', authMiddleware, conversationRoutes);
+router.use('/dashboard', authMiddleware, dashboardRoutes);
 router.use('/settings', authMiddleware, settingsRoutes);
 router.use('/account', authMiddleware, accountRoutes);
 router.use('/webhooks', webhookRoutes);
