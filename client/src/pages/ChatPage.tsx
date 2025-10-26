@@ -7,6 +7,7 @@ import { socketService } from '../services/socketService';
 import { getDisplayName } from '../utils/contact-display';
 import { MediaMessage } from '../components/messages';
 import { FileUploadService } from '../services/fileUploadService';
+import { usePresence } from '../hooks/usePresence';
 
 interface Message {
   id: string;
@@ -47,6 +48,9 @@ export const ChatPage: React.FC = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Hook para gerenciar status de presença
+  const { getPresence } = usePresence(instanceId || '');
 
   // Usar o store de autenticação global
   const token = userAuthStore((state) => state.token);
@@ -551,7 +555,26 @@ export const ChatPage: React.FC = () => {
                   })}
                 </h2>
                 <p className={`text-sm text-base-content/70`}>
-                  {conversation.isGroup ? 'Grupo' : 'Online'}
+                  {conversation.isGroup ? 'Grupo' : (() => {
+                    if (!conversation) return 'Offline';
+                    const presence = getPresence(conversation.remoteJid);
+                    switch (presence.status) {
+                      case 'online':
+                        return 'Online';
+                      case 'typing':
+                        return 'Digitando...';
+                      case 'offline':
+                        // Usar lastMessageAt da conversa em vez de lastSeen do presence
+                        const lastInteraction = conversation.lastMessageAt;
+                        if (lastInteraction) {
+                          const date = new Date(lastInteraction);
+                          return `Visto por último ${date.toLocaleDateString('pt-BR')} ${date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+                        }
+                        return 'Offline';
+                      default:
+                        return 'Offline';
+                    }
+                  })()}
                 </p>
               </div>
             </div>
