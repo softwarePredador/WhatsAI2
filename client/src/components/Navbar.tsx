@@ -4,10 +4,13 @@ import { useEffect, useState } from "react";
 import { Menu, X } from "lucide-react";
 import UserMenu from "./UserMenu";
 import { userAuthStore } from "../features/auth/store/authStore";
+import { useTheme } from "../hooks/useTheme";
 
 function Navbar() {
   const location = useLocation();
   const { token } = userAuthStore();
+  const theme = useTheme();
+  const isDark = theme === 'dark';
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeItem, setActiveItem] = useState<string | null>(null);
   
@@ -119,7 +122,7 @@ function Navbar() {
 
           {/* User controls section - ThemeToggle and UserMenu side by side */}
           <div className={`mt-4 pt-4 border-t flex items-center justify-between
-                        ${'border-gray-200 dark:border-gray-700'}`}>
+                        border-base-300`}>
             {/* UserMenu takes up more space */}
             <div className="flex-grow">
               <UserMenu />

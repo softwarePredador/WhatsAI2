@@ -1,6 +1,9 @@
 import { Link } from 'react-router-dom';
+import { useTheme } from '../hooks/useTheme';
 
 const Footer = () => {
+  const theme = useTheme();
+  const isDark = theme === 'dark';
 
   return (
     <footer className="footer footer-center bg-base-200 text-base-content p-10">
@@ -18,7 +21,7 @@ const Footer = () => {
               </span>
             </Link>
             <p className="mb-4 text-base-content/70">
-              Your all-in-one finance management solution.
+              Automatize e escale seu atendimento no WhatsApp com IA.
             </p>
           </div>
 
@@ -49,24 +52,24 @@ const Footer = () => {
           <div>
             <h3 className="font-medium mb-3 text-base-content">Company</h3>
             <ul className="space-y-2 text-base-content/70">
-            <li><a href="https://github.com/rafaelhalder" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-500 dark:hover:text-cyan-400 transition-colors">About Us</a></li>
-              <li><a href='https://www.linkedin.com/in/rafahsilva/' target='_blank' className="hover:text-cyan-500 dark:hover:text-cyan-400 transition-colors">Contact</a></li>
-              <li><Link to="/blog" className="hover:text-cyan-500 dark:hover:text-cyan-400 transition-colors">Blog</Link></li>
+            <li><a href="https://github.com/rafaelhalder" target="_blank" rel="noopener noreferrer" className={`hover:text-primary transition-colors`}>About Us</a></li>
+              <li><a href='https://www.linkedin.com/in/rafahsilva/' target='_blank' className={`hover:text-primary transition-colors`}>Contact</a></li>
+              <li><Link to="/blog" className={`hover:text-primary transition-colors`}>Blog</Link></li>
             </ul>
           </div>
 
           <div>
             <h3 className="font-medium mb-3 text-base-content">Legal</h3>
             <ul className="space-y-2 text-base-content/70">
-              <li><Link to="/privacy" className="hover:text-cyan-500 dark:hover:text-cyan-400 transition-colors">Privacy Policy</Link></li>
-              <li><Link to="/terms" className="hover:text-cyan-500 dark:hover:text-cyan-400 transition-colors">Terms of Service</Link></li>
-              <li><Link to="/cookies" className="hover:text-cyan-500 dark:hover:text-cyan-400 transition-colors">Cookie Policy</Link></li>
+              <li><Link to="/privacy" className={`hover:text-primary transition-colors`}>Privacy Policy</Link></li>
+              <li><Link to="/terms" className={`hover:text-primary transition-colors`}>Terms of Service</Link></li>
+              <li><Link to="/cookies" className={`hover:text-primary transition-colors`}>Cookie Policy</Link></li>
             </ul>
           </div>
         </div>
 
         {/* Copyright and social */}
-        <div className={`border-t pt-6 flex flex-col sm:flex-row justify-between items-center ${'border-gray-200 dark:border-gray-700'}`}>
+        <div className={`border-t pt-6 flex flex-col sm:flex-row justify-between items-center border-base-300`}>
           <div className="mb-4 sm:mb-0 text-sm text-base-content/60">
             © {new Date().getFullYear()} WhatsAI. All rights reserved.
           </div>
@@ -92,10 +95,10 @@ const Footer = () => {
         </div>
       </div>
 
-      {/* Decorative blurred element */}
-      <div className={`absolute bottom-0 right-0 w-64 h-64 rounded-full ${
-        'bg-cyan-500/3 dark:bg-cyan-500/5'
-      } blur-3xl pointer-events-none`}></div>
+      {/* Decorative blurred element - removido para design mais minimalista */}
+      {/* <div className={`absolute bottom-0 right-0 w-64 h-64 rounded-full ${
+        isDark ? 'bg-cyan-500/5' : 'bg-cyan-500/3'
+      } blur-3xl pointer-events-none`}></div> */}
     </footer>
   );
 };

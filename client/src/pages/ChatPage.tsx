@@ -7,6 +7,7 @@ import { socketService } from '../services/socketService';
 import { getDisplayName } from '../utils/contact-display';
 import { MediaMessage } from '../components/messages';
 import { FileUploadService } from '../services/fileUploadService';
+import { useTheme } from '../hooks/useTheme';
 
 interface Message {
   id: string;
@@ -38,6 +39,8 @@ export const ChatPage: React.FC = () => {
   // @ts-ignore - instanceId é necessário na URL mas não usado no componente
   const { instanceId, conversationId } = useParams<{ instanceId: string; conversationId: string }>();
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isDark = theme === 'dark';
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [conversation, setConversation] = useState<Conversation | null>(null);
@@ -73,7 +76,7 @@ export const ChatPage: React.FC = () => {
       case 'PENDING':
         return (
           <div className="inline-flex items-center ml-1">
-            <svg width="12" height="12" viewBox="0 0 12 12" className="text-gray-400 opacity-60">
+            <svg width="12" height="12" viewBox="0 0 12 12" className="text-base-content/50 opacity-60">
               <circle cx="6" cy="6" r="5" fill="none" stroke="currentColor" strokeWidth="1.5"/>
             </svg>
           </div>
@@ -81,14 +84,14 @@ export const ChatPage: React.FC = () => {
       
       case 'SENT':
         return (
-          <div className="inline-flex items-center ml-1 text-gray-400">
+          <div className="inline-flex items-center ml-1 text-primary">
             <CheckIcon />
           </div>
         );
       
       case 'DELIVERED':
         return (
-          <div className="inline-flex items-center ml-1 text-gray-400">
+          <div className="inline-flex items-center ml-1 text-base-content/50">
             <DoubleCheckIcon />
           </div>
         );
@@ -96,14 +99,14 @@ export const ChatPage: React.FC = () => {
       case 'READ':
       case 'PLAYED':
         return (
-          <div className="inline-flex items-center ml-1 text-blue-500">
+          <div className="inline-flex items-center ml-1 text-primary">
             <DoubleCheckIcon />
           </div>
         );
       
       case 'FAILED':
         return (
-          <div className="inline-flex items-center ml-1 text-red-500" title="Falha no envio">
+          <div className="inline-flex items-center ml-1 text-error" title="Falha no envio">
             <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
               <circle cx="6" cy="6" r="5" fill="none" stroke="currentColor" strokeWidth="1.5"/>
               <path d="M6 3v3M6 8v1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
@@ -496,7 +499,7 @@ export const ChatPage: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
   }
@@ -505,10 +508,10 @@ export const ChatPage: React.FC = () => {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center">
-          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
+          <h3 className={`text-lg font-medium text-base-content`}>
             Conversa não encontrada
           </h3>
-          <p className="text-gray-500 dark:text-gray-400 mt-2">
+          <p className={`mt-2 text-base-content/70`}>
             A conversa solicitada não existe ou foi removida.
           </p>
         </div>
@@ -519,10 +522,10 @@ export const ChatPage: React.FC = () => {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4">
+      <div className={`p-4 border-b bg-base-100 border-base-300`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <button className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full lg:hidden">
+            <button className={`p-2 rounded-full lg:hidden hover:bg-base-200 transition-colors`}>
               <ArrowLeft className="h-5 w-5" />
             </button>
             <div className="flex items-center space-x-3">
@@ -534,49 +537,49 @@ export const ChatPage: React.FC = () => {
                     className="h-10 w-10 rounded-full object-cover"
                   />
                 ) : (
-                  <div className="h-10 w-10 rounded-full bg-blue-500 flex items-center justify-center">
+                  <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center">
                     <span className="text-white font-medium">
                       {(conversation.contactName || '?').charAt(0).toUpperCase()}
                     </span>
                   </div>
                 )}
-                <div className="absolute bottom-0 right-0 h-3 w-3 bg-green-500 rounded-full border-2 border-white dark:border-gray-800"></div>
+                <div className={`absolute bottom-0 right-0 h-3 w-3 bg-success rounded-full border-2 border-base-100`}></div>
               </div>
               <div>
-                <h2 className="font-medium text-gray-900 dark:text-gray-100">
+                <h2 className={`font-medium text-base-content`}>
                   {getDisplayName({
                     nickname: (conversation as any).nickname,
                     contactName: conversation.contactName,
                     remoteJid: conversation.remoteJid
                   })}
                 </h2>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
+                <p className={`text-sm text-base-content/70`}>
                   {conversation.isGroup ? 'Grupo' : 'Online'}
                 </p>
               </div>
             </div>
           </div>
           <div className="flex items-center space-x-2">
-            <button className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full">
-              <Phone className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+            <button className={`p-2 rounded-full hover:bg-base-200 transition-colors`}>
+              <Phone className={`h-5 w-5 text-base-content/60`} />
             </button>
-            <button className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full">
-              <Video className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+            <button className={`p-2 rounded-full hover:bg-base-200 transition-colors`}>
+              <Video className={`h-5 w-5 text-base-content/60`} />
             </button>
-            <button className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full">
-              <Search className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+            <button className={`p-2 rounded-full hover:bg-base-200 transition-colors`}>
+              <Search className={`h-5 w-5 text-base-content/60`} />
             </button>
-            <button className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full">
-              <MoreVertical className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+            <button className="p-2 rounded-full hover:bg-base-200">
+              <MoreVertical className="h-5 w-5 text-base-content/60" />
             </button>
           </div>
         </div>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 dark:bg-gray-900">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-base-100">
         {messages.length === 0 ? (
-          <div className="text-center text-gray-500 dark:text-gray-400 mt-8">
+          <div className="text-center mt-8 text-base-content/60">
             <p>Nenhuma mensagem ainda.</p>
             <p className="text-sm mt-2">Envie a primeira mensagem para iniciar a conversa!</p>
           </div>
@@ -589,8 +592,8 @@ export const ChatPage: React.FC = () => {
               <div
                 className={`max-w-[85%] sm:max-w-[70%] lg:max-w-[60%] px-4 py-2 rounded-lg break-words ${
                   message.fromMe
-                    ? 'bg-blue-500 text-white rounded-br-none'
-                    : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-bl-none shadow-sm'
+                    ? 'bg-primary text-primary-content rounded-br-none'
+                    : `bg-base-100 text-base-content rounded-bl-none shadow-sm`
                 }`}
               >
                 {/* Renderizar mídia se existir */}
@@ -613,7 +616,7 @@ export const ChatPage: React.FC = () => {
                 {/* Timestamp e status */}
                 <div className="flex items-center justify-end space-x-1 mt-1">
                   <span className={`text-xs ${
-                    message.fromMe ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'
+                    message.fromMe ? 'text-primary-content/70' : 'text-base-content/60'
                   }`}>
                     {formatTime(message.timestamp)}
                   </span>
@@ -629,7 +632,7 @@ export const ChatPage: React.FC = () => {
       </div>
 
       {/* Message Input */}
-      <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4">
+      <div className="p-4 border-t bg-base-100 border-base-300">
         <div className="flex items-end space-x-3">
           {/* Input file oculto */}
           <input
@@ -645,11 +648,11 @@ export const ChatPage: React.FC = () => {
             <button
               onClick={handleAttachClick}
               disabled={uploadingMedia}
-              className="p-3 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="p-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-base-content/60 hover:text-base-content hover:bg-base-200"
               title={uploadingMedia ? `Enviando... ${uploadProgress}%` : "Anexar arquivo"}
             >
               {uploadingMedia ? (
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-500"></div>
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-base-content/60"></div>
               ) : (
                 <Paperclip className="h-5 w-5" />
               )}
@@ -657,15 +660,15 @@ export const ChatPage: React.FC = () => {
 
             {/* Barra de progresso */}
             {uploadingMedia && uploadProgress > 0 && (
-              <div className="absolute -top-2 -left-2 -right-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-md p-2 shadow-lg">
+              <div className="absolute -top-2 -left-2 -right-2 rounded-md p-2 shadow-lg bg-base-100 border border-base-300">
                 <div className="flex items-center space-x-2">
-                  <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                  <div className="flex-1 rounded-full h-2 bg-base-200">
                     <div
-                      className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                      className="bg-primary h-2 rounded-full transition-all duration-300"
                       style={{ width: `${uploadProgress}%` }}
                     ></div>
                   </div>
-                  <span className="text-xs text-gray-600 dark:text-gray-400 min-w-[3rem]">
+                  <span className="text-xs min-w-[3rem] text-base-content/60">
                     {uploadProgress}%
                   </span>
                 </div>
@@ -679,7 +682,7 @@ export const ChatPage: React.FC = () => {
               onChange={(e) => setNewMessage(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="Digite uma mensagem..."
-              className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"
+              className="w-full p-3 border border-base-300 rounded-lg resize-none focus:ring-2 focus:ring-primary focus:border-primary bg-base-100 text-base-content placeholder-base-content/60"
               rows={1}
               style={{ minHeight: '44px', maxHeight: '120px' }}
             />
@@ -687,7 +690,7 @@ export const ChatPage: React.FC = () => {
           <button
             onClick={sendMessage}
             disabled={!newMessage.trim() || sending}
-            className="p-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="p-3 bg-primary text-primary-content rounded-lg hover:bg-primary-focus focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {sending ? (
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>

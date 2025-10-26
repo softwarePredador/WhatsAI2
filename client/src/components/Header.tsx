@@ -1,6 +1,7 @@
 import Logo from "./Logo";
 import Navbar from "./Navbar";
 import UserMenu from "./UserMenu";
+import ThemeToggle from "./ThemeToggle";
 
 function Header(){
   return (
@@ -11,7 +12,8 @@ function Header(){
       <Logo/>
       <Navbar/>
       <div className="hidden md:flex items-center space-x-4">
-      <UserMenu/>
+        <ThemeToggle />
+        <UserMenu/>
       </div>
       </div>
     </div>

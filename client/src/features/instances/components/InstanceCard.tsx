@@ -15,7 +15,7 @@ interface InstanceCardProps {
 const statusConfig: Record<InstanceStatus, { label: string; colorClass: string; badgeClass: string }> = {
   pending: { 
     label: "Pendente", 
-    colorClass: "text-gray-500", 
+    colorClass: "text-base-content/60", 
     badgeClass: "badge-ghost" 
   },
   disconnected: { 

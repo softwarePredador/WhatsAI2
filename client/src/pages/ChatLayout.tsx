@@ -6,13 +6,16 @@ import { MessageSquare } from 'lucide-react';
 import { useInstanceStore } from '../features/instances/store/instanceStore';
 import { userAuthStore } from '../features/auth/store/authStore';
 import { socketService } from '../services/socketService';
+import { useTheme } from '../hooks/useTheme';
 
 export const ChatLayout: React.FC = () => {
-  const { instanceId, conversationId } = useParams<{ 
-    instanceId?: string; 
-    conversationId?: string; 
+  const { instanceId, conversationId } = useParams<{
+    instanceId?: string;
+    conversationId?: string;
   }>();
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isDark = theme === 'dark';
   const { instances, fetchInstances } = useInstanceStore();
   const token = userAuthStore((state) => state.token);
   const [loading, setLoading] = useState(true);
@@ -63,21 +66,21 @@ export const ChatLayout: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+      <div className={`h-screen flex items-center justify-center bg-base-100`}>
         <div className="text-center">
           <div className="loading loading-spinner loading-lg text-primary"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-400">Carregando...</p>
+          <p className={`mt-4 text-base-content/70`}>Carregando...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="h-screen flex bg-gray-100 dark:bg-gray-900">
+    <div className={`h-screen flex bg-base-100`}>
       {/* Sidebar - Lista de Conversas */}
-      <div className={`w-full lg:w-80 lg:flex-shrink-0 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 ${
+      <div className={`w-full lg:w-80 lg:flex-shrink-0 border-r ${
         conversationId ? 'hidden lg:block' : 'block'
-      }`}>
+      } bg-base-100 border-base-300`}>
         <ConversationList />
       </div>
 
@@ -89,18 +92,18 @@ export const ChatLayout: React.FC = () => {
           <ChatPage />
         ) : (
           /* Empty State - Nenhuma conversa selecionada */
-          <div className="h-full flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+          <div className={`h-full flex items-center justify-center bg-base-100`}>
             <div className="text-center max-w-sm mx-auto">
-              <div className="mx-auto h-24 w-24 text-gray-300 dark:text-gray-600 mb-6">
+              <div className={`mx-auto h-24 w-24 mb-6 text-base-content/30`}>
                 <MessageSquare className="h-full w-full" />
               </div>
-              <h3 className="text-xl font-medium text-gray-900 dark:text-gray-100 mb-2">
+              <h3 className={`text-xl font-medium mb-2 text-base-content`}>
                 Bem-vindo ao WhatsAI Chat
               </h3>
-              <p className="text-gray-500 dark:text-gray-400 mb-6">
+              <p className={`mb-6 text-base-content/70`}>
                 Selecione uma conversa na barra lateral para começar a conversar, ou inicie uma nova conversa.
               </p>
-              <div className="text-sm text-gray-400 dark:text-gray-500">
+              <div className={`text-sm text-base-content/50`}>
                 <p>💡 Dicas:</p>
                 <ul className="mt-2 space-y-1 text-left">
                   <li>• Use a busca para encontrar conversas rapidamente</li>

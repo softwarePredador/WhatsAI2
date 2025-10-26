@@ -13,29 +13,29 @@ type AuthCardProps = {
 
 function AuthCard({ children, title, subtitle, footerText, linkText, linkTo }: AuthCardProps) {
   return (
-    <div className={`w-full flex flex-col items-center justify-center px-4 md:px-6 lg:px-8 py-8 lg:py-12 relative bg-white`}>
+    <div className={`w-full flex flex-col items-center justify-center px-4 md:px-6 lg:px-8 py-8 lg:py-12 relative bg-base-100`}>
       
-      {/* Top decorative element - smaller on mobile */}
-      <div className={`absolute top-0 right-0 w-20 h-20 md:w-28 md:h-28 lg:w-32 lg:h-32 rounded-bl-fullbg-cyan-100`}></div>
+      {/* Top decorative element - usando cores do tema */}
+      <div className={`absolute top-0 right-0 w-20 h-20 md:w-28 md:h-28 lg:w-32 lg:h-32 rounded-bl-full bg-primary/10`}></div>
       
       {/* Main content container */}
       <div className="w-full max-w-md z-10">
         {/* Header section */}
         <div className="mb-6 md:mb-8 text-center">
-          <h2 className={`text-2xl md:text-3xl font-bold text-gray-800`}>{title}</h2>
-          <p className={`mt-2 text-green-600`}>{subtitle}</p>
+          <h2 className={`text-2xl md:text-3xl font-bold text-base-content`}>{title}</h2>
+          <p className={`mt-2 text-primary`}>{subtitle}</p>
         </div>
         
         {/* Form container */}
-        <div className={`rounded-xl shadow-md p-4 md:p-6 border bg-white border-gray-100`}>
+        <div className={`rounded-xl shadow-md p-4 md:p-6 border bg-base-100 border-base-300`}>
           {children}
         </div>
         
         {/* Footer with link */}
         <div className="mt-6 text-center">
-          <p className={`text-gray-600`}>
+          <p className={`text-base-content/70`}>
             {footerText}{' '}
-            <Link to={linkTo} className={`font-medium transition-colors text-cyan-600 hover:text-cyan-700`}>
+            <Link to={linkTo} className={`font-medium transition-colors text-primary hover:text-primary-focus`}>
               {linkText}
             </Link>
           </p>
@@ -43,14 +43,14 @@ function AuthCard({ children, title, subtitle, footerText, linkText, linkTo }: A
         
         {/* Feature bullets - hide on small screens */}
         <div className="mt-8 lg:mt-12 hidden md:block">
-          <h3 className={`text-sm font-medium mb-3 text-gray-700`}>
+          <h3 className={`text-sm font-medium mb-3 text-base-content/80`}>
             FinTrack offers:
           </h3>
           <ul className="space-y-2">
             {['Secure financial tracking', 'Easy budget management', 'Comprehensive financial insights'].map((feature, index) => (
-              <li key={index} className={`flex items-center text-sm text-gray-600`}>
+              <li key={index} className={`flex items-center text-sm text-base-content/60`}>
                 <svg 
-                  className={`h-4 w-4 mr-2 text-cyan-500`} 
+                  className={`h-4 w-4 mr-2 text-primary`} 
                   fill="currentColor" 
                   viewBox="0 0 20 20">
                   <path fillRule="evenodd" 
@@ -64,8 +64,8 @@ function AuthCard({ children, title, subtitle, footerText, linkText, linkTo }: A
         </div>
       </div>
       
-      {/* Bottom decorative element - smaller on mobile */}
-      <div className={`absolute bottom-0 left-0 w-16 h-16 md:w-20 md:h-20 lg:w-24 lg:h-24 rounded-tr-full bg-cyan-100`}></div>
+      {/* Bottom decorative element - usando cores do tema */}
+      <div className={`absolute bottom-0 left-0 w-16 h-16 md:w-20 md:h-20 lg:w-24 lg:h-24 rounded-tr-full bg-primary/10`}></div>
     </div>
   );
 }

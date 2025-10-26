@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Play, Pause, Download, Image as ImageIcon, File, Music, AlertCircle, Loader } from 'lucide-react';
+import { useTheme } from '../../hooks/useTheme';
 
 interface MediaMessageProps {
   mediaUrl: string;
@@ -14,6 +15,8 @@ export const MediaMessage: React.FC<MediaMessageProps> = ({
   fileName,
   caption
 }) => {
+  const theme = useTheme();
+  const isDark = theme === 'dark';
   const [isPlaying, setIsPlaying] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -51,15 +54,15 @@ export const MediaMessage: React.FC<MediaMessageProps> = ({
         return (
           <div className="relative">
             {isLoading && (
-              <div className="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-700 rounded-lg">
-                <Loader className="animate-spin text-gray-500" size={24} />
+              <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-base-200">
+                <Loader className="animate-spin text-base-content/60" size={24} />
               </div>
             )}
             {hasError ? (
-              <div className="flex items-center justify-center w-32 h-32 bg-gray-100 dark:bg-gray-700 rounded-lg">
+              <div className="flex items-center justify-center w-32 h-32 rounded-lg bg-base-200">
                 <div className="text-center">
-                  <AlertCircle className="mx-auto text-red-500 mb-2" size={24} />
-                  <p className="text-xs text-gray-500">Erro ao carregar</p>
+                  <AlertCircle className="mx-auto text-error mb-2" size={24} />
+                  <p className="text-xs text-base-content/60">Erro ao carregar</p>
                 </div>
               </div>
             ) : (
@@ -80,7 +83,7 @@ export const MediaMessage: React.FC<MediaMessageProps> = ({
               />
             )}
             {caption && (
-              <p className="text-sm mt-2 text-gray-700 dark:text-gray-300">{caption}</p>
+              <p className="text-sm mt-2 text-base-content">{caption}</p>
             )}
           </div>
         );
@@ -100,24 +103,24 @@ export const MediaMessage: React.FC<MediaMessageProps> = ({
               Seu navegador não suporta a tag video.
             </video>
             {caption && (
-              <p className="text-sm mt-2 text-gray-700 dark:text-gray-300">{caption}</p>
+              <p className="text-sm mt-2 text-base-content">{caption}</p>
             )}
           </div>
         );
 
       case 'audio':
         return (
-          <div className="flex items-center space-x-3 p-3 bg-gray-100 dark:bg-gray-700 rounded-lg max-w-xs">
+          <div className="flex items-center space-x-3 p-3 rounded-lg max-w-xs bg-base-200">
             <button
               onClick={handlePlayPause}
-              className="p-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors"
+              className="p-2 bg-primary text-primary-content rounded-full hover:bg-primary-focus transition-colors"
             >
               {isPlaying ? <Pause size={16} /> : <Play size={16} />}
             </button>
             <div className="flex-1">
               <div className="flex items-center space-x-2">
-                <Music size={16} className="text-gray-500" />
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                <Music size={16} className="text-base-content/60" />
+                <span className="text-sm font-medium text-base-content">
                   Áudio
                 </span>
               </div>
@@ -135,18 +138,18 @@ export const MediaMessage: React.FC<MediaMessageProps> = ({
 
       case 'document':
         return (
-          <div className="flex items-center space-x-3 p-3 bg-gray-100 dark:bg-gray-700 rounded-lg max-w-xs">
-            <File size={24} className="text-blue-500" />
+          <div className="flex items-center space-x-3 p-3 rounded-lg max-w-xs bg-base-200">
+            <File size={24} className="text-primary" />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">
+              <p className="text-sm font-medium truncate text-base-content">
                 {fileName || 'Documento'}
               </p>
-              <p className="text-xs text-gray-500">Documento</p>
+              <p className="text-xs text-base-content/60">Documento</p>
             </div>
             <button
               onClick={handleDownload}
               disabled={isDownloading}
-              className="p-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="p-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-base-content/60 hover:text-base-content"
               title={isDownloading ? "Baixando..." : "Baixar arquivo"}
             >
               {isDownloading ? (
@@ -175,9 +178,9 @@ export const MediaMessage: React.FC<MediaMessageProps> = ({
 
       default:
         return (
-          <div className="flex items-center space-x-2 p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
-            <ImageIcon size={20} className="text-gray-500" />
-            <span className="text-sm text-gray-700 dark:text-gray-300">
+          <div className="flex items-center space-x-2 p-3 rounded-lg bg-base-200">
+            <ImageIcon size={20} className="text-base-content/60" />
+            <span className="text-sm text-base-content">
               Mídia não suportada
             </span>
           </div>

@@ -44,13 +44,17 @@ export function useTheme() {
     const applyTheme = (themeName: 'light' | 'dark') => {
       // Usar os temas padrão do DaisyUI customizados
       root.setAttribute('data-theme', themeName);
-      // Também adiciona classe para Tailwind dark: utilities
+
+      // Gerenciar classe 'dark' para Tailwind dark: utilities
       if (themeName === 'dark') {
         root.classList.add('dark');
       } else {
         root.classList.remove('dark');
+        // Garantir que não há classe dark residual
+        root.classList.remove('dark');
       }
-      console.log(`${themeName === 'dark' ? '🌙' : '☀️'} [Theme] ${themeName} mode APPLIED - data-theme:`, root.getAttribute('data-theme'));
+
+      console.log(`${themeName === 'dark' ? '🌙' : '☀️'} [Theme] ${themeName} mode APPLIED - data-theme:`, root.getAttribute('data-theme'), 'has dark class:', root.classList.contains('dark'));
     };
 
     // Aplicar tema baseado na configuração

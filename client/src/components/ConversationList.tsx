@@ -5,6 +5,7 @@ import { userAuthStore } from '../features/auth/store/authStore';
 import { conversationService } from '../services/conversationService';
 import { socketService } from '../services/socketService';
 import { getDisplayName } from '../utils/contact-display';
+import { useTheme } from '../hooks/useTheme';
 
 interface ConversationSummary {
   id: string;
@@ -28,6 +29,8 @@ interface ConversationSummary {
 export const ConversationList: React.FC = () => {
   const { instanceId } = useParams<{ instanceId: string }>();
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isDark = theme === 'dark';
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -282,7 +285,7 @@ export const ConversationList: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
   }
@@ -290,30 +293,30 @@ export const ConversationList: React.FC = () => {
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+      <div className={`p-4 border-b bg-base-100 border-base-300`}>
+        <div className="flex items-center justify-between">
+          <h1 className={`text-xl font-semibold text-base-content`}>
             Conversas
           </h1>
-          <div className="flex items-center space-x-2">
-            <button className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full">
-              <Archive className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+          <div className="flex items-center space-x-1">
+            <button className={`p-2 rounded-full hover:bg-base-200 transition-colors`}>
+              <Archive className={`h-5 w-5 text-base-content/60`} />
             </button>
-            <button className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full">
-              <MoreVertical className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+            <button className={`p-2 rounded-full hover:bg-base-200 transition-colors`}>
+              <MoreVertical className={`h-5 w-5 text-base-content/60`} />
             </button>
           </div>
         </div>
 
         {/* Search */}
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-base-content/50 h-4 w-4" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Buscar conversas..."
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"
+            className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-primary border-base-300 bg-base-100 text-base-content placeholder-base-content/50`}
           />
         </div>
       </div>
@@ -321,27 +324,27 @@ export const ConversationList: React.FC = () => {
       {/* Conversations List */}
       <div className="flex-1 overflow-y-auto">
         {filteredConversations.length === 0 ? (
-          <div className="text-center text-gray-500 dark:text-gray-400 mt-8 p-4">
+          <div className={`text-center mt-8 p-4 text-base-content/60`}>
             {searchTerm ? (
               <div>
-                <Search className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                <Search className="h-12 w-12 mx-auto mb-4 text-base-content/30" />
                 <p>Nenhuma conversa encontrada para "{searchTerm}"</p>
               </div>
             ) : (
               <div>
-                <MessageSquare className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                <MessageSquare className="h-12 w-12 mx-auto mb-4 text-base-content/30" />
                 <p>Nenhuma conversa ainda</p>
                 <p className="text-sm mt-2">Suas conversas aparecerão aqui quando você receber ou enviar mensagens.</p>
               </div>
             )}
           </div>
         ) : (
-          <div className="divide-y divide-gray-200 dark:divide-gray-700">
+          <div className={`divide-y ${isDark ? 'divide-gray-700' : 'divide-gray-200'}`}>
             {filteredConversations.map((conversation) => (
               <Link
                 key={conversation.id}
                 to={`/chat/${instanceId}/${conversation.id}`}
-                className="group block hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                className={`group block transition-colors hover:bg-base-200`}
               >
                 <div className="p-4">
                   <div className="flex items-start space-x-3">
@@ -354,36 +357,36 @@ export const ConversationList: React.FC = () => {
                           className="h-12 w-12 rounded-full object-cover"
                         />
                       ) : (
-                        <div className="h-12 w-12 rounded-full bg-blue-500 flex items-center justify-center">
+                        <div className="h-12 w-12 rounded-full bg-primary flex items-center justify-center">
                           <span className="text-white font-medium text-lg">
                             {(conversation.contactName || '?').charAt(0).toUpperCase()}
                           </span>
                         </div>
                       )}
                       {conversation.isPinned && (
-                        <Pin className="absolute -top-1 -right-1 h-4 w-4 text-yellow-500" />
+                        <Pin className="absolute -top-1 -right-1 h-4 w-4 text-warning" />
                       )}
                     </div>
 
                     {/* Content */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
-                        <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                        <h3 className={`text-sm font-medium truncate text-base-content`}>
                           {getDisplayName({
                             nickname: (conversation as any).nickname,
                             contactName: conversation.contactName,
                             remoteJid: conversation.remoteJid
                           })}
                           {conversation.isGroup && (
-                            <span className="ml-1 text-xs text-gray-500">(Grupo)</span>
+                            <span className="ml-1 text-xs text-base-content/60">(Grupo)</span>
                           )}
                         </h3>
                         <div className="flex items-center space-x-2">
-                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                          <span className={`text-xs text-base-content/60`}>
                             {formatTime(conversation.lastMessageAt)}
                           </span>
                           {conversation.unreadCount > 0 && (
-                            <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-blue-500 rounded-full min-w-[20px]">
+                            <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-primary-content bg-primary rounded-full min-w-[20px]">
                               {conversation.unreadCount > 99 ? '99+' : conversation.unreadCount}
                             </span>
                           )}
@@ -392,18 +395,18 @@ export const ConversationList: React.FC = () => {
                             {conversation.unreadCount > 0 ? (
                               <button
                                 onClick={(e) => handleMarkAsRead(e, conversation.id)}
-                                className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
+                                className={`p-1 rounded hover:bg-base-300`}
                                 title="Marcar como lida"
                               >
-                                <Check className="h-4 w-4 text-green-600" />
+                                <Check className="h-4 w-4 text-success" />
                               </button>
                             ) : (
                               <button
                                 onClick={(e) => handleMarkAsUnread(e, conversation.id)}
-                                className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
+                                className={`p-1 rounded hover:bg-base-300`}
                                 title="Marcar como não lida"
                               >
-                                <Mail className="h-4 w-4 text-blue-600" />
+                                <Mail className="h-4 w-4 text-primary" />
                               </button>
                             )}
                           </div>
@@ -415,9 +418,9 @@ export const ConversationList: React.FC = () => {
                           // Priorizar lastMessagePreview (mais completo)
                           if (conversation.lastMessagePreview?.content) {
                             return (
-                              <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
+                              <p className={`text-sm truncate text-base-content/70`}>
                                 {conversation.lastMessagePreview.fromMe && (
-                                  <span className="text-blue-500">Você: </span>
+                                  <span className="text-primary">Você: </span>
                                 )}
                                 {truncateMessage(conversation.lastMessagePreview.content)}
                               </p>
@@ -427,15 +430,15 @@ export const ConversationList: React.FC = () => {
                           // Fallback para lastMessage
                           if (conversation.lastMessage) {
                             return (
-                              <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
+                              <p className={`text-sm truncate text-base-content/70`}>
                                 {truncateMessage(conversation.lastMessage)}
                               </p>
                             );
                           }
-                          
+
                           // Nenhuma mensagem disponível
                           return (
-                            <p className="text-sm text-gray-400 dark:text-gray-500 italic">
+                            <p className={`text-sm italic text-base-content/50`}>
                               Nenhuma mensagem
                             </p>
                           );

@@ -72,35 +72,37 @@ function RegisterForm() {
       <form className='space-y-4 md:space-y-6' onSubmit={handleSubmit(onSubmit)}>
         {/* Show general form errors */}
         {errors.root && (
-          <div className="p-3 rounded text-sm md:text-base bg-red-50 border border-red-400 text-red-700">
-            {errors.root.message}
+          <div className="alert alert-error">
+            <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <span>{errors.root.message}</span>
           </div>
         )}
         {error && (
-          <div className="p-3 rounded text-sm md:text-base bg-red-50 border border-red-400 text-red-700">
-            {error}
+          <div className="alert alert-error">
+            <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <span>{error}</span>
           </div>
         )}
 
         {/* Name Field */}
         <div>
-          <label htmlFor="name" className='block text-sm font-medium mb-1 text-gray-700'>
+          <label htmlFor="name" className='block text-sm font-medium mb-1 text-base-content'>
             Nome Completo
           </label>
           <div className='relative'>
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <User className='h-4 w-4 md:h-5 md:w-5 text-gray-400' />
+              <User className='h-4 w-4 md:h-5 md:w-5 text-base-content/50' />
             </div>
             <input
               id='name'
               {...registerField("name")}
               type='text'
               placeholder='Digite seu nome completo'
-              className='w-full pl-10 pr-3 py-2 text-sm md:text-base border rounded-md focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 bg-white border-gray-300 text-gray-900'
+              className='w-full pl-10 pr-3 py-2 text-sm md:text-base border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary bg-base-100 border-base-300 text-base-content placeholder-base-content/50'
             />
           </div>
           {errors.name && (
-            <p className="mt-1 text-xs md:text-sm text-red-600">
+            <p className="mt-1 text-xs md:text-sm text-error">
               {errors.name.message}
             </p>
           )}
@@ -108,23 +110,23 @@ function RegisterForm() {
 
         {/* Email Field */}
         <div>
-          <label htmlFor="email" className='block text-sm font-medium mb-1 text-gray-700'>
+          <label htmlFor="email" className='block text-sm font-medium mb-1 text-base-content'>
             Email
           </label>
           <div className='relative'>
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Mail className='h-4 w-4 md:h-5 md:w-5 text-gray-400' />
+              <Mail className='h-4 w-4 md:h-5 md:w-5 text-base-content/50' />
             </div>
             <input
               id='email'
               {...registerField("email")}
               type='email'
               placeholder='Digite seu e-mail'
-              className='w-full pl-10 pr-3 py-2 text-sm md:text-base border rounded-md focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 bg-white border-gray-300 text-gray-900'
+              className='w-full pl-10 pr-3 py-2 text-sm md:text-base border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary bg-base-100 border-base-300 text-base-content placeholder-base-content/50'
             />
           </div>
           {errors.email && (
-            <p className="mt-1 text-xs md:text-sm text-red-600">
+            <p className="mt-1 text-xs md:text-sm text-error">
               {errors.email.message}
             </p>
           )}
@@ -132,19 +134,19 @@ function RegisterForm() {
 
         {/* Password Field */}
         <div>
-          <label htmlFor="password" className='block text-sm font-medium mb-1 text-gray-700'>
+          <label htmlFor="password" className='block text-sm font-medium mb-1 text-base-content'>
             Senha
           </label>
           <div className='relative'>
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <KeyRound className='h-4 w-4 md:h-5 md:w-5 text-gray-400' />
+              <KeyRound className='h-4 w-4 md:h-5 md:w-5 text-base-content/50' />
             </div>
             <input
               id="password"
               {...registerField("password")}
               type={showPassword ? "text" : "password"}
               placeholder="••••••"
-              className='w-full pl-10 pr-10 py-2 text-sm md:text-base border rounded-md focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 bg-white border-gray-300 text-gray-900'
+              className='w-full pl-10 pr-10 py-2 text-sm md:text-base border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary bg-base-100 border-base-300 text-base-content placeholder-base-content/50'
             />
             <button
               type='button'
@@ -152,14 +154,14 @@ function RegisterForm() {
               onClick={togglePasswordVisibility}
             >
               {showPassword ? (
-                <EyeOff className='h-4 w-4 md:h-5 md:w-5 text-gray-500 hover:text-gray-700' />
+                <EyeOff className='h-4 w-4 md:h-5 md:w-5 text-base-content/60 hover:text-base-content' />
               ) : (
-                <Eye className='h-4 w-4 md:h-5 md:w-5 text-gray-500 hover:text-gray-700' />
+                <Eye className='h-4 w-4 md:h-5 md:w-5 text-base-content/60 hover:text-base-content' />
               )}
             </button>
           </div>
           {errors.password && (
-            <p className="mt-1 text-xs md:text-sm text-red-600">
+            <p className="mt-1 text-xs md:text-sm text-error">
               {errors.password.message}
             </p>
           )}
@@ -167,19 +169,19 @@ function RegisterForm() {
 
         {/* Confirm Password Field */}
         <div>
-          <label htmlFor="confirmPassword" className='block text-sm font-medium mb-1 text-gray-700'>
+          <label htmlFor="confirmPassword" className='block text-sm font-medium mb-1 text-base-content'>
             Confirmar Senha
           </label>
           <div className='relative'>
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <KeyRound className='h-4 w-4 md:h-5 md:w-5 text-gray-400' />
+              <KeyRound className='h-4 w-4 md:h-5 md:w-5 text-base-content/50' />
             </div>
             <input
               id="confirmPassword"
               {...registerField("confirmPassword")}
               type={showConfirmPassword ? "text" : "password"}
               placeholder="••••••"
-              className='w-full pl-10 pr-10 py-2 text-sm md:text-base border rounded-md focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 bg-white border-gray-300 text-gray-900'
+              className='w-full pl-10 pr-10 py-2 text-sm md:text-base border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary bg-base-100 border-base-300 text-base-content placeholder-base-content/50'
             />
             <button
               type='button'
@@ -187,14 +189,14 @@ function RegisterForm() {
               onClick={toggleConfirmPasswordVisibility}
             >
               {showConfirmPassword ? (
-                <EyeOff className='h-4 w-4 md:h-5 md:w-5 text-gray-500 hover:text-gray-700' />
+                <EyeOff className='h-4 w-4 md:h-5 md:w-5 text-base-content/60 hover:text-base-content' />
               ) : (
-                <Eye className='h-4 w-4 md:h-5 md:w-5 text-gray-500 hover:text-gray-700' />
+                <Eye className='h-4 w-4 md:h-5 md:w-5 text-base-content/60 hover:text-base-content' />
               )}
             </button>
           </div>
           {errors.confirmPassword && (
-            <p className="mt-1 text-xs md:text-sm text-red-600">
+            <p className="mt-1 text-xs md:text-sm text-error">
               {errors.confirmPassword.message}
             </p>
           )}
@@ -203,7 +205,7 @@ function RegisterForm() {
         <button 
           type='submit'
           disabled={isSubmitting || loading}
-          className='w-full py-2 px-4 text-sm md:text-base text-white font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-cyan-600 hover:bg-cyan-700 focus:ring-offset-2'
+          className='w-full py-2 px-4 text-sm md:text-base text-primary-content font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-primary hover:bg-primary-focus focus:ring-offset-2'
         >
           {isSubmitting || loading ? (
             <span className="flex items-center justify-center">
@@ -219,10 +221,10 @@ function RegisterForm() {
 
       <div className='relative my-4 md:my-6'>
         <div className="absolute inset-0 flex items-center">
-          <div className='w-full border-t border-gray-300'></div>
+          <div className='w-full border-t border-base-300'></div>
         </div>
         <div className='relative flex justify-center text-xs md:text-sm'>
-          <span className='px-2 bg-white text-gray-500'>
+          <span className='px-2 bg-base-100 text-base-content/60'>
             Ao criar uma conta, você concorda com nossos termos
           </span>
         </div>
