@@ -30,7 +30,7 @@ export class App {
     
     // CORS configuration
     this.app.use(cors({
-      origin: '*', // In production, specify your frontend domain
+      origin: ['http://localhost:3000', 'http://127.0.0.1:3000'], // Allow frontend on port 3000
       methods: ['GET', 'POST', 'PUT', 'DELETE'],
       allowedHeaders: ['Content-Type', 'Authorization']
     }));

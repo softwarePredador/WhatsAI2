@@ -4,6 +4,8 @@ import { prisma } from '../database/prisma';
 import { EvolutionApiService } from './evolution-api';
 import { SocketService } from './socket-service';
 import { MediaMessageService } from './messages';
+import { IncomingMediaService } from './incoming-media-service';
+import { mediaLogger } from '../utils/media-logger';
 
 type Conversation = {
   id: string;
@@ -62,6 +64,7 @@ export class ConversationService {
   private messageRepository: MessageRepository;
   private evolutionApiService: EvolutionApiService;
   private socketService: SocketService;
+  private incomingMediaService: IncomingMediaService;
   private lidToRealNumberCache: Map<string, string> = new Map(); // @lid → real number
   private keyIdToLidCache: Map<string, string> = new Map(); // keyId → @lid  
   private keyIdToRealCache: Map<string, string> = new Map(); // keyId → real number
@@ -71,6 +74,7 @@ export class ConversationService {
     this.messageRepository = new MessageRepository(prisma);
     this.evolutionApiService = new EvolutionApiService();
     this.socketService = SocketService.getInstance();
+    this.incomingMediaService = new IncomingMediaService();
   }
 
   /**
@@ -447,9 +451,10 @@ export class ConversationService {
     try {
       console.log(`👤 [CONTACT_UPDATE] Starting update for ${remoteJid} with data:`, data);
 
-      // Estratégia 1: Tentar normalização padrão
-      const normalizedJid = this.normalizeWhatsAppNumber(remoteJid, null, false);
-      console.log(`👤 [CONTACT_UPDATE] Normalized JID: ${normalizedJid}`);
+      // Estratégia 1: Tentar normalização padrão (detectar automaticamente se é grupo)
+      const isGroupContact = remoteJid.includes('@g.us');
+      const normalizedJid = this.normalizeWhatsAppNumber(remoteJid, null, isGroupContact);
+      console.log(`👤 [CONTACT_UPDATE] Normalized JID: ${normalizedJid} (isGroup: ${isGroupContact})`);
 
       // Buscar todas as conversas da instância para matching (incluindo arquivadas)
       const allConversations = await this.conversationRepository.findAllByInstanceId(instanceId);
@@ -549,26 +554,28 @@ export class ConversationService {
    */
   async updateUnreadCount(instanceId: string, remoteJid: string, unreadCount: number): Promise<void> {
     try {
-      const normalizedJid = this.normalizeRemoteJid(remoteJid);
-      const formattedJid = this.formatRemoteJid(normalizedJid);
-      
+      const normalizedJid = this.normalizeWhatsAppNumber(remoteJid, null, remoteJid.includes('@g.us'));
+
       // Find conversation by remoteJid
       const conversations = await this.conversationRepository.findByInstanceId(instanceId);
-      const conversation = conversations.find(c => c.remoteJid === formattedJid);
-      
+      const conversation = conversations.find(c => c.remoteJid === normalizedJid);
+
       if (conversation) {
         await this.conversationRepository.update(conversation.id, { unreadCount });
-        
-        console.log(`✅ Updated unread count from webhook: ${formattedJid} = ${unreadCount}`);
-        
+
+        console.log(`✅ Updated unread count from webhook: ${normalizedJid} = ${unreadCount}`);
+
         // Notify frontend
         this.socketService.emitToInstance(instanceId, 'conversation:unread', {
           conversationId: conversation.id,
           unreadCount
         });
+      } else {
+        console.log(`⚠️ Conversation not found for unread count update: ${normalizedJid}`);
       }
     } catch (error) {
       console.log(`⚠️ Failed to update unread count from webhook:`, error);
+      throw error; // Re-throw to show the error
     }
   }
 
@@ -693,6 +700,73 @@ export class ConversationService {
         } catch (error) {
           console.error('❌ Error auto-marking message as read:', error);
         }
+      }
+
+      // 🖼️ Process incoming media if present (outside transaction for better performance)
+      if (message.mediaUrl) {
+        mediaLogger.log('🖼️ [MEDIA_PROCESS_START] Iniciando processamento de mídia', {
+          messageId: message.id,
+          mediaUrl: message.mediaUrl.substring(0, 100) + '...',
+          messageType: message.messageType,
+          fromMe: message.fromMe
+        });
+
+        try {
+          // Process media asynchronously (don't await to avoid blocking)
+          const mediaOptions: any = {
+            messageId: message.id,
+            mediaUrl: message.mediaUrl,
+            mediaType: this.getMediaType(messageData)
+          };
+
+          if (message.fileName) mediaOptions.fileName = message.fileName;
+          if (message.caption) mediaOptions.caption = message.caption;
+          const mimeType = this.getMimeType(messageData);
+          if (mimeType) mediaOptions.mimeType = mimeType;
+
+          mediaLogger.log('📋 [MEDIA_OPTIONS] Opções preparadas para processamento', {
+            mediaType: mediaOptions.mediaType,
+            fileName: mediaOptions.fileName,
+            caption: mediaOptions.caption,
+            mimeType: mediaOptions.mimeType
+          });
+
+          console.log(`🚀 [MEDIA_PROCESS_CALL] Chamando IncomingMediaService.processIncomingMedia...`);          this.incomingMediaService.processIncomingMedia(mediaOptions)
+            .then(async (processedMediaUrl) => {
+              mediaLogger.log('✅ [MEDIA_PROCESS_SUCCESS] Mídia processada com sucesso', {
+                messageId: message.id,
+                processedUrl: processedMediaUrl
+              });
+
+              // Update message with processed media URL
+              console.log(`💾 [DB_UPDATE] Atualizando message no banco de dados...`);
+              await prisma.message.update({
+                where: { id: message.id },
+                data: { mediaUrl: processedMediaUrl }
+              });
+              console.log(`✅ [DB_UPDATE] Message atualizada com sucesso`);
+
+              // Emit update to frontend with processed media
+              console.log(`📡 [SOCKET_EMIT] Emitindo atualização para frontend...`);
+              this.socketService.emitToInstance(instance.id, 'message:updated', {
+                messageId: message.id,
+                mediaUrl: processedMediaUrl
+              });
+              console.log(`✅ [SOCKET_EMIT] Evento emitido com sucesso`);
+            })
+            .catch((error) => {
+              console.error(`❌ [MEDIA_PROCESS_ERROR] Falha no processamento de mídia:`);
+              console.error(`   📝 Message ID: ${message.id}`);
+              console.error(`   💥 Erro: ${error instanceof Error ? error.message : String(error)}`);
+              console.error(`   📊 Stack: ${error instanceof Error ? error.stack : 'N/A'}`);
+            });
+        } catch (error) {
+          console.error(`❌ [MEDIA_PROCESS_INIT_ERROR] Erro ao iniciar processamento de mídia:`);
+          console.error(`   📝 Message ID: ${message.id}`);
+          console.error(`   💥 Erro: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      } else {
+        console.log(`⏭️ [MEDIA_PROCESS_SKIP] Nenhuma mídia para processar (mediaUrl vazia)`);
       }
 
       // Emit real-time update to frontend
@@ -978,32 +1052,32 @@ export class ConversationService {
       return messageData.message.extendedTextMessage.text;
     }
     
-    if (messageData.message?.imageMessage?.caption) {
-      return messageData.message.imageMessage.caption || '[Imagem]';
+    if (messageData.message?.imageMessage) {
+      return messageData.message.imageMessage.caption || '';
     }
     
-    if (messageData.message?.videoMessage?.caption) {
-      return messageData.message.videoMessage.caption || '[Vídeo]';
+    if (messageData.message?.videoMessage) {
+      return messageData.message.videoMessage.caption || '';
     }
     
     if (messageData.message?.audioMessage) {
-      return '[Áudio]';
+      return '';
     }
     
     if (messageData.message?.documentMessage) {
-      return `[Documento: ${messageData.message.documentMessage.fileName || 'arquivo'}]`;
+      return messageData.message.documentMessage.fileName || '';
     }
     
     if (messageData.message?.stickerMessage) {
-      return '[Sticker]';
+      return '';
     }
     
     if (messageData.message?.locationMessage) {
-      return '[Localização]';
+      return '';
     }
     
     if (messageData.message?.contactMessage) {
-      return '[Contato]';
+      return '';
     }
     
     return '[Mensagem não suportada]';
@@ -1257,7 +1331,12 @@ export class ConversationService {
    */
   async handleIncomingMessageAtomic(instanceId: string, messageData: any): Promise<void> {
     try {
-      console.log(`📨 [handleIncomingMessageAtomic] instanceId: ${instanceId}`);
+      console.log(`� [ATOMIC_START] handleIncomingMessageAtomic chamado para ${instanceId}`);
+      console.log(`📝 [ATOMIC_DATA] MessageType: ${messageData.message ? Object.keys(messageData.message)[0] : 'N/A'}`);
+      console.log(`🖼️ [ATOMIC_MEDIA] Has media: ${!!(messageData.message?.imageMessage || messageData.message?.videoMessage || messageData.message?.audioMessage)}`);
+      console.log(`👤 [ATOMIC_SENDER] fromMe: ${messageData.key?.fromMe}`);
+
+      console.log(`�📨 [handleIncomingMessageAtomic] instanceId: ${instanceId}`);
       console.log(`📨 [handleIncomingMessageAtomic] RAW messageData.key:`, JSON.stringify(messageData.key, null, 2));
 
       // 🔍 Verificar se a instância existe
@@ -1360,6 +1439,64 @@ export class ConversationService {
             console.error(`❌ Failed to find message ${messageData.key.id}:`, findError);
             throw error;
           }
+        }
+
+        // 2.5. Process incoming media (download and store locally) - OUTSIDE transaction for performance
+        let processedMediaUrl = messageCreateData.mediaUrl;
+        if (messageCreateData.mediaUrl) {
+          console.log(`🖼️ [ATOMIC_MEDIA_PROCESS_START] Iniciando processamento de mídia atômico:`);
+          console.log(`   � Message ID: ${messageData.key.id}`);
+          console.log(`   🔗 Media URL: ${messageCreateData.mediaUrl}`);
+          console.log(`   👤 From Me: ${messageData.key.fromMe}`);
+
+          try {
+            const mediaType = this.getMessageType(messageData).toLowerCase() as 'image' | 'video' | 'audio' | 'sticker' | 'document';
+            const mimeType = messageData.message?.imageMessage?.mimetype ||
+                            messageData.message?.videoMessage?.mimetype ||
+                            messageData.message?.audioMessage?.mimetype ||
+                            messageData.message?.stickerMessage?.mimetype ||
+                            messageData.message?.documentMessage?.mimetype;
+
+            console.log(`📋 [ATOMIC_MEDIA_OPTIONS] Opções para processamento:`);
+            console.log(`   🖼️ MediaType: ${mediaType}`);
+            console.log(`   🏷️ MimeType: ${mimeType || 'N/A'}`);
+
+            console.log(`🚀 [ATOMIC_MEDIA_PROCESS_CALL] Chamando IncomingMediaService.processIncomingMedia...`);
+
+            const downloadedUrl = await this.incomingMediaService.processIncomingMedia({
+              messageId: messageData.key.id,
+              mediaUrl: messageCreateData.mediaUrl,
+              mediaType,
+              fileName: messageCreateData.fileName,
+              caption: messageCreateData.caption,
+              mimeType
+            });
+
+            if (downloadedUrl) {
+              processedMediaUrl = downloadedUrl;
+              console.log(`✅ [ATOMIC_MEDIA_SUCCESS] Mídia processada com sucesso:`);
+              console.log(`   🔗 Processed URL: ${downloadedUrl}`);
+              console.log(`   📝 Message ID: ${messageData.key.id}`);
+
+              // Update message with processed media URL
+              console.log(`💾 [ATOMIC_DB_UPDATE] Atualizando message no banco de dados...`);
+              await tx.message.update({
+                where: { id: message.id },
+                data: { mediaUrl: processedMediaUrl }
+              });
+              console.log(`✅ [ATOMIC_DB_UPDATE] Message atualizada com sucesso`);
+            } else {
+              console.log(`⚠️ [ATOMIC_MEDIA_NO_URL] Nenhum URL processada retornada`);
+            }
+          } catch (mediaError) {
+            console.error(`⚠️ [ATOMIC_MEDIA_ERROR] Falha no processamento de mídia:`);
+            console.error(`   📝 Message ID: ${messageData.key.id}`);
+            console.error(`   💥 Erro: ${mediaError instanceof Error ? mediaError.message : String(mediaError)}`);
+            // Continue with original URL if processing fails
+            console.log(`⏭️ [ATOMIC_MEDIA_FALLBACK] Continuando com URL original`);
+          }
+        } else {
+          console.log(`⏭️ [ATOMIC_MEDIA_SKIP] Nenhuma mídia para processar (mediaUrl vazia)`);
         }
 
         // Smart unread logic
@@ -1799,5 +1936,29 @@ export class ConversationService {
       console.error('❌ [sendMediaMessageAtomic] Transaction failed:', error);
       throw error;
     }
+  }
+
+  /**
+   * Get media type from message data
+   */
+  private getMediaType(messageData: any): 'image' | 'video' | 'audio' | 'sticker' | 'document' {
+    if (messageData.message?.imageMessage) return 'image';
+    if (messageData.message?.videoMessage) return 'video';
+    if (messageData.message?.audioMessage) return 'audio';
+    if (messageData.message?.stickerMessage) return 'sticker';
+    if (messageData.message?.documentMessage) return 'document';
+    return 'image'; // fallback
+  }
+
+  /**
+   * Get MIME type from message data
+   */
+  private getMimeType(messageData: any): string | undefined {
+    if (messageData.message?.imageMessage?.mimetype) return messageData.message.imageMessage.mimetype;
+    if (messageData.message?.videoMessage?.mimetype) return messageData.message.videoMessage.mimetype;
+    if (messageData.message?.audioMessage?.mimetype) return messageData.message.audioMessage.mimetype;
+    if (messageData.message?.stickerMessage?.mimetype) return messageData.message.stickerMessage.mimetype;
+    if (messageData.message?.documentMessage?.mimetype) return messageData.message.documentMessage.mimetype;
+    return undefined;
   }
 }

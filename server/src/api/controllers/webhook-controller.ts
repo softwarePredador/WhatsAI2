@@ -281,15 +281,20 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
         
         // 💬 Process chat updates (CHATS_UPSERT) - CONTADOR DE NÃO LIDAS!
         if (webhookData.event === 'chats.upsert') {
-          const chatsData = Array.isArray(webhookData.data) ? webhookData.data : [webhookData.data];
-          for (const chat of chatsData) {
-            const remoteJid = chat.remoteJid;
-            const unreadMessages = chat.unreadMessages || 0;
-            
-            if (remoteJid) {
-              console.log(`💬 [CHATS_UPSERT] Chat ${remoteJid}: ${unreadMessages} não lidas`);
-              await this.conversationService.updateUnreadCount(instanceId, remoteJid, unreadMessages);
+          try {
+            const chatsData = Array.isArray(webhookData.data) ? webhookData.data : [webhookData.data];
+            for (const chat of chatsData) {
+              const remoteJid = chat.remoteJid;
+              const unreadMessages = chat.unreadMessages || 0;
+
+              if (remoteJid) {
+                console.log(`💬 [CHATS_UPSERT] Chat ${remoteJid}: ${unreadMessages} não lidas`);
+                await this.conversationService.updateUnreadCount(instanceId, remoteJid, unreadMessages);
+              }
             }
+          } catch (error) {
+            console.error(`❌ [CHATS_UPSERT] Error processing chats.upsert:`, error);
+            throw error; // Re-throw to cause 500 instead of silent failure
           }
         }
         
