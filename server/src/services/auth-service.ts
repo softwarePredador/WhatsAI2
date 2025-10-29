@@ -26,7 +26,6 @@ export class AuthService {
   constructor() {
     this.JWT_SECRET = process.env['JWT_SECRET'] || 'your-super-secret-key-change-in-production';
     this.JWT_EXPIRES_IN = process.env['JWT_EXPIRES_IN'] || '7d';
-    console.log('🔐 AuthService initialized with JWT_SECRET:', this.JWT_SECRET ? 'Present' : 'Missing');
   }
 
   /**

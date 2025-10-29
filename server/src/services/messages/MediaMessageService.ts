@@ -51,7 +51,6 @@ export class MediaMessageService {
         throw new Error(`Instância não encontrada: ${instanceId}`);
       }
 
-      console.log(`📤 [sendMediaMessage] Enviando ${mediaType} para ${normalizedRemoteJid}`);
 
       // Enviar para Evolution API
       const evolutionResponse = await this.evolutionApiService.sendMediaMessage(
@@ -62,7 +61,6 @@ export class MediaMessageService {
         mediaType // Pass the mediaType parameter
       );
 
-      console.log(`✅ [sendMediaMessage] Mídia enviada via Evolution API:`, evolutionResponse);
 
       // Criar/atualizar conversa
       const conversation = await this.createOrUpdateConversation(instanceId, normalizedRemoteJid);

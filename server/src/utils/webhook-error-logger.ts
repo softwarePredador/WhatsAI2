@@ -39,14 +39,12 @@ export class WebhookErrorLogger {
       // Criar diretório logs se não existir
       if (!fs.existsSync(this.logsDir)) {
         fs.mkdirSync(this.logsDir, { recursive: true });
-        console.log(`📁 [WebhookErrorLogger] Diretório de logs criado: ${this.logsDir}`);
       }
 
       // Criar arquivo de log se não existir
       if (!fs.existsSync(this.logFilePath)) {
         const header = `=== WEBHOOK ERROR LOGS - INÍCIO ===\nCriado em: ${new Date().toISOString()}\n\n`;
         fs.writeFileSync(this.logFilePath, header, 'utf8');
-        console.log(`📝 [WebhookErrorLogger] Arquivo de log criado: ${this.logFilePath}`);
       }
     } catch (error: any) {
       console.error(`❌ [WebhookErrorLogger] Erro ao criar arquivo de log:`, error.message);
@@ -286,7 +284,6 @@ export class WebhookErrorLogger {
       
       fs.writeFileSync(this.logFilePath, newContent, 'utf8');
       
-      console.log(`🧹 [WebhookErrorLogger] Cleaned old logs. Kept ${recentEntries.length} recent entries.`);
     } catch (error: any) {
       console.error(`❌ [WebhookErrorLogger] Error cleaning logs:`, error.message);
     }

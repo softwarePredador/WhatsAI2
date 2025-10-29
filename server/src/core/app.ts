@@ -171,19 +171,12 @@ export class App {
     try {
       // Initialize cache service
       await cacheService.initialize();
-      console.log('💾 Cache service initialized');
       logger.info(LogContext.CACHE, 'Cache service initialized successfully');
 
       const port = env.PORT;
 
       return new Promise((resolve) => {
         this.server.listen(port, () => {
-          console.log('🚀 WhatsAI Multi-Instance Manager Started');
-          console.log(`📡 Server running on port ${port}`);
-          console.log(`🌍 Environment: ${env.NODE_ENV}`);
-          console.log(`🔗 Evolution API URL: ${env.EVOLUTION_API_URL}`);
-          console.log(`💡 WebSocket server initialized`);
-          console.log(`📱 Ready to manage WhatsApp instances!`);
           resolve();
         });
       });
@@ -196,7 +189,6 @@ export class App {
   public async stop(): Promise<void> {
     return new Promise((resolve) => {
       this.server.close(() => {
-        console.log('Server stopped');
         resolve();
       });
     });

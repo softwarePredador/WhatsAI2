@@ -41,7 +41,6 @@ export class MediaStorageService {
     let uploadResult: any = null;
 
     try {
-      console.log(`🚀 [MediaStorage] Starting upload and send process for ${fileName}`);
 
       // 1. Generate unique key for the file
       const fileKey = DigitalOceanSpacesService.generateFileKey(
@@ -51,7 +50,6 @@ export class MediaStorageService {
       );
 
       // 2. Upload to DigitalOcean Spaces
-      console.log(`📤 [MediaStorage] Uploading to Spaces: ${fileKey}`);
       uploadResult = await this.spacesService.uploadFile(
         file,
         fileKey,
@@ -70,10 +68,8 @@ export class MediaStorageService {
       // 3. Get CDN URL for faster access
       const cdnUrl = this.spacesService.getCdnUrl(uploadResult.key);
 
-      console.log(`✅ [MediaStorage] File uploaded. CDN URL: ${cdnUrl}`);
 
       // 4. Send as WhatsApp message
-      console.log(`📱 [MediaStorage] Sending as WhatsApp message`);
       const message = await this.mediaService.sendMediaMessage({
         instanceId,
         remoteJid,
@@ -83,7 +79,6 @@ export class MediaStorageService {
         fileName,
       });
 
-      console.log(`🎉 [MediaStorage] Process completed successfully`);
 
       return {
         upload: uploadResult,
@@ -96,9 +91,7 @@ export class MediaStorageService {
       // If upload succeeded but message failed, cleanup the uploaded file
       if (uploadResult) {
         try {
-          console.log(`🧹 [MediaStorage] Rolling back upload: ${uploadResult.key}`);
           await this.spacesService.deleteFile(uploadResult.key);
-          console.log(`✅ [MediaStorage] Rollback completed`);
         } catch (rollbackError) {
           console.error(`❌ [MediaStorage] Rollback failed:`, rollbackError);
           // Don't throw rollback error, original error is more important

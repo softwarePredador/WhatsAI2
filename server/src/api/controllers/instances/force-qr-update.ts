@@ -15,7 +15,6 @@ export async function forceQRCodeUpdate(req: Request, res: Response) {
       });
     }
     
-    console.log(`🔧 [forceQRCodeUpdate] Forcing QR update for instance: ${instanceId}`);
     
     // Get instance
     const instance = await instanceService.getInstanceById(instanceId);
@@ -33,7 +32,6 @@ export async function forceQRCodeUpdate(req: Request, res: Response) {
     
     try {
       const qrData = await evolutionApi.getQRCode(instance.evolutionInstanceName);
-      console.log(`🔍 [forceQRCodeUpdate] QR Data obtained:`, qrData);
       
       if (qrData && qrData.base64) {
         // Update instance with QR code
@@ -45,7 +43,6 @@ export async function forceQRCodeUpdate(req: Request, res: Response) {
         const repository = (instanceService as any).repository;
         await repository.update(instanceId, updateData);
         
-        console.log(`✅ [forceQRCodeUpdate] QR Code updated in database`);
         
         return res.json({
           success: true,

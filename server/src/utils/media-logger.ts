@@ -29,7 +29,6 @@ export class MediaLogger {
     const logEntry = `[${timestamp}] ${message}`;
 
     // Log no console
-    console.log(logEntry);
     if (data) {
       console.log(JSON.stringify(data, null, 2));
     }

@@ -128,7 +128,6 @@ router.get('/messages/chart', async (req, res) => {
 
     const instanceIds = userInstances.map(inst => inst.id);
 
-    console.log('User instances:', instanceIds);
 
     // Get message data for the last 7 days
     const sevenDaysAgo = new Date();
@@ -153,7 +152,6 @@ router.get('/messages/chart', async (req, res) => {
           }
         });
 
-        console.log('Found messages:', messages.length);
 
         // Group by date manually
         const groupedData = new Map<string, { total: number; delivered: number; failed: number }>();

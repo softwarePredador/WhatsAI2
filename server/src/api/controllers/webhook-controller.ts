@@ -63,7 +63,6 @@ export class WebhookController {
 
   private logWebhook(webhookData: any, instanceId: string): void {
     // Logging reativado para debug
-    console.log(`📝 [LOG_WEBHOOK] Iniciando log para ${instanceId}, event: ${webhookData.event}`);
     try {
       const timestamp = new Date().toISOString();
       const logEntry = `
@@ -83,7 +82,6 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
 `;
 
       fs.appendFileSync(this.webhookLogPath, logEntry, 'utf8');
-      console.log(`📝 [WEBHOOK LOG] Saved webhook to ${this.webhookLogPath}`);
     } catch (error) {
       console.error('❌ [WEBHOOK LOG] Failed to save webhook:', error);
     }
@@ -91,9 +89,6 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
 
   handleEvolutionWebhook = async (req: Request, res: Response): Promise<void> => {
     try {
-      console.log(`🚨 [WEBHOOK] ========================================`);
-      console.log(`🚨 [WEBHOOK] Requisição chegou! Method: ${req.method}, Path: ${req.path}`);
-      console.log(`🚨 [WEBHOOK] Content-Type: ${req.headers['content-type']}`);
       console.log(`🚨 [WEBHOOK] Body type: ${typeof req.body}, isBuffer: ${Buffer.isBuffer(req.body)}`);
 
       let webhookData: any;
@@ -104,9 +99,7 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
           // Try to parse as JSON
           const bodyString = req.body.toString('utf8');
           webhookData = JSON.parse(bodyString);
-          console.log(`🚨 [WEBHOOK] Parsed buffer as JSON`);
         } catch (parseError) {
-          console.log(`🚨 [WEBHOOK] Buffer is not JSON, treating as raw data`);
           webhookData = { rawData: req.body };
         }
       } else {
@@ -114,14 +107,11 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
       }
 
       console.log(`🚨 [WEBHOOK] Body:`, JSON.stringify(webhookData, null, 2));
-      console.log(`🚨 [WEBHOOK] ========================================`);
 
       const { instanceId } = req.params;
 
-      console.log(`🚨 [WEBHOOK] instanceId do params: ${instanceId}`);
 
       if (!instanceId) {
-        console.log(`❌ [WEBHOOK] instanceId não fornecido!`);
         res.status(400).json({
           success: false,
           error: 'Instance ID is required'
@@ -131,7 +121,6 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
 
       // Only validate with schema if we have JSON data
       if (webhookData.rawData) {
-        console.log(`⚠️ [WEBHOOK] Received raw data, skipping schema validation`);
         res.status(200).json({
           success: true,
           message: 'Raw webhook data received'
@@ -145,19 +134,15 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
       try {
         // Tentar validação com schema discriminado (recomendado)
         validatedWebhookData = evolutionWebhookSchema.parse(webhookData);
-        console.log(`✅ [WEBHOOK_VALIDATION] Schema específico validado: ${validatedWebhookData.event}`);
       } catch (validationError: any) {
         // Fallback: usar schema genérico para eventos não mapeados
-        console.log(`⚠️ [WEBHOOK_VALIDATION] Schema específico falhou, usando genérico: ${validationError.message}`);
         validatedWebhookData = genericWebhookSchema.parse(webhookData);
-        console.log(`✅ [WEBHOOK_VALIDATION] Schema genérico validado para evento: ${validatedWebhookData.event}`);
       }
 
       // Log the webhook for debugging
       this.logWebhook(validatedWebhookData, instanceId);
 
       // 🔍 LOG DO EVENTO PARA DEBUG
-      console.log(`🔍 [WEBHOOK] Evento recebido: ${validatedWebhookData.event}`);
       console.log(`🔍 [WEBHOOK] Dados do webhook:`, JSON.stringify(validatedWebhookData, null, 2));
 
       // 🔍 Check if instance exists in database
@@ -166,7 +151,6 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
       });
 
       if (!instance) {
-        console.log(`⚠️ [WEBHOOK] Instance ${instanceId} not found in database - ignoring webhook`);
         res.status(200).json({
           success: true,
           message: 'Webhook ignored - instance not found in database'
@@ -188,7 +172,6 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
         
         // 🗺️ CRITICAL: Capture @lid to real number mapping from messages.update
         if (validatedWebhookData.event === 'messages.update') {
-          console.log(`📬 [MESSAGES_UPDATE] Processing message status updates`);
           
           // Validar com schema específico para garantir type-safety
           const validated = messagesUpdateSchema.safeParse(validatedWebhookData);
@@ -226,7 +209,6 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
             
             // ✅ Atualizar status da mensagem (SENT → DELIVERED → READ)
             if (keyId && status) {
-              console.log(`📬 [MESSAGES_UPDATE] Updating message ${keyId} status to: ${status}`);
               await this.conversationService.handleMessageStatusUpdate(instanceId, {
                 messageId: keyId,
                 status: status.toUpperCase(),
@@ -262,7 +244,6 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
           // 🎯 GROUP NAME AUTO-UPDATE: Se for mensagem de grupo, verificar se precisamos buscar nome
           const remoteJid = validated.data.data.key.remoteJid;
           if (remoteJid && remoteJid.endsWith('@g.us')) {
-            console.log(`👥 [GROUP_CHECK] Message from group ${remoteJid}, checking if name needs update...`);
 
             try {
               // Verificar se o grupo já tem nome no banco
@@ -280,7 +261,6 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
                 }
               });
 
-              console.log(`👥 [GROUP_CHECK] Found conversation in DB:`, existingConversation);
 
               // Se não tem nome ou nome é genérico (apenas números), buscar informações do grupo
               const needsNameUpdate = !existingConversation?.contactName ||
@@ -290,14 +270,11 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
               console.log(`👥 [GROUP_CHECK] Needs name update: ${needsNameUpdate} (current: "${existingConversation?.contactName || 'none'}")`);
 
               if (needsNameUpdate) {
-                console.log(`📝 [GROUP_UPDATE] Group ${remoteJid} needs name update. Current name: "${existingConversation?.contactName || 'none'}"`);
 
                 // Buscar informações do grupo na Evolution API
                 const groupInfo = await this.evolutionApiService.findGroupByJid(instanceId, remoteJid);
-                console.log(`📝 [GROUP_UPDATE] Group info from API:`, groupInfo);
 
                 if (groupInfo?.subject) {
-                  console.log(`✅ [GROUP_UPDATE] Found group name: "${groupInfo.subject}" for ${remoteJid}`);
 
                   // Atualizar nome do grupo no banco
                   const updateResult = await prisma.conversation.updateMany({
@@ -314,7 +291,6 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
                     }
                   });
 
-                  console.log(`✅ [GROUP_UPDATE] Update result:`, updateResult);
 
                   // Notificar frontend sobre a atualização
                   this.socketService.emitToInstance(instanceId, 'conversation:updated', {
@@ -323,10 +299,8 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
                     contactPicture: groupInfo.pictureUrl
                   });
                 } else {
-                  console.log(`⚠️ [GROUP_UPDATE] Could not find group name for ${remoteJid}`);
                 }
               } else {
-                console.log(`✅ [GROUP_CHECK] Group ${remoteJid} already has name: "${existingConversation.contactName}"`);
               }
             } catch (error) {
               console.error(`❌ [GROUP_UPDATE] Error updating group name for ${remoteJid}:`, error);
@@ -336,7 +310,6 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
         
         // 📤 Process sent messages (SEND_MESSAGE) - MENSAGENS ENVIADAS PELO USUÁRIO!
         if (validatedWebhookData.event === 'send.message' && validatedWebhookData.data['key'] && validatedWebhookData.data['message']) {
-          console.log(`📤 [SEND_MESSAGE] Processing sent message for instance ${instanceId}`);
           
           // Validar com schema específico
           const validated = sendMessageSchema.safeParse(validatedWebhookData);
@@ -359,12 +332,10 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
           // ⚠️ NÃO PROCESSAR AQUI - messages.upsert já processa esta mensagem
           // O evento send.message é apenas informativo (status PENDING)
           // O processamento real acontece no messages.upsert subsequente
-          console.log(`ℹ️ [SEND_MESSAGE] Skipping processing - will be handled by messages.upsert event`);
         }
         
         // 👤 Process contact updates (CONTACTS_UPDATE) - FOTO E NOME AUTOMÁTICOS!
         if (validatedWebhookData.event === 'contacts.update') {
-          console.log(`� [CONTACTS_UPDATE] Processing contacts update for instance ${instanceId}`);
           
           // Validar com schema específico
           const validated = contactsUpdateSchema.safeParse(validatedWebhookData);
@@ -391,16 +362,13 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
             const profilePicUrl = contactData.profilePicUrl;
             const pushName = contactData.pushName;
             
-            console.log(`👤 [CONTACTS_UPDATE] Processing contact: remoteJid=${remoteJid}, pushName=${pushName}, hasPic=${!!profilePicUrl}`);
             
             if (remoteJid && (profilePicUrl || pushName)) {
-              console.log(`👤 [CONTACTS_UPDATE] ${pushName || remoteJid}: foto=${!!profilePicUrl}, nome=${!!pushName}`);
               await this.conversationService.updateContactFromWebhook(instanceId, remoteJid, {
                 ...(pushName && { contactName: pushName }),
                 ...(profilePicUrl && { contactPicture: profilePicUrl })
               });
             } else {
-              console.log(`👤 [CONTACTS_UPDATE] Skipping contact ${remoteJid} - no updates needed`);
             }
           }
         }
@@ -434,7 +402,6 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
                   const unreadMessages = chat.unreadMessages || 0;
 
                   if (remoteJid) {
-                    console.log(`💬 [CHATS_UPSERT] THROTTLED ${remoteJid}: ${unreadMessages} não lidas`);
                     await this.conversationService.updateUnreadCount(data.instanceId, remoteJid, unreadMessages);
                   }
                 }
@@ -479,7 +446,6 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
             // Aplicar debounce - apenas processa a última mudança de presença em 2s
             const processPresence = debounceService.debouncePresenceUpdate(
               (data: { contactId: string; status: string; instanceId: string }) => {
-                console.log(`🟢 [PRESENCE_UPDATE] DEBOUNCED ${data.contactId}: ${data.status}`);
                 
                 // Emitir para o frontend via WebSocket
                 this.socketService.emitToInstance(data.instanceId, 'presence:update', {
@@ -517,7 +483,6 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
           
           const state = validated.data.data.state; // open, close, connecting
           const statusCode = validated.data.data.statusCode;
-          console.log(`🔗 [CONNECTION_UPDATE] Instance ${instanceId}: state=${state}, code=${statusCode}`);
           
           // Mapear state para InstanceStatus
           let instanceStatus: string;
@@ -555,7 +520,6 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
                 connected: instanceStatus === 'CONNECTED'
               });
               
-              console.log(`✅ [CONNECTION_UPDATE] Status atualizado: ${instanceStatus}`);
             }
           } catch (error) {
             console.error(`❌ [CONNECTION_UPDATE] Erro ao atualizar:`, error);
@@ -581,7 +545,6 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
           }
           
           const qrCode = validated.data.data.qrcode; // base64
-          console.log(`📱 [QRCODE_UPDATED] New QR available for ${instanceId}`);
           
           if (qrCode) {
             try {
@@ -606,7 +569,6 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
                   timestamp: new Date().toISOString()
                 });
                 
-                console.log(`✅ [QRCODE_UPDATED] QR Code atualizado e emitido para frontend`);
               }
             } catch (error) {
               console.error(`❌ [QRCODE_UPDATED] Erro ao atualizar QR:`, error);
@@ -616,7 +578,6 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
         
         // Handle other webhook events (status changes, etc.)
         if (webhookData.data['status']) {
-          console.log(`📊 Processing status change for instance ${instanceId}: ${webhookData.data['status']}`);
         }
       }
 
@@ -659,7 +620,6 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
 
       const messageData = req.body;
       
-      console.log(`Received message webhook for instance ${instanceId}:`, messageData);
 
       // Process message and emit via WebSocket
       this.socketService.emitToInstance(instanceId, 'message_received', messageData);
@@ -691,7 +651,6 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
 
       const statusData = req.body;
       
-      console.log(`Received status webhook for instance ${instanceId}:`, statusData);
 
       // Process status change and emit via WebSocket
       this.socketService.emitToInstance(instanceId, 'status_changed', statusData);

@@ -185,14 +185,12 @@ class LoggerService {
    */
   debug(context: LogContext, message: string, data?: any): void {
     // Debug logs não são salvos em arquivo por padrão (apenas console)
-    console.log(`🔍 [${context}] ${message}`, data || '');
   }
 
   /**
    * Loga uma mensagem de INFO
    */
   info(context: LogContext, message: string, data?: any): void {
-    console.log(`ℹ️ [${context}] ${message}`, data || '');
   }
 
   /**

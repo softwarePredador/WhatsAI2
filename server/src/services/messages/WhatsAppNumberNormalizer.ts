@@ -53,19 +53,16 @@ export class WhatsAppNumberNormalizer {
     // 1. PRIORITY: Usar remoteJidAlt se for um número real (não @lid)
     let number = remoteJid;
     if (remoteJidAlt && !isLidJid(remoteJidAlt)) {
-      console.log(`🔄 [normalizeWhatsAppNumber] Usando remoteJidAlt: ${remoteJid} → ${remoteJidAlt}`);
       number = remoteJidAlt;
     }
 
     // 2. Resolver @lid se possível (cache ou remoteJidAlt)
     if (isLidJid(number)) {
       if (remoteJidAlt && remoteJidAlt.includes('@s.whatsapp.net')) {
-        console.log(`🔄 [normalizeWhatsAppNumber] Resolvendo @lid via remoteJidAlt: ${number} → ${remoteJidAlt}`);
         number = remoteJidAlt;
       } else {
         const cached = this.lidToRealNumberCache.get(number);
         if (cached) {
-          console.log(`🔄 [normalizeWhatsAppNumber] Resolvendo @lid via cache: ${number} → ${cached}`);
           number = cached;
         } else {
           console.warn(`⚠️ [normalizeWhatsAppNumber] Não foi possível resolver @lid: ${number} - usando as-is`);
@@ -77,14 +74,12 @@ export class WhatsAppNumberNormalizer {
 
     // 3. Se for grupo, não normaliza (mantém @g.us)
     if (isGroup || isGroupJid(number)) {
-      console.log(`📞 [normalizeWhatsAppNumber] Grupo detectado, preservando: ${number}`);
       return number;
     }
 
     // 4. Usa phone-helper para normalização robusta (suporta internacional)
     const result = normalizeWhatsAppJid(number);
 
-    console.log(`📞 [normalizeWhatsAppNumber] Final: ${remoteJid} → ${result}`);
     return result;
   }
 
@@ -109,7 +104,6 @@ export class WhatsAppNumberNormalizer {
       // Se é @lid, normalizar via normalizeJid do Baileys (mantém compatibilidade)
       if (isLidJid(number)) {
         const normalized = normalizeJid(number);
-        console.log(`🔄 [formatRemoteJid] Convertendo @lid: ${number} → ${normalized}`);
         return normalized;
       }
       // Se já é JID válido, apenas normaliza
@@ -143,7 +137,6 @@ export class WhatsAppNumberNormalizer {
 
     if (lid && real) {
       this.lidToRealNumberCache.set(lid, real);
-      console.log(`✅ [recordLidMapping] Mapped: ${lid} → ${real}`);
     }
   }
 
@@ -154,7 +147,6 @@ export class WhatsAppNumberNormalizer {
     if (isLidJid(remoteJid)) {
       const realNumber = this.lidToRealNumberCache.get(remoteJid);
       if (realNumber) {
-        console.log(`🔄 [resolveLidToRealNumber] Resolved @lid: ${remoteJid} → ${realNumber}`);
         return realNumber;
       }
     }

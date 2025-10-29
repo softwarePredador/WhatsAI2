@@ -101,7 +101,6 @@ export class ConversationRepository {
   }
 
   async findByInstanceId(instanceId: string): Promise<Conversation[]> {
-    console.log('🔍 [ConversationRepository] findByInstanceId chamado com instanceId:', instanceId);
 
     const result = await (this.prisma as any).conversation.findMany({
       where: {
@@ -135,7 +134,6 @@ export class ConversationRepository {
         isArchived: true
       }
     });
-    console.log('🔍 [ConversationRepository] Conversas arquivadas:', archivedCount);
 
     return result;
   }

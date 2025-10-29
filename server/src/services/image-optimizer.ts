@@ -177,7 +177,6 @@ export class ImageOptimizer {
       let wasResized = false;
       if (metadata.width && metadata.height) {
         if (metadata.width > opts.maxWidth || metadata.height > opts.maxHeight) {
-          console.log(`📏 [ImageOptimizer] Redimensionando de ${metadata.width}x${metadata.height}`);
           processedImage = processedImage.resize(opts.maxWidth, opts.maxHeight, {
             fit: 'inside',
             withoutEnlargement: true
@@ -192,7 +191,6 @@ export class ImageOptimizer {
 
       // Converter para WebP se solicitado
       if (opts.convertToWebp) {
-        console.log(`🔄 [ImageOptimizer] Convertendo para WebP`);
         processedImage = processedImage.webp({
           quality: opts.webpQuality,
           effort: 4 // 0-6, mais esforço = melhor compressão
@@ -206,7 +204,6 @@ export class ImageOptimizer {
         metadata.format === 'png' &&
         !metadata.hasAlpha
       ) {
-        console.log(`🔄 [ImageOptimizer] Convertendo PNG sem transparência para JPEG`);
         processedImage = processedImage.jpeg({
           quality: opts.jpegQuality,
           progressive: true,
@@ -217,7 +214,6 @@ export class ImageOptimizer {
       }
       // Otimizar JPEG
       else if (metadata.format === 'jpeg' || metadata.format === 'jpg') {
-        console.log(`🔧 [ImageOptimizer] Otimizando JPEG`);
         processedImage = processedImage.jpeg({
           quality: opts.jpegQuality,
           progressive: true,
@@ -227,7 +223,6 @@ export class ImageOptimizer {
       }
       // Otimizar PNG
       else if (metadata.format === 'png') {
-        console.log(`🔧 [ImageOptimizer] Otimizando PNG`);
         processedImage = processedImage.png({
           compressionLevel: opts.pngCompressionLevel,
           progressive: true
@@ -236,7 +231,6 @@ export class ImageOptimizer {
       }
       // Outros formatos: manter como está
       else {
-        console.log(`⚠️ [ImageOptimizer] Formato não otimizado: ${metadata.format}`);
       }
 
       // 5. Remover metadados se configurado

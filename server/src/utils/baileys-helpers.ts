@@ -40,7 +40,6 @@ import { areJidsSameUser, jidNormalizedUser } from '@whiskeysockets/baileys';
 export function compareJids(jid1: string, jid2: string): boolean {
   try {
     const result = areJidsSameUser(jid1, jid2);
-    console.log(`🔍 [compareJids] Comparing: ${jid1} === ${jid2} → ${result}`);
     return result;
   } catch (error) {
     console.warn(`⚠️ [compareJids] Error comparing JIDs: ${jid1} vs ${jid2}`, error);
@@ -68,7 +67,6 @@ export function compareJids(jid1: string, jid2: string): boolean {
 export function normalizeJid(jid: string): string {
   try {
     const normalized = jidNormalizedUser(jid);
-    console.log(`📞 [normalizeJid] Normalized: ${jid} → ${normalized}`);
     return normalized;
   } catch (error) {
     console.warn(`⚠️ [normalizeJid] Error normalizing: ${jid}`, error);
@@ -133,7 +131,6 @@ export function normalizeWhatsAppNumber(remoteJid: string, isGroup: boolean = fa
   // 5. Retornar com sufixo correto
   const result = isGroupJid ? `${cleanNumber}@g.us` : `${cleanNumber}@s.whatsapp.net`;
 
-  console.log(`🇧🇷 [normalizeWhatsAppNumber] ${remoteJid} → ${result}`);
   return result;
 }
 
@@ -158,7 +155,6 @@ function normalizeBrazilianNumber(number: string): string {
   if (withoutCountry.length === 8) {
     const phone = withoutCountry;
     const result = `55119${phone}`; // DDD padrão 11 (São Paulo)
-    console.log(`🇧🇷 [normalizeBrazilianNumber] 8→13 dígitos: ${number} → ${result}`);
     return result;
   }
 
@@ -167,7 +163,6 @@ function normalizeBrazilianNumber(number: string): string {
     const ddd = withoutCountry.substring(0, 2);
     const phone = withoutCountry.substring(2);
     const result = `55${ddd}9${phone}`;
-    console.log(`🇧🇷 [normalizeBrazilianNumber] 9→13 dígitos: ${number} → ${result}`);
     return result;
   }
 
@@ -179,11 +174,9 @@ function normalizeBrazilianNumber(number: string): string {
     // Verificar se o telefone tem 8 dígitos (faltando o 9º)
     if (phone.length === 8) {
       const result = `55${ddd}9${phone}`;
-      console.log(`🇧🇷 [normalizeBrazilianNumber] 10→13 dígitos: ${number} → ${result}`);
       return result;
     }
     // Se phone tem 9 dígitos, mas total é 10, está estranho - manter como está
-    console.log(`⚠️ [normalizeBrazilianNumber] 10 dígitos estranho, mantendo: ${number}`);
     return number;
   }
 
@@ -195,7 +188,6 @@ function normalizeBrazilianNumber(number: string): string {
 
   // Caso 5: 12 dígitos (DDD + 9 + telefone, mas falta o 55)
   if (withoutCountry.length === 12) {
-    console.log(`⚠️ [normalizeBrazilianNumber] 12 dígitos inesperado, mantendo: ${number}`);
     return number;
   }
 

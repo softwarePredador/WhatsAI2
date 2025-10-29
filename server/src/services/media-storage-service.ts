@@ -86,7 +86,6 @@ export class MediaStorageService {
       uploadedAt: new Date()
     };
 
-    console.log(`💾 [MediaStorage] Arquivo salvo localmente: ${fullPath}`);
     return storedFile;
   }
 
@@ -111,7 +110,6 @@ export class MediaStorageService {
     if (this.config.type === 'local') {
       try {
         await fs.unlink(filePath);
-        console.log(`🗑️ [MediaStorage] Arquivo removido: ${filePath}`);
       } catch (error) {
         console.warn(`⚠️ [MediaStorage] Erro ao remover arquivo: ${filePath}`, error);
       }

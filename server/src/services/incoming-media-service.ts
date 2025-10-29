@@ -55,7 +55,6 @@ export class IncomingMediaService {
   async processIncomingMedia(options: IncomingMediaOptions): Promise<string | null> {
     const { messageId, mediaUrl, mediaType, fileName, caption, mimeType, instanceName, messageData } = options;
 
-    console.log(`🔥 [TEST_DEBUG] processIncomingMedia chamado com mediaUrl: ${mediaUrl}`);
 
     mediaLogger.log('🚀 [INCOMING_MEDIA_START] Iniciando processamento de mídia:', {
       messageId,
@@ -67,14 +66,11 @@ export class IncomingMediaService {
     });
 
     try {
-      console.log(`📥 [IncomingMedia] Processando mídia recebida: ${mediaType} - ${messageId}`);
 
       // 1. Baixar a mídia - usa Evolution API se for URL criptografada do WhatsApp
       const downloadedBuffer = await this.downloadMedia(mediaUrl, instanceName, messageData);
-      console.log(`✅ [IncomingMedia] Mídia baixada: ${downloadedBuffer.length} bytes`);
 
       // 1.4 VALIDAR TIPO DE ARQUIVO REAL (Fase 1 - Mudança 4)
-      console.log(`🔐 [FILE_TYPE_VALIDATION] Validando tipo real do arquivo...`);
       
       // file-type é ESM puro, precisa importação dinâmica
       const { fileTypeFromBuffer } = await import('file-type');
@@ -82,7 +78,6 @@ export class IncomingMediaService {
       
       if (detectedFileType) {
         console.log(`🔍 [FILE_TYPE_VALIDATION] Tipo detectado: ${detectedFileType.mime} (ext: ${detectedFileType.ext})`);
-        console.log(`📋 [FILE_TYPE_VALIDATION] Tipo declarado: ${mimeType || 'não informado'}`);
         
         mediaLogger.log('🔐 [FILE_TYPE_VALIDATION] Tipo de arquivo detectado', {
           detectedMime: detectedFileType.mime,
@@ -120,7 +115,6 @@ export class IncomingMediaService {
           });
         }
 
-        console.log(`✅ [FILE_TYPE_VALIDATION] Arquivo válido e seguro`);
       } else {
         console.warn(`⚠️ [FILE_TYPE_VALIDATION] Não foi possível detectar tipo do arquivo (pode ser formato desconhecido)`);
         mediaLogger.log('⚠️ [FILE_TYPE_VALIDATION] Tipo não detectado', {
@@ -136,9 +130,7 @@ export class IncomingMediaService {
 
       if (mediaType === 'image' || mimeType?.includes('image')) {
         try {
-          console.log(`🔍 [IMAGE_VALIDATION] Validando imagem com sharp...`);
           const metadata = await sharp(downloadedBuffer).metadata();
-          console.log(`✅ [IMAGE_VALIDATION] Imagem válida: ${metadata.width}x${metadata.height} ${metadata.format}`);
           mediaLogger.log('✅ [IMAGE_VALIDATION] Validação sharp bem-sucedida', {
             format: metadata.format,
             width: metadata.width,
@@ -148,7 +140,6 @@ export class IncomingMediaService {
           });
 
           // 1.6 OTIMIZAR IMAGEM (Fase 1 - Mudança 2)
-          console.log(`🎨 [IMAGE_OPTIMIZATION] Otimizando imagem antes do upload...`);
           const optimizationResult = await imageOptimizer.optimizeImage(downloadedBuffer, {
             maxWidth: 1920,
             maxHeight: 1920,
@@ -172,7 +163,6 @@ export class IncomingMediaService {
             wasConverted: optimizationResult.metadata.wasConverted
           });
 
-          console.log(`✅ [IMAGE_OPTIMIZATION] Redução de ${optimizationResult.reductionPercent}% no tamanho`);
 
         } catch (sharpError: any) {
           console.error(`❌ [IMAGE_VALIDATION] IMAGEM CORROMPIDA! sharp falhou:`, sharpError.message);
@@ -222,21 +212,18 @@ export class IncomingMediaService {
     });
 
     try {
-      console.log(`📥 [DOWNLOAD_REQUEST] Fazendo requisição HTTP...`);
 
       // Para URLs do WhatsApp (mmg.whatsapp.net), a mídia está CRIPTOGRAFADA
       // Usamos o Baileys para baixar e descriptografar automaticamente
       const isWhatsAppUrl = mediaUrl.includes('mmg.whatsapp.net');
 
       if (isWhatsAppUrl) {
-        console.log(`🔐 [DOWNLOAD_BAILEYS] URL criptografada do WhatsApp detectada!`);
         
         if (!messageData) {
           console.error(`⚠️ [DOWNLOAD_ERROR] messageData não fornecido para descriptografar mídia!`);
           throw new Error('Cannot download encrypted WhatsApp media without messageData');
         }
 
-        console.log(`🔧 [DOWNLOAD_BAILEYS] Preparando dados para descriptografia...`);
         
         // O webhook envia os campos de criptografia como objetos numéricos {"0": 63, "1": 7, ...}
         // Precisamos converter para Buffer antes de passar para o Baileys
@@ -247,17 +234,14 @@ export class IncomingMediaService {
           // Converter arrays numéricos para Buffers
           if (mediaMessage.mediaKey && typeof mediaMessage.mediaKey === 'object' && !Buffer.isBuffer(mediaMessage.mediaKey)) {
             mediaMessage.mediaKey = Buffer.from(Object.values(mediaMessage.mediaKey));
-            console.log(`   ✅ mediaKey convertida: ${mediaMessage.mediaKey.length} bytes`);
           }
           
           if (mediaMessage.fileEncSha256 && typeof mediaMessage.fileEncSha256 === 'object' && !Buffer.isBuffer(mediaMessage.fileEncSha256)) {
             mediaMessage.fileEncSha256 = Buffer.from(Object.values(mediaMessage.fileEncSha256));
-            console.log(`   ✅ fileEncSha256 convertida: ${mediaMessage.fileEncSha256.length} bytes`);
           }
           
           if (mediaMessage.fileSha256 && typeof mediaMessage.fileSha256 === 'object' && !Buffer.isBuffer(mediaMessage.fileSha256)) {
             mediaMessage.fileSha256 = Buffer.from(Object.values(mediaMessage.fileSha256));
-            console.log(`   ✅ fileSha256 convertida: ${mediaMessage.fileSha256.length} bytes`);
           }
           
           if (mediaMessage.jpegThumbnail && typeof mediaMessage.jpegThumbnail === 'object' && !Buffer.isBuffer(mediaMessage.jpegThumbnail)) {
@@ -265,7 +249,6 @@ export class IncomingMediaService {
           }
         }
 
-        console.log(`🚀 [DOWNLOAD_BAILEYS] Chamando Baileys downloadMediaMessage...`);
         
         // downloadMediaMessage do Baileys baixa e descriptografa automaticamente
         const buffer = await downloadMediaMessage(
@@ -291,7 +274,6 @@ export class IncomingMediaService {
           throw new Error('downloadMediaMessage returned null or undefined');
         }
 
-        console.log(`✅ [DOWNLOAD_BAILEYS] Mídia descriptografada com sucesso: ${buffer.length} bytes`);
         return buffer;
       }
 
@@ -318,40 +300,30 @@ export class IncomingMediaService {
         isWhatsApp: isWhatsAppUrl
       });
 
-      console.log(`🔍 [DOWNLOAD_DEBUG] Response data type: ${typeof response.data}`);
-      console.log(`🔍 [DOWNLOAD_DEBUG] Response data constructor: ${response.data?.constructor?.name}`);
       console.log(`🔍 [DOWNLOAD_DEBUG] Response data isBuffer: ${Buffer.isBuffer(response.data)}`);
-      console.log(`🔍 [DOWNLOAD_DEBUG] Response data byteLength: ${response.data.byteLength || 'N/A'}`);
 
       // Converter ArrayBuffer para Buffer de forma segura
       // Se já for Buffer, use direto; senão converta do ArrayBuffer
       let buffer: Buffer;
       if (Buffer.isBuffer(response.data)) {
         buffer = response.data;
-        console.log(`✅ [DOWNLOAD_BUFFER] Dados já são Buffer: ${buffer.length} bytes`);
       } else if (response.data instanceof ArrayBuffer) {
         buffer = Buffer.from(response.data);
-        console.log(`✅ [DOWNLOAD_BUFFER] Convertido de ArrayBuffer para Buffer: ${buffer.length} bytes`);
       } else {
         // Fallback: assume que é Uint8Array ou similar
         buffer = Buffer.from(response.data);
-        console.log(`✅ [DOWNLOAD_BUFFER] Convertido para Buffer: ${buffer.length} bytes`);
       }
       
-      console.log(`🔄 [DOWNLOAD_BUFFER] Buffer final criado com ${buffer.length} bytes`);
 
       // Validação básica para imagens
       if (buffer.length === 0) {
         throw new Error('Buffer vazio recebido');
       }
 
-      console.log(`🔍 [VALIDATION_CHECK] Iniciando validação - isWhatsAppUrl: ${isWhatsAppUrl}, buffer.length: ${buffer.length}`);
 
       // SEMPRE verificar assinatura para URLs do WhatsApp (elas são sempre mídia)
       if (isWhatsAppUrl && buffer.length > 4) {
-        console.log(`🔍 [VALIDATION_WHATSAPP] Executando validação WhatsApp`);
         const signature = buffer.subarray(0, 4).toString('hex');
-        console.log(`🖼️ [DOWNLOAD_SIGNATURE] Assinatura da mídia WhatsApp: ${signature}`);
 
         // Verificar assinaturas comuns de imagem/vídeo
         const validImageSignatures = ['ffd8ffe0', 'ffd8ffe1', 'ffd8ffe2', '89504e47', '47494638'];
@@ -363,7 +335,6 @@ export class IncomingMediaService {
           console.warn(`⚠️ [DOWNLOAD_SIGNATURE] Buffer corrompido? Verificando primeiros 16 bytes:`, buffer.subarray(0, 16).toString('hex'));
           // Não falhar por enquanto, mas logar para investigar
         } else {
-          console.log(`✅ [DOWNLOAD_SIGNATURE] Assinatura válida detectada: ${signature}`);
         }
       }
 
@@ -450,7 +421,6 @@ export class IncomingMediaService {
       // Validação adicional para imagens
       if (mediaType === 'image' && buffer.length > 0) {
         const firstBytes = buffer.subarray(0, 8).toString('hex');
-        console.log(`🖼️ [UPLOAD_VALIDATION] Primeiros bytes da imagem: ${firstBytes}`);
 
         // Verificar se parece uma imagem válida
         if (buffer.length < 100) {

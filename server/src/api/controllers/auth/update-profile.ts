@@ -59,7 +59,6 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response) =>
     });
 
     // Log profile update (without sensitive data)
-    console.log(`Profile updated successfully for user: ${email}`);
 
     // Return success response with updated user data
     return res.status(200).json({

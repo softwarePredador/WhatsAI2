@@ -106,7 +106,6 @@ export class DigitalOceanSpacesService {
         contentType,
       };
 
-      console.log(`✅ [Spaces] Upload successful: ${key}`);
       return uploadResult;
 
     } catch (error) {
@@ -141,7 +140,6 @@ export class DigitalOceanSpacesService {
    */
   async deleteFile(key: string): Promise<void> {
     try {
-      console.log(`🗑️ [Spaces] Deleting ${key}`);
 
       const command = new DeleteObjectCommand({
         Bucket: this.config.bucket,
@@ -149,7 +147,6 @@ export class DigitalOceanSpacesService {
       });
 
       await this.s3Client.send(command);
-      console.log(`✅ [Spaces] Deleted ${key}`);
 
     } catch (error) {
       console.error(`❌ [Spaces] Failed to delete ${key}:`, error);
