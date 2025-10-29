@@ -182,7 +182,6 @@ export class WhatsAppInstanceController {
     try {
       const { instanceId } = req.params;
       
-      console.log('🎯 [DEBUG Controller] Connect instance request for:', instanceId);
       
       if (!instanceId) {
         res.status(400).json({
@@ -194,7 +193,6 @@ export class WhatsAppInstanceController {
       
       const result = await this.instanceService.connectInstance(instanceId);
       
-      console.log('📤 [DEBUG Controller] Sending response to frontend');
       console.log('📦 [DEBUG Controller] Response keys:', Object.keys(result || {}));
       
       res.json({
@@ -351,12 +349,10 @@ export class WhatsAppInstanceController {
         return;
       }
 
-      console.log('🔄 [RefreshStatus] Syncing status for instance:', instanceId);
       
       await this.instanceService.refreshInstanceStatus(instanceId);
       const instance = await this.instanceService.getInstanceById(instanceId);
       
-      console.log('✅ [RefreshStatus] Status synced:', instance?.status);
       
       res.json({
         success: true,
@@ -374,7 +370,6 @@ export class WhatsAppInstanceController {
 
   syncAllInstancesStatus = async (req: Request, res: Response): Promise<void> => {
     try {
-      console.log('🔄 [SyncAll] Syncing all instances status...');
       
       const instances = await this.instanceService.getAllInstances();
       
@@ -388,7 +383,6 @@ export class WhatsAppInstanceController {
       // Get updated instances
       const updatedInstances = await this.instanceService.getAllInstances();
       
-      console.log('✅ [SyncAll] All instances synced');
       
       res.json({
         success: true,

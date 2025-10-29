@@ -74,7 +74,6 @@ export const changePassword = async (req: AuthenticatedRequest, res: Response) =
     });
 
     // Log password change (without sensitive data)
-    console.log(`Password changed successfully for user: ${user.email}`);
 
     // Return success response
     return res.status(200).json({

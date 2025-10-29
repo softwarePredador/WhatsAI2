@@ -51,7 +51,6 @@ export class EvolutionApiService {
     this.client.interceptors.response.use(
       (response) => {
         if (process.env['NODE_ENV'] === 'development') {
-          console.log(`Evolution API Response: ${response.status} ${response.config.url}`);
         }
         return response;
       },
@@ -76,8 +75,6 @@ export class EvolutionApiService {
     try {
       const webhookUrl = `${env.WEBHOOK_URL}/${instanceData.name}`;
       
-      console.log(`📱 Criando instância: ${instanceData.name}`);
-      console.log(`🔗 Webhook configurado: ${webhookUrl}`);
       
       // Criar instância COM webhook no formato correto (objeto)
       const response = await this.client.post('/instance/create', {
@@ -109,7 +106,6 @@ export class EvolutionApiService {
         }
       });
 
-      console.log(`✅ Instância criada com webhook configurado: ${instanceData.name}`);
       return response.data;
     } catch (error: any) {
       console.error('❌ Error creating Evolution API instance:');
@@ -137,7 +133,6 @@ export class EvolutionApiService {
     try {
       const webhookUrl = `${env.WEBHOOK_URL}/${instanceName}`;
       
-      console.log(`🔗 Configurando webhook para ${instanceName}: ${webhookUrl}`);
       
       const response = await this.client.post(`/webhook/set/${instanceName}`, {
         url: webhookUrl,
@@ -163,7 +158,6 @@ export class EvolutionApiService {
         ]
       });
 
-      console.log(`✅ Webhook configurado para ${instanceName}`);
       return response.data;
     } catch (error) {
       console.error(`Error setting webhook for ${instanceName}:`, error);
@@ -195,7 +189,6 @@ export class EvolutionApiService {
       const response = await this.client.get(`/instance/connectionState/${instanceName}`);
       const state = response.data?.instance?.state;
       
-      console.log(`🔍 [getInstanceStatus] Instance ${instanceName} state:`, state);
       
       switch (state) {
         case 'open':
@@ -239,14 +232,12 @@ export class EvolutionApiService {
 
   async checkIsWhatsApp(instanceName: string, numbers: string[]): Promise<any> {
     try {
-      console.log(`🔍 [EvolutionAPI checkIsWhatsApp] Verificando números:`, numbers);
       
       const payload = {
         numbers: numbers
       };
       
       const response = await this.client.post(`/chat/whatsappNumbers/${instanceName}`, payload);
-      console.log(`✅ [EvolutionAPI checkIsWhatsApp] Resposta:`, response.data);
       
       return response.data;
     } catch (error) {
@@ -260,14 +251,11 @@ export class EvolutionApiService {
       // Garantir que o número esteja no formato correto do WhatsApp (sem @s.whatsapp.net para Evolution API)
       const cleanNumber = number.includes('@') ? number.replace('@s.whatsapp.net', '').replace('@g.us', '') : number;
 
-      console.log(`📤 [sendTextMessage] Sending message to ${cleanNumber} via instance ${instanceName}`);
-      console.log(`📤 [sendTextMessage] Original number: ${number}, Clean number: ${cleanNumber}`);
 
       // TEMPORARIAMENTE DESABILITADO: Verificar se o número tem WhatsApp antes de enviar
       console.log(`⚠️ [sendTextMessage] Skipping WhatsApp number validation (temporarily disabled)`);
       /*
       // Verificar se o número tem WhatsApp antes de enviar
-      console.log(`🔍 [sendTextMessage] Verificando se ${formattedNumber} tem WhatsApp...`);
 
       const whatsappCheck = await this.checkIsWhatsApp(instanceName, [formattedNumber]);
 
@@ -277,11 +265,9 @@ export class EvolutionApiService {
       );
 
       if (!numberInfo || !numberInfo.exists) {
-        console.log(`❌ [sendTextMessage] Número ${formattedNumber} não tem WhatsApp`);
         throw new Error(`O número ${number} não possui WhatsApp`);
       }
 
-      console.log(`✅ [sendTextMessage] Número ${formattedNumber} tem WhatsApp, enviando mensagem...`);
       */
 
       // Formato correto baseado na documentação Evolution API v2
@@ -293,10 +279,8 @@ export class EvolutionApiService {
       };
 
       console.log(`📤 [sendTextMessage] Payload:`, JSON.stringify(payload, null, 2));
-      console.log(`📤 [sendTextMessage] URL: /message/sendText/${instanceName}`);
 
       const response = await this.client.post(`/message/sendText/${instanceName}`, payload);
-      console.log(`✅ [sendTextMessage] Success response:`, response.data);
       return response.data;
     } catch (error) {
       console.error('❌ [sendTextMessage] Error details:', error);
@@ -314,7 +298,6 @@ export class EvolutionApiService {
   async sendMediaMessage(instanceName: string, number: string, mediaUrl: string, caption?: string, mediaType?: string): Promise<any> {
     try {
       // Download the file from the URL and convert to base64
-      console.log(`📥 [sendMediaMessage] Downloading media from: ${mediaUrl}`);
       const mediaResponse = await this.client.get(mediaUrl, { responseType: 'arraybuffer' });
       const base64Data = Buffer.from(mediaResponse.data).toString('base64');
 
@@ -327,7 +310,6 @@ export class EvolutionApiService {
       const fileName = originalFileName.includes('.') ? originalFileName : `file.${this.getExtensionFromMimeType(mimetype)}`;
 
       console.log(`✅ [sendMediaMessage] Media downloaded and converted to base64 (${base64Data.length} chars)`);
-      console.log(`📄 [sendMediaMessage] MIME type: ${mimetype}, File name: ${fileName}`);
 
       const response = await this.client.post(`/message/sendMedia/${instanceName}`, {
         number: number,
@@ -374,16 +356,21 @@ export class EvolutionApiService {
     id: string;
   }>): Promise<{ message: string; read: string }> {
     try {
-      console.log(`📖 Marking messages as read for instance ${instanceName}`);
+      console.log(`📖 [MARK_READ_PAYLOAD] Sending ${messages.length} messages:`, JSON.stringify(messages, null, 2));
       
-      const response = await this.client.post(`/chat/markMessageAsRead/${instanceName}`, {
-        readMessages: messages
-      });
+      const payload = { readMessages: messages };
+      console.log(`📖 [MARK_READ_REQUEST] POST /chat/markMessageAsRead/${instanceName}`, JSON.stringify(payload, null, 2));
+      
+      const response = await this.client.post(`/chat/markMessageAsRead/${instanceName}`, payload);
 
-      console.log(`✅ Messages marked as read successfully`);
       return response.data;
     } catch (error: any) {
-      console.error('❌ Error marking messages as read:', error.response?.data || error.message);
+      console.error('❌ [MARK_READ_ERROR] Full error:', JSON.stringify({
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        request: error.config?.data
+      }, null, 2));
       throw new Error(`Failed to mark messages as read: ${error.response?.data?.message || error.message}`);
     }
   }
@@ -394,7 +381,6 @@ export class EvolutionApiService {
     id: string;
   }): Promise<{ message: string; read: string }> {
     try {
-      console.log(`📪 Marking chat as unread for instance ${instanceName}, chat: ${chat}`);
       
       // Formato correto baseado nos testes com a Evolution API
       const payload = {
@@ -413,7 +399,6 @@ export class EvolutionApiService {
       
       const response = await this.client.post(`/chat/markChatUnread/${instanceName}`, payload);
 
-      console.log(`✅ Chat marked as unread successfully`);
       return response.data;
     } catch (error: any) {
       console.error('❌ Error marking chat as unread:', error.response?.data || error.message);
@@ -449,14 +434,12 @@ export class EvolutionApiService {
         this.profilePictureFailCache.delete(cacheKey);
       }
       
-      console.log(`📸 Fetching profile picture for ${number} on instance ${instanceName}`);
       
       // Endpoint correto segundo documentação: fetchProfilePictureUrl (com 'u' minúsculo)
       const response = await this.client.post(`/chat/fetchProfilePictureUrl/${instanceName}`, {
         number: number
       });
 
-      console.log(`✅ Profile picture fetched successfully:`, response.data?.profilePictureUrl ? 'Found' : 'Not found');
       
       // Se teve sucesso e estava no cache de falhas, remover
       if (cachedFailure) {
@@ -509,7 +492,6 @@ export class EvolutionApiService {
     profileName?: string;
   }>> {
     try {
-      console.log(`👥 Fetching contacts for instance ${instanceName}`);
       
       const payload: any = {};
       if (numbers && numbers.length > 0) {
@@ -518,7 +500,6 @@ export class EvolutionApiService {
 
       const response = await this.client.post(`/chat/findContacts/${instanceName}`, payload);
 
-      console.log(`✅ Contacts fetched successfully: ${response.data?.length || 0} contacts`);
       return response.data || [];
     } catch (error: any) {
       console.error('❌ Error fetching contacts:', error.response?.data || error.message);
@@ -615,11 +596,9 @@ export class EvolutionApiService {
     }>;
   } | null> {
     try {
-      console.log(`👥 Finding group info for ${groupJid} on instance ${instanceName}`);
 
       const response = await this.client.get(`/group/findGroupInfos/${instanceName}?groupJid=${encodeURIComponent(groupJid)}`);
 
-      console.log(`✅ Group info fetched successfully for ${groupJid}: ${response.data?.subject || 'No subject'}`);
       return response.data;
     } catch (error: any) {
       console.error('❌ Error finding group by JID:', error.response?.data || error.message);
@@ -652,11 +631,9 @@ export class EvolutionApiService {
     }>;
   }>> {
     try {
-      console.log(`👥 Fetching all groups for instance ${instanceName}`);
 
       const response = await this.client.get(`/group/fetchAllGroups/${instanceName}?getParticipants=${getParticipants}`);
 
-      console.log(`✅ All groups fetched successfully: ${response.data?.length || 0} groups`);
       return response.data || [];
     } catch (error: any) {
       console.error('❌ Error fetching all groups:', error.response?.data || error.message);
@@ -673,7 +650,6 @@ export class EvolutionApiService {
    */
   async downloadMedia(instanceName: string, messageData: any): Promise<Buffer> {
     try {
-      console.log(`🔐 [EvolutionAPI] Downloading encrypted media via Evolution API for instance ${instanceName}`);
       
       // Evolution API endpoint para baixar mídia descriptografada
       // Envia a mensagem completa com as chaves de criptografia
@@ -684,7 +660,6 @@ export class EvolutionApiService {
         timeout: 60000 // 60 segundos para download de mídia grande
       });
 
-      console.log(`✅ [EvolutionAPI] Media downloaded and decrypted successfully: ${response.data.byteLength} bytes`);
       
       // Converter ArrayBuffer para Buffer
       return Buffer.from(response.data);

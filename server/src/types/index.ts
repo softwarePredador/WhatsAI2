@@ -235,3 +235,164 @@ export interface ActivityLog {
   instanceId?: string;
   metadata?: Record<string, any>;
 }
+
+// Message Templates
+export interface MessageTemplate {
+  id: string;
+  userId: string;
+  name: string;
+  content: string;
+  category?: string;
+  usageCount: number;
+  variables?: string[]; // Extracted from content: {{nome}}, {{empresa}}
+  mediaUrl?: string;
+  mediaType?: string;
+  tags?: string[];
+  isFavorite: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CreateTemplateRequest {
+  name: string;
+  content: string;
+  category?: string;
+  mediaUrl?: string;
+  mediaType?: string;
+  tags?: string[];
+  isFavorite?: boolean;
+}
+
+export interface UpdateTemplateRequest {
+  name?: string;
+  content?: string;
+  category?: string;
+  mediaUrl?: string;
+  mediaType?: string;
+  tags?: string[];
+  isFavorite?: boolean;
+}
+
+export interface RenderTemplateRequest {
+  templateId: string;
+  variables: Record<string, string>; // { "nome": "João", "empresa": "ACME" }
+}
+
+export interface RenderTemplateResponse {
+  content: string;
+  mediaUrl?: string;
+  mediaType?: string;
+}
+
+export interface TemplateUsageStats {
+  templateId: string;
+  name: string;
+  usageCount: number;
+  lastUsed?: Date;
+  category?: string;
+}
+
+// Campaigns and Bulk Messaging
+export interface Campaign {
+  id: string;
+  userId: string;
+  name: string;
+  status: CampaignStatus;
+  instanceId: string;
+  templateId?: string;
+  message: string;
+  mediaUrl?: string;
+  mediaType?: string;
+  scheduledFor?: Date;
+  startedAt?: Date;
+  completedAt?: Date;
+  totalRecipients: number;
+  sentCount: number;
+  deliveredCount: number;
+  failedCount: number;
+  pendingCount: number;
+  rateLimit: number;
+  recipientsData?: Recipient[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type CampaignStatus = 
+  | 'DRAFT' 
+  | 'SCHEDULED' 
+  | 'RUNNING' 
+  | 'PAUSED' 
+  | 'COMPLETED' 
+  | 'FAILED';
+
+export interface Recipient {
+  phone: string;
+  variables?: Record<string, string>;
+}
+
+export interface CampaignMessage {
+  id: string;
+  campaignId: string;
+  recipient: string;
+  status: CampaignMessageStatus;
+  message: string;
+  variables?: Record<string, string>;
+  messageId?: string;
+  error?: string;
+  retryCount: number;
+  maxRetries: number;
+  lastRetryAt?: Date;
+  createdAt: Date;
+  sentAt?: Date;
+  deliveredAt?: Date;
+  failedAt?: Date;
+}
+
+export type CampaignMessageStatus = 
+  | 'PENDING' 
+  | 'SENT' 
+  | 'DELIVERED' 
+  | 'FAILED';
+
+export interface CreateCampaignRequest {
+  name: string;
+  instanceId: string;
+  templateId?: string;
+  message: string;
+  mediaUrl?: string;
+  mediaType?: string;
+  recipients: Recipient[];
+  scheduledFor?: Date;
+  rateLimit?: number;
+}
+
+export interface UpdateCampaignRequest {
+  name?: string;
+  message?: string;
+  mediaUrl?: string;
+  mediaType?: string;
+  scheduledFor?: Date;
+  rateLimit?: number;
+}
+
+export interface CampaignProgress {
+  campaignId: string;
+  status: CampaignStatus;
+  progress: number; // 0-100
+  totalRecipients: number;
+  sentCount: number;
+  deliveredCount: number;
+  failedCount: number;
+  pendingCount: number;
+  estimatedTimeRemaining?: number; // seconds
+  currentRate?: number; // messages per minute
+}
+
+export interface CampaignStats {
+  totalCampaigns: number;
+  activeCampaigns: number;
+  completedCampaigns: number;
+  totalMessagesSent: number;
+  averageDeliveryRate: number;
+  recentCampaigns: Campaign[];
+}

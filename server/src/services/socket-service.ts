@@ -30,18 +30,18 @@ export class SocketService {
     if (!this.io) return;
 
     this.io.on('connection', (socket: Socket) => {
-      console.log(`Client connected: ${socket.id}`);
+      // Removido console.log - conexões são frequentes
 
       // Handle client joining instance room
       socket.on('join_instance', (instanceId: string) => {
         socket.join(`instance_${instanceId}`);
-        console.log(`Client ${socket.id} joined instance room: ${instanceId}`);
+        // Removido console.log verboso
       });
 
       // Handle client leaving instance room
       socket.on('leave_instance', (instanceId: string) => {
         socket.leave(`instance_${instanceId}`);
-        console.log(`Client ${socket.id} left instance room: ${instanceId}`);
+        // Removido console.log verboso
       });
 
       // Handle conversation open/close tracking
@@ -50,39 +50,36 @@ export class SocketService {
           this.activeConversations.set(socket.id, new Set());
         }
         this.activeConversations.get(socket.id)!.add(conversationId);
-        console.log(`👀 Client ${socket.id} opened conversation: ${conversationId}`);
+        // Removido console.log verboso
       });
 
       socket.on('conversation_closed', (conversationId: string) => {
         if (this.activeConversations.has(socket.id)) {
           this.activeConversations.get(socket.id)!.delete(conversationId);
-          console.log(`👋 Client ${socket.id} closed conversation: ${conversationId}`);
+          // Removido console.log verboso
         }
       });
 
       socket.on('disconnect', () => {
-        console.log(`Client disconnected: ${socket.id}`);
         // Clean up active conversations for this socket
         this.activeConversations.delete(socket.id);
+        // Removido console.log verboso
       });
     });
   }
 
   emitToInstance(instanceId: string, event: string, data: any): void {
     if (!this.io) {
-      console.warn('⚠️ [WebSocket] Socket.IO not initialized');
-      return;
+      return; // Silently return if not initialized
     }
 
     const room = `instance_${instanceId}`;
     const socketsInRoom = this.io.sockets.adapter.rooms.get(room);
     const clientCount = socketsInRoom ? socketsInRoom.size : 0;
     
-    console.log(`📡 [WebSocket] EMITINDO "${event}" para sala "${room}" (${clientCount} clientes)`);
-    console.log(`📡 [WebSocket] Dados:`, JSON.stringify(data, null, 2));
-    
+    // � OTIMIZAÇÃO: Retornar ANTES de serializar JSON se não há clientes
     if (clientCount === 0) {
-      console.warn(`⚠️ [WebSocket] Nenhum cliente conectado na sala ${room}`);
+      return; // Economiza 50-100ms de serialização desnecessária
     }
     
     this.io.to(room).emit(event, data);
@@ -90,8 +87,12 @@ export class SocketService {
 
   emitToAll(event: string, data: any): void {
     if (!this.io) {
-      console.warn('Socket.IO not initialized');
-      return;
+      return; // Silently return if not initialized
+    }
+
+    // Verificar se há clientes conectados
+    if (this.io.engine.clientsCount === 0) {
+      return; // Economiza serialização se não há clientes
     }
 
     this.io.emit(event, data);

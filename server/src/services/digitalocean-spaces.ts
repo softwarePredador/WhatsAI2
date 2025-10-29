@@ -44,6 +44,31 @@ export class DigitalOceanSpacesService {
   }
 
   /**
+   * Sanitiza metadados para serem compatíveis com headers HTTP S3
+   * Remove caracteres inválidos que causam erro em headers
+   */
+  private sanitizeMetadata(metadata?: Record<string, string>): Record<string, string> {
+    if (!metadata) return {};
+    
+    const sanitized: Record<string, string> = {};
+    
+    for (const [key, value] of Object.entries(metadata)) {
+      // Remove caracteres não-ASCII e controle
+      // S3 headers só aceitam ASCII imprimível (32-126)
+      const cleanValue = value
+        .replace(/[^\x20-\x7E]/g, '') // Remove não-ASCII
+        .replace(/[\r\n\t]/g, ' ')    // Remove quebras de linha
+        .trim();
+      
+      if (cleanValue) {
+        sanitized[key] = cleanValue;
+      }
+    }
+    
+    return sanitized;
+  }
+
+  /**
    * Upload file to DigitalOcean Spaces
    */
   async uploadFile(
@@ -67,7 +92,7 @@ export class DigitalOceanSpacesService {
           Body: fileBuffer,
           ContentType: contentType,
           ACL: options.acl || 'public-read', // Make files publicly accessible
-          Metadata: options.metadata || {},
+          Metadata: this.sanitizeMetadata(options.metadata), // Sanitiza metadados
           // CDN optimization headers
           CacheControl: 'max-age=31536000', // 1 year cache
           ContentDisposition: 'inline', // Display in browser instead of download
@@ -106,7 +131,6 @@ export class DigitalOceanSpacesService {
         contentType,
       };
 
-      console.log(`✅ [Spaces] Upload successful: ${key}`);
       return uploadResult;
 
     } catch (error) {
@@ -141,7 +165,6 @@ export class DigitalOceanSpacesService {
    */
   async deleteFile(key: string): Promise<void> {
     try {
-      console.log(`🗑️ [Spaces] Deleting ${key}`);
 
       const command = new DeleteObjectCommand({
         Bucket: this.config.bucket,
@@ -149,7 +172,6 @@ export class DigitalOceanSpacesService {
       });
 
       await this.s3Client.send(command);
-      console.log(`✅ [Spaces] Deleted ${key}`);
 
     } catch (error) {
       console.error(`❌ [Spaces] Failed to delete ${key}:`, error);
@@ -173,6 +195,60 @@ export class DigitalOceanSpacesService {
       if (error.name === 'NoSuchKey' || error.$metadata?.httpStatusCode === 404) {
         return false;
       }
+      throw error;
+    }
+  }
+
+  /**
+   * Download file from Spaces (returns Buffer)
+   */
+  async downloadFile(key: string): Promise<Buffer> {
+    try {
+      const command = new GetObjectCommand({
+        Bucket: this.config.bucket,
+        Key: key,
+      });
+
+      const response = await this.s3Client.send(command);
+      
+      if (!response.Body) {
+        throw new Error('No file content returned');
+      }
+
+      // Convert stream to buffer
+      const chunks: Uint8Array[] = [];
+      for await (const chunk of response.Body as any) {
+        chunks.push(chunk);
+      }
+      
+      return Buffer.concat(chunks);
+    } catch (error) {
+      console.error(`❌ [Spaces] Failed to download ${key}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get file info (size, last modified, etc)
+   */
+  async getFileInfo(key: string): Promise<{ size: number; modified: Date } | null> {
+    try {
+      const command = new GetObjectCommand({
+        Bucket: this.config.bucket,
+        Key: key,
+      });
+
+      const response = await this.s3Client.send(command);
+      
+      return {
+        size: response.ContentLength || 0,
+        modified: response.LastModified || new Date()
+      };
+    } catch (error: any) {
+      if (error.name === 'NoSuchKey' || error.$metadata?.httpStatusCode === 404) {
+        return null;
+      }
+      console.error(`❌ [Spaces] Failed to get file info for ${key}:`, error);
       throw error;
     }
   }

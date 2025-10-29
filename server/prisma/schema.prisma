@@ -24,8 +24,10 @@ model User {
   updatedAt DateTime @updatedAt
 
   // Relations
-  instances WhatsAppInstance[]
-  settings  UserSettings?
+  instances        WhatsAppInstance[]
+  settings         UserSettings?
+  messageTemplates MessageTemplate[]
+  campaigns        Campaign[]
 
   @@map("users")
 }
@@ -58,6 +60,7 @@ model WhatsAppInstance {
   // Relations
   messages      Message[]
   conversations Conversation[]
+  campaigns     Campaign[]
 
   @@map("whatsapp_instances")
 }
@@ -91,8 +94,11 @@ model Message {
 
   // Performance indexes
   @@index([instanceId])
-  @@index([conversationId, timestamp(sort: Desc)])
+  @@index([conversationId, timestamp(sort: Desc)]) // Timeline de mensagens por conversa
   @@index([remoteJid])
+  @@index([instanceId, timestamp(sort: Desc)]) // Timeline global por instância
+  @@index([conversationId, fromMe]) // Filtrar mensagens enviadas/recebidas
+  @@index([status]) // Rastrear status de mensagens
   @@map("messages")
 }
 
@@ -124,7 +130,10 @@ model Conversation {
 
   @@unique([instanceId, remoteJid])
   // Performance indexes
-  @@index([instanceId, lastMessageAt(sort: Desc)])
+  @@index([instanceId, lastMessageAt(sort: Desc)]) // Lista ordenada por última mensagem
+  @@index([instanceId, isPinned, lastMessageAt(sort: Desc)]) // Conversas fixadas no topo
+  @@index([instanceId, isArchived]) // Filtrar conversas arquivadas
+  @@index([instanceId, unreadCount]) // Ordenar por não lidas
   @@index([remoteJid])
   @@map("conversations")
 }
@@ -178,6 +187,121 @@ model UserSettings {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_settings")
+}
+
+model MessageTemplate {
+  id       String  @id @default(cuid())
+  userId   String
+  name     String
+  content  String  @db.Text
+  category String? // greeting, farewell, follow_up, promotional, support, custom
+
+  // Usage tracking
+  usageCount Int @default(0)
+
+  // Template variables (stored as JSON array of variable names)
+  variables String? @db.Text // JSON: ["nome", "empresa", "produto"]
+
+  // Media attachment
+  mediaUrl  String?
+  mediaType String? // image, video, audio, document
+
+  // Organization
+  tags       String? @db.Text // JSON: ["vip", "new_customer"]
+  isFavorite Boolean @default(false)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campaigns Campaign[]
+
+  @@index([userId])
+  @@index([category])
+  @@map("message_templates")
+}
+
+model Campaign {
+  id         String  @id @default(cuid())
+  userId     String
+  name       String
+  status     String  @default("DRAFT") // DRAFT, SCHEDULED, RUNNING, PAUSED, COMPLETED, FAILED
+  instanceId String
+
+  // Campaign content
+  templateId String? // Optional: use template
+  message    String  @db.Text
+  mediaUrl   String?
+  mediaType  String? // image, video, audio, document
+
+  // Scheduling
+  scheduledFor DateTime?
+  startedAt    DateTime?
+  completedAt  DateTime?
+
+  // Progress tracking
+  totalRecipients Int @default(0)
+  sentCount       Int @default(0)
+  deliveredCount  Int @default(0)
+  failedCount     Int @default(0)
+  pendingCount    Int @default(0)
+
+  // Rate limiting (messages per minute)
+  rateLimit Int @default(10)
+
+  // Recipients CSV
+  recipientsData String? @db.Text // JSON array of recipients with variables
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user     User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  instance WhatsAppInstance   @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  messages CampaignMessage[]
+  template MessageTemplate?   @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([status])
+  @@index([instanceId])
+  @@map("campaigns")
+}
+
+model CampaignMessage {
+  id         String  @id @default(cuid())
+  campaignId String
+  recipient  String // Phone number
+  status     String  @default("PENDING") // PENDING, SENT, DELIVERED, FAILED
+  message    String  @db.Text // Rendered message with variables
+
+  // Message variables for this recipient
+  variables String? @db.Text // JSON object with recipient-specific data
+
+  // Evolution API message ID
+  messageId String?
+
+  // Error tracking
+  error        String?
+  retryCount   Int     @default(0)
+  maxRetries   Int     @default(3)
+  lastRetryAt  DateTime?
+
+  // Timestamps
+  createdAt   DateTime  @default(now())
+  sentAt      DateTime?
+  deliveredAt DateTime?
+  failedAt    DateTime?
+
+  // Relations
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+  @@index([status])
+  @@index([recipient])
+  @@map("campaign_messages")
 }
 
 // SQLite doesn't support enums, so we use string literals

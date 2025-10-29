@@ -6,6 +6,13 @@ import { SocketService } from './socket-service';
 import { MediaMessageService } from './messages';
 import { IncomingMediaService } from './incoming-media-service';
 import { mediaLogger } from '../utils/media-logger';
+import {
+  compareJids,
+  normalizeJid,
+  isLidJid
+} from '../utils/baileys-helpers';
+import { normalizeWhatsAppJid, isGroupJid } from '../utils/phone-helper';
+
 
 type Conversation = {
   id: string;
@@ -119,7 +126,6 @@ export class ConversationService {
         const ddd = withoutCountryCode.substring(0, 2);
         const numero = withoutCountryCode.substring(2);
         cleanNumber = `55${ddd}9${numero}`; // Adiciona o 9 antes do número
-        console.log(`🇧🇷 [normalizeRemoteJid] Número BR antigo detectado! Adicionando 9: ${remoteJid} → ${cleanNumber}`);
       }
     }
     
@@ -131,21 +137,28 @@ export class ConversationService {
     }
     
     // Log for debugging duplicate conversations
-    console.log(`📞 [normalizeRemoteJid] Input: ${remoteJid} → Output: ${normalized}`);
     
     return normalized;
   }
 
   /**
-   * UNIFIED METHOD: Normalize WhatsApp number applying all rules in correct order
-   * Returns always format: number@s.whatsapp.net or number@g.us
-   *
+   * REFATORADO: Normaliza número usando helpers do Baileys
+   * 
+   * Mantém cache de @lid e usa normalização oficial do Baileys
+   * 
    * Order of operations:
    * 1. Use remoteJidAlt if it's a real number (not @lid)
    * 2. Resolve @lid if possible (cache or remoteJidAlt)
-   * 3. Clean suffixes and device IDs
-   * 4. Brazilian number normalization (+9)
-   * 5. Format with correct suffix
+   * 3. Use Baileys normalization (includes Brazilian logic)
+   */
+  /**
+   * Normaliza número de WhatsApp usando libphonenumber-js para validação internacional
+   * Mantém lógica de resolução de @lid (LID-based numbers) via remoteJidAlt ou cache
+   * 
+   * @param remoteJid - JID principal (pode ser @lid, @s.whatsapp.net, @g.us)
+   * @param remoteJidAlt - JID alternativo para resolver @lid
+   * @param isGroup - Se true, preserva @g.us sem normalização
+   * @returns JID normalizado
    */
   private normalizeWhatsAppNumber(
     remoteJid: string,
@@ -155,87 +168,50 @@ export class ConversationService {
 
     // 1. PRIORITY: Use remoteJidAlt if it's a real number (not @lid)
     let number = remoteJid;
-    if (remoteJidAlt && !remoteJidAlt.includes('@lid')) {
-      console.log(`🔄 [normalizeWhatsAppNumber] Using remoteJidAlt: ${remoteJid} → ${remoteJidAlt}`);
+    if (remoteJidAlt && !isLidJid(remoteJidAlt)) {
       number = remoteJidAlt;
     }
 
     // 2. Resolve @lid if possible (cache or remoteJidAlt)
-    if (number.includes('@lid')) {
+    if (isLidJid(number)) {
       if (remoteJidAlt && remoteJidAlt.includes('@s.whatsapp.net')) {
-        console.log(`🔄 [normalizeWhatsAppNumber] Resolving @lid via remoteJidAlt: ${number} → ${remoteJidAlt}`);
         number = remoteJidAlt;
       } else {
         const cached = this.lidToRealNumberCache.get(number);
         if (cached) {
-          console.log(`🔄 [normalizeWhatsAppNumber] Resolving @lid via cache: ${number} → ${cached}`);
           number = cached;
         } else {
-          console.warn(`⚠️ [normalizeWhatsAppNumber] Could not resolve @lid: ${number} - removing @lid and assuming direct number`);
-          // Fallback: remove @lid and assume it's a direct number
-          number = number.replace('@lid', '');
+          console.warn(`⚠️ [normalizeWhatsAppNumber] Could not resolve @lid: ${number} - using as-is`);
+          // Se não conseguiu resolver @lid, mantém como está
+          return number;
         }
       }
     }
 
-    // 3. Clean suffixes and device IDs
-    let cleanNumber = number
-      .replace(/:\d+@/, '@')  // Remove device ID (e.g., :98@)
-      .replace('@s.whatsapp.net', '')
-      .replace('@g.us', '')
-      .replace('@c.us', '')
-      .replace('@lid', '');
-
-    // 4. Brazilian number normalization - COMPREHENSIVE normalization to avoid duplicates
-    if (cleanNumber.startsWith('55') && !isGroup) {
-      const withoutCountry = cleanNumber.substring(2); // Remove "55"
-
-      if (withoutCountry.length === 8) {
-        // Old Brazilian format (8 digits) - assume DDD 11 + add 9th digit
-        const phone = withoutCountry;
-        cleanNumber = `55119${phone}`;
-        console.log(`🇧🇷 [normalizeWhatsAppNumber] Brazilian 8→11 digits: ${number} → ${cleanNumber}`);
-      } else if (withoutCountry.length === 9) {
-        // 9 digits (DDD + 8 digits phone) - add 9th digit after DDD
-        const ddd = withoutCountry.substring(0, 2);
-        const phone = withoutCountry.substring(2);
-        cleanNumber = `55${ddd}9${phone}`;
-        console.log(`🇧🇷 [normalizeWhatsAppNumber] Brazilian 9→11 digits: ${number} → ${cleanNumber}`);
-      } else if (withoutCountry.length === 10) {
-        // 10 digits (DDD + 9 digits) - check if phone part has 8 digits (missing 9th)
-        const ddd = withoutCountry.substring(0, 2);
-        const phone = withoutCountry.substring(2);
-        if (phone.length === 8) {
-          // Missing 9th digit
-          cleanNumber = `55${ddd}9${phone}`;
-          console.log(`🇧🇷 [normalizeWhatsAppNumber] Brazilian 10→11 digits: ${number} → ${cleanNumber}`);
-        }
-        // If phone.length === 9, already has 9th digit, keep as is
-      }
-      // If already 11 digits, keep as is (modern format with 9th digit)
+    // 3. Se for grupo, não normaliza (mantém @g.us)
+    if (isGroup || isGroupJid(number)) {
+      return number;
     }
 
-    // 5. Format with correct suffix
-    const result = isGroup ? `${cleanNumber}@g.us` : `${cleanNumber}@s.whatsapp.net`;
+    // 4. Usa phone-helper para normalização robusta (suporta internacional)
+    const result = normalizeWhatsAppJid(number);
 
-    console.log(`📞 [normalizeWhatsAppNumber] Final: ${remoteJid} → ${result}`);
     return result;
   }
 
   /**
-   * Format number with @s.whatsapp.net suffix for Evolution API
+   * REFATORADO: Format number using Baileys helper
    * NEVER use @lid - always convert to @s.whatsapp.net
    */
   private formatRemoteJid(number: string): string {
-    // If already has @, check if it's @lid and replace
+    // If already has @, normalize via Baileys
     if (number.includes('@')) {
-      // If it's @lid, remove it and format as normal number
-      if (number.includes('@lid')) {
-        const cleanNumber = number.replace('@lid', '');
-        console.log(`🔄 [formatRemoteJid] Converting @lid to @s.whatsapp.net: ${number} → ${cleanNumber}@s.whatsapp.net`);
-        return `${cleanNumber}@s.whatsapp.net`;
+      // If it's @lid, Baileys will normalize it
+      if (isLidJid(number)) {
+        const normalized = normalizeJid(number);
+        return normalized;
       }
-      return number; // Already formatted correctly
+      return normalizeJid(number); // Normalize via Baileys
     }
     
     // Check if it's a group
@@ -247,15 +223,12 @@ export class ConversationService {
   }
 
   async getConversationsByInstance(instanceId: string): Promise<ConversationSummary[]> {
-    console.log('🔍 [ConversationService] getConversationsByInstance chamado com instanceId:', instanceId);
 
     const conversations = await this.conversationRepository.findByInstanceId(instanceId);
-    console.log('🔍 [ConversationService] Conversas encontradas no banco:', conversations.length);
     
     // 📸 Buscar fotos em background para conversas sem foto
     const conversationsWithoutPicture = conversations.filter(c => !c.contactPicture);
     if (conversationsWithoutPicture.length > 0) {
-      console.log(`📸 Buscando fotos para ${conversationsWithoutPicture.length} conversas sem foto...`);
       
       // Buscar todas em paralelo (não esperar)
       Promise.all(
@@ -321,7 +294,6 @@ export class ConversationService {
     // 📸 Buscar foto de perfil em background se ainda não tiver
     if (!conversation.contactPicture) {
       this.fetchContactInfoInBackground(conversation.id, instanceId, remoteJid).catch(err => {
-        console.log(`⚠️  Erro ao buscar foto em background:`, err.message);
       });
     }
 
@@ -376,7 +348,6 @@ export class ConversationService {
       // Atualizar pushName se encontrado
       if (contactInfo?.pushName) {
         updateData.contactName = contactInfo.pushName;
-        console.log(`👤 PushName atualizado em background para ${number}: ${contactInfo.pushName}`);
       }
 
       // Buscar foto de perfil
@@ -387,7 +358,6 @@ export class ConversationService {
 
       if (profilePicture.profilePictureUrl) {
         updateData.contactPicture = profilePicture.profilePictureUrl;
-        console.log(`📸 Foto de perfil atualizada em background para ${number}`);
       }
 
       // Atualizar conversa se houver dados novos
@@ -402,7 +372,6 @@ export class ConversationService {
       }
     } catch (error) {
       // Não fazer nada, apenas log silencioso
-      console.log(`⚠️  Não foi possível buscar informações do contato para conversa ${conversationId}`);
     }
   }
 
@@ -424,7 +393,6 @@ export class ConversationService {
     
     if (lid && real) {
       this.lidToRealNumberCache.set(lid, real);
-      console.log(`✅ Mapped: ${lid} → ${real}`);
     }
   }
 
@@ -435,7 +403,6 @@ export class ConversationService {
     if (remoteJid.includes('@lid')) {
       const realNumber = this.lidToRealNumberCache.get(remoteJid);
       if (realNumber) {
-        console.log(`🔄 Resolved @lid: ${remoteJid} → ${realNumber}`);
         return realNumber;
       }
     }
@@ -447,9 +414,7 @@ export class ConversationService {
    * Avoids unnecessary API calls for profile pictures and names
    */
   async updateContactFromWebhook(instanceId: string, remoteJid: string, data: { contactName?: string; contactPicture?: string }): Promise<void> {
-    console.log(`🚨🚨🚨 [CONTACT_UPDATE] FUNÇÃO CHAMADA! instanceId=${instanceId}, remoteJid=${remoteJid}, data=`, data);
     try {
-      console.log(`👤 [CONTACT_UPDATE] Starting update for ${remoteJid} with data:`, data);
 
       // Estratégia 1: Tentar normalização padrão (detectar automaticamente se é grupo)
       const isGroupContact = remoteJid.includes('@g.us');
@@ -461,12 +426,10 @@ export class ConversationService {
       console.log(`👤 [CONTACT_UPDATE] Found ${allConversations.length} conversations in database (including archived)`);
 
       let conversation = allConversations.find(c => c.remoteJid === normalizedJid);
-      console.log(`👤 [CONTACT_UPDATE] Direct match found:`, !!conversation);
 
       // Estratégia 2: Se não encontrou e é @lid, tentar múltiplas abordagens
       if (!conversation && remoteJid.includes('@lid')) {
         const lidNumber = remoteJid.replace('@lid', '');
-        console.log(`👤 [CONTACT_UPDATE] Trying @lid resolution strategies for number: ${lidNumber}`);
 
         // Estratégia 2a: Procurar por conversas que contenham o número @lid
         conversation = allConversations.find(c => {
@@ -475,10 +438,8 @@ export class ConversationService {
         });
 
         if (conversation) {
-          console.log(`🔄 [CONTACT_UPDATE] Found by @lid number matching: ${remoteJid} → ${conversation.remoteJid}`);
         } else {
           // Estratégia 2b: Tentar buscar no banco por padrões similares
-          console.log(`👤 [CONTACT_UPDATE] @lid number matching failed, trying pattern search...`);
 
           // Procurar por conversas que terminem com o número (ignorando domínio)
           conversation = allConversations.find(c => {
@@ -487,15 +448,12 @@ export class ConversationService {
           });
 
           if (conversation) {
-            console.log(`🔄 [CONTACT_UPDATE] Found by base number matching: ${remoteJid} → ${conversation.remoteJid}`);
           } else {
             // Estratégia 2c: Tentar consultar Evolution API para resolver @lid
-            console.log(`👤 [CONTACT_UPDATE] Local search failed, trying Evolution API resolution...`);
             try {
               // Aqui poderíamos adicionar uma chamada para a Evolution API
               // para resolver o @lid para @s.whatsapp.net
               // Por enquanto, vamos logar que não conseguimos resolver
-              console.log(`⚠️ [CONTACT_UPDATE] Could not resolve @lid ${remoteJid} - Evolution API resolution not implemented yet`);
             } catch (apiError) {
               console.log(`❌ [CONTACT_UPDATE] Evolution API resolution failed:`, apiError instanceof Error ? apiError.message : String(apiError));
             }
@@ -505,7 +463,6 @@ export class ConversationService {
 
       // Estratégia 3: Se ainda não encontrou, tentar variações do número
       if (!conversation && !remoteJid.includes('@g.us')) {
-        console.log(`👤 [CONTACT_UPDATE] Trying number variations...`);
 
         const baseNumber = remoteJid.split('@')[0];
         if (baseNumber) {
@@ -516,7 +473,6 @@ export class ConversationService {
           });
 
           if (conversation) {
-            console.log(`🔄 [CONTACT_UPDATE] Found by number variation: ${remoteJid} → ${conversation.remoteJid}`);
           }
         }
       }
@@ -527,18 +483,21 @@ export class ConversationService {
         if (data.contactPicture) updateData.contactPicture = data.contactPicture;
 
         if (Object.keys(updateData).length > 0) {
-          console.log(`📝 [CONTACT_UPDATE] Updating conversation ${conversation.id} with:`, updateData);
           await this.conversationRepository.update(conversation.id, updateData);
 
           // Notify frontend
           const updated = await this.conversationRepository.findById(conversation.id);
           if (updated) {
+            console.log(`📡 [CONTACT_UPDATE] Emitindo conversation:updated via WebSocket:`, {
+              id: updated.id,
+              remoteJid: updated.remoteJid,
+              contactName: updated.contactName,
+              contactPicture: updated.contactPicture ? '✅ TEM FOTO' : '❌ SEM FOTO'
+            });
             this.socketService.emitToInstance(instanceId, 'conversation:updated', updated);
           }
 
-          console.log(`✅ [CONTACT_UPDATE] Successfully updated contact: ${data.contactName || remoteJid}`);
         } else {
-          console.log(`⚠️ [CONTACT_UPDATE] No update data provided for ${remoteJid}`);
         }
       } else {
         console.log(`❌ [CONTACT_UPDATE] Conversation not found for remoteJid: ${remoteJid} (normalized: ${normalizedJid})`);
@@ -563,7 +522,6 @@ export class ConversationService {
       if (conversation) {
         await this.conversationRepository.update(conversation.id, { unreadCount });
 
-        console.log(`✅ Updated unread count from webhook: ${normalizedJid} = ${unreadCount}`);
 
         // Notify frontend
         this.socketService.emitToInstance(instanceId, 'conversation:unread', {
@@ -571,17 +529,14 @@ export class ConversationService {
           unreadCount
         });
       } else {
-        console.log(`⚠️ Conversation not found for unread count update: ${normalizedJid}`);
       }
     } catch (error) {
-      console.log(`⚠️ Failed to update unread count from webhook:`, error);
       throw error; // Re-throw to show the error
     }
   }
 
   async handleIncomingMessage(instanceId: string, messageData: any): Promise<void> {
     try {
-      console.log(`📨 [handleIncomingMessage] instanceId recebido do webhook: ${instanceId}`);
       console.log(`📨 [handleIncomingMessage] RAW messageData.key:`, JSON.stringify(messageData.key, null, 2));
       
       // 🔍 Verificar se a instância existe no banco (buscar por evolutionInstanceName)
@@ -608,7 +563,6 @@ export class ConversationService {
       // Format for Evolution API (ensure @s.whatsapp.net)
       const formattedRemoteJid = this.formatRemoteJid(normalizedRemoteJid);
       
-      console.log(`📨 [handleIncomingMessage] Normalized: ${messageData.key.remoteJid} → ${formattedRemoteJid}`);
       
       // Create or update conversation first (usar o DB ID da instância)
       // 🚨 IMPORTANTE: Só atualizar contactName quando a mensagem NÃO for sua (fromMe: false)
@@ -619,9 +573,7 @@ export class ConversationService {
       // Se a mensagem foi RECEBIDA (não enviada por você), atualizar o nome do contato
       if (!messageData.key.fromMe && messageData.pushName) {
         conversationData.contactName = messageData.pushName;
-        console.log(`👤 [handleIncomingMessage] Atualizando contactName: ${messageData.pushName}`);
       } else if (messageData.key.fromMe) {
-        console.log(`⏩ [handleIncomingMessage] Mensagem enviada por você - mantendo contactName existente`);
       }
       
       const conversation = await this.createOrUpdateConversation(instance.id, formattedRemoteJid, conversationData);
@@ -652,7 +604,6 @@ export class ConversationService {
         });
         console.log(`💬 [handleIncomingMessage] Message ${message.id.startsWith('cmh') ? 'CREATED' : 'UPDATED'}: ${message.id}`);
       } catch (error: any) {
-        console.log(`⚠️ Message upsert failed for ${messageData.key.id}, checking if exists...`);
         try {
           message = await prisma.message.findFirst({
             where: { messageId: messageData.key.id }
@@ -661,7 +612,6 @@ export class ConversationService {
             console.error(`❌ Message ${messageData.key.id} not found after upsert failure`);
             throw error;
           }
-          console.log(`✅ Found existing message: ${message.id}`);
         } catch (findError) {
           console.error(`❌ Failed to find message ${messageData.key.id}:`, findError);
           throw error;
@@ -673,10 +623,6 @@ export class ConversationService {
       const isConversationActive = this.socketService.isConversationActive(conversation.id);
       const shouldMarkAsRead = messageData.key.fromMe || isConversationActive;
       
-      console.log(`📱 Smart read logic for conversation ${conversation.id}:`);
-      console.log(`   - fromMe: ${messageData.key.fromMe}`);
-      console.log(`   - isActive: ${isConversationActive}`);
-      console.log(`   - shouldMarkAsRead: ${shouldMarkAsRead}`);
 
       await this.conversationRepository.update(conversation.id, {
         lastMessage: this.extractMessageContent(messageData),
@@ -733,7 +679,6 @@ export class ConversationService {
             mimeType: mediaOptions.mimeType
           });
 
-          console.log(`🚀 [MEDIA_PROCESS_CALL] Processando mídia SÍNCRONAMENTE...`);
           const processedMediaUrl = await this.incomingMediaService.processIncomingMedia(mediaOptions);
 
           mediaLogger.log('✅ [MEDIA_PROCESS_SUCCESS] Mídia processada com sucesso', {
@@ -742,12 +687,10 @@ export class ConversationService {
           });
 
           // Update message with processed media URL immediately
-          console.log(`💾 [DB_UPDATE] Atualizando message no banco com URL processada...`);
           await prisma.message.update({
             where: { id: message.id },
             data: { mediaUrl: processedMediaUrl }
           });
-          console.log(`✅ [DB_UPDATE] Message atualizada com URL processada`);
 
           // Update the message object for socket emission
           message.mediaUrl = processedMediaUrl;
@@ -818,8 +761,6 @@ export class ConversationService {
       // Use unified normalization
       const normalizedRemoteJid = this.normalizeWhatsAppNumber(remoteJid, null, false);
       
-      console.log(`📤 [sendMessage] Normalized: ${remoteJid} → ${normalizedRemoteJid}`);
-      console.log(`🔍 [sendMessage] Procurando instância ${instanceId} para obter evolutionInstanceName`);
       
       // Get the instance to find the evolutionInstanceName
       const instance = await prisma.whatsAppInstance.findUnique({
@@ -832,7 +773,6 @@ export class ConversationService {
         throw new Error(`Instância não encontrada: ${instanceId}`);
       }
 
-      console.log(`✅ [sendMessage] Instância encontrada: ${instance.evolutionInstanceName}`);
 
       // ⚡ Criar/atualizar conversa em paralelo com envio da mensagem
       const [evolutionResponse, conversation] = await Promise.all([
@@ -844,7 +784,6 @@ export class ConversationService {
         this.createOrUpdateConversation(instanceId, normalizedRemoteJid)
       ]);
 
-      console.log(`✅ [sendMessage] Mensagem enviada via Evolution API:`, evolutionResponse);
 
       // Save message to database
       const message = await this.messageRepository.create({
@@ -896,7 +835,6 @@ export class ConversationService {
         console.error('⚠️ Erro em operações pós-envio (não crítico):', error);
       });
 
-      console.log(`✅ [sendMessage] Mensagem salva no banco de dados:`, message.id);
       return message;
     } catch (error: any) {
       console.error('❌ [sendMessage] Error sending message:', error);
@@ -932,12 +870,13 @@ export class ConversationService {
       const unreadMessages = conversation.messages
         .filter(msg => !msg.fromMe)
         .map(msg => ({
-          remoteJid: msg.remoteJid,
+          remoteJid: conversation.remoteJid, // ✅ Usar remoteJid da CONVERSA, não da mensagem individual
           fromMe: msg.fromMe,
           id: msg.messageId
         }));
 
       if (unreadMessages.length > 0) {
+        
         // Criar service específico para esta instância
         const evolutionService = new EvolutionApiService(instance.evolutionApiUrl, instance.evolutionApiKey);
         
@@ -950,7 +889,6 @@ export class ConversationService {
         unreadCount: 0
       });
 
-      console.log(`✅ Conversation ${conversationId} marked as read`);
 
       // Notificar via WebSocket
       this.socketService.emitToInstance(conversation.instanceId, 'conversation:read', {
@@ -1126,7 +1064,6 @@ export class ConversationService {
         unreadCount: newUnreadCount
       });
 
-      console.log(`✅ Conversation ${conversationId} marked as unread`);
 
       // Notificar via WebSocket
       this.socketService.emitToInstance(conversation.instanceId, 'conversation:unread', {
@@ -1191,7 +1128,6 @@ export class ConversationService {
 
           const updatedConversation = await this.conversationRepository.update(conversationId, updateData);
 
-          console.log(`✅ Contact info updated for conversation ${conversationId}: ${displayName}`);
 
           // Notificar via WebSocket
           this.socketService.emitToInstance(conversation.instanceId, 'conversation:updated', updatedConversation);
@@ -1213,7 +1149,6 @@ export class ConversationService {
    */
   async updateAllContactsInfo(instanceId: string): Promise<void> {
     try {
-      console.log(`🔄 Updating contact info for all conversations in instance ${instanceId}`);
       
       const conversations = await this.conversationRepository.findByInstanceId(instanceId);
       const instance = await prisma.whatsAppInstance.findUnique({
@@ -1262,11 +1197,9 @@ export class ConversationService {
 
           await this.conversationRepository.update(conversation.id, updateData);
 
-          console.log(`✅ Updated contact: ${displayName}`);
         }
       }
 
-      console.log(`✅ All contacts updated for instance ${instanceId}`);
     } catch (error) {
       console.error('❌ Error updating all contacts info:', error);
       throw error;
@@ -1283,13 +1216,11 @@ export class ConversationService {
     remoteJid?: string;
   }): Promise<void> {
     try {
-      console.log('📬 [handleMessageStatusUpdate] Updating message ' + data.messageId + ' to status: ' + data.status);
       
       // ✅ Usar repository em vez de Prisma direto
       const message = await this.messageRepository.findByMessageId(data.messageId);
 
       if (!message) {
-        console.log('⚠️ Message ' + data.messageId + ' not found in database');
         return;
       }
 
@@ -1297,7 +1228,6 @@ export class ConversationService {
       const normalizedStatus = data.status.toUpperCase();
       
       if (!validStatuses.includes(normalizedStatus)) {
-        console.log('⚠️ Invalid status: ' + data.status);
         return;
       }
 
@@ -1306,7 +1236,6 @@ export class ConversationService {
         status: normalizedStatus
       });
 
-      console.log('✅ Message ' + data.messageId + ' status updated to: ' + normalizedStatus);
 
       this.socketService.emitToInstance(instanceId, 'message:status', {
         messageId: message.id,
@@ -1327,12 +1256,9 @@ export class ConversationService {
    */
   async handleIncomingMessageAtomic(instanceId: string, messageData: any): Promise<void> {
     try {
-      console.log(`� [ATOMIC_START] handleIncomingMessageAtomic chamado para ${instanceId}`);
       console.log(`📝 [ATOMIC_DATA] MessageType: ${messageData.message ? Object.keys(messageData.message)[0] : 'N/A'}`);
       console.log(`🖼️ [ATOMIC_MEDIA] Has media: ${!!(messageData.message?.imageMessage || messageData.message?.videoMessage || messageData.message?.audioMessage)}`);
-      console.log(`👤 [ATOMIC_SENDER] fromMe: ${messageData.key?.fromMe}`);
 
-      console.log(`�📨 [handleIncomingMessageAtomic] instanceId: ${instanceId}`);
       console.log(`📨 [handleIncomingMessageAtomic] RAW messageData.key:`, JSON.stringify(messageData.key, null, 2));
 
       // 🔍 Verificar se a instância existe
@@ -1355,7 +1281,9 @@ export class ConversationService {
       );
 
       const formattedRemoteJid = this.formatRemoteJid(normalizedRemoteJid);
-      console.log(`📨 [handleIncomingMessageAtomic] Normalized: ${messageData.key.remoteJid} → ${formattedRemoteJid}`);
+
+      // Variable to track processed media URL across transaction boundary
+      let processedMediaUrl: string | null | undefined = null;
 
       // 🚨 ATOMIC TRANSACTION: All critical database operations in one transaction
       const transactionResult = await prisma.$transaction(async (tx) => {
@@ -1366,7 +1294,6 @@ export class ConversationService {
 
         if (!messageData.key.fromMe && messageData.pushName) {
           conversationData.contactName = messageData.pushName;
-          console.log(`👤 [handleIncomingMessageAtomic] contactName: ${messageData.pushName}`);
         }
 
         // 1. Create or update conversation within transaction
@@ -1385,13 +1312,11 @@ export class ConversationService {
               ...conversationData
             }
           });
-          console.log(`📁 [handleIncomingMessageAtomic] Conversation CREATED: ${conversation.id}`);
         } else {
           conversation = await tx.conversation.update({
             where: { id: conversation.id },
             data: conversationData
           });
-          console.log(`📁 [handleIncomingMessageAtomic] Conversation UPDATED: ${conversation.id}`);
         }
 
         // Prepare message data
@@ -1421,7 +1346,6 @@ export class ConversationService {
           console.log(`💬 [handleIncomingMessageAtomic] Message ${message.id.startsWith('cmh') ? 'CREATED' : 'UPDATED'}: ${message.id}`);
         } catch (error: any) {
           // If upsert fails for any reason, try to find existing message
-          console.log(`⚠️ Message upsert failed for ${messageData.key.id}, checking if exists...`);
           try {
             message = await tx.message.findFirst({
               where: { messageId: messageData.key.id }
@@ -1430,7 +1354,6 @@ export class ConversationService {
               console.error(`❌ Message ${messageData.key.id} not found after upsert failure`);
               throw error;
             }
-            console.log(`✅ Found existing message: ${message.id}`);
           } catch (findError) {
             console.error(`❌ Failed to find message ${messageData.key.id}:`, findError);
             throw error;
@@ -1438,15 +1361,11 @@ export class ConversationService {
         }
 
         // 2.5. Process incoming media (download and store locally) - OUTSIDE transaction for performance
-        let processedMediaUrl = messageCreateData.mediaUrl;
+        processedMediaUrl = messageCreateData.mediaUrl;
         // Só processar se for URL do WhatsApp (não CDN)
         const isWhatsAppMediaUrl = messageCreateData.mediaUrl?.includes('mmg.whatsapp.net');
         
         if (messageCreateData.mediaUrl && isWhatsAppMediaUrl) {
-          console.log(`🖼️ [ATOMIC_MEDIA_PROCESS_START] Iniciando processamento de mídia atômico:`);
-          console.log(`   � Message ID: ${messageData.key.id}`);
-          console.log(`   🔗 Media URL: ${messageCreateData.mediaUrl}`);
-          console.log(`   👤 From Me: ${messageData.key.fromMe}`);
 
           try {
             const mediaType = this.getMessageType(messageData).toLowerCase() as 'image' | 'video' | 'audio' | 'sticker' | 'document';
@@ -1456,11 +1375,7 @@ export class ConversationService {
                             messageData.message?.stickerMessage?.mimetype ||
                             messageData.message?.documentMessage?.mimetype;
 
-            console.log(`📋 [ATOMIC_MEDIA_OPTIONS] Opções para processamento:`);
-            console.log(`   🖼️ MediaType: ${mediaType}`);
-            console.log(`   🏷️ MimeType: ${mimeType || 'N/A'}`);
 
-            console.log(`🚀 [ATOMIC_MEDIA_PROCESS_CALL] Chamando IncomingMediaService.processIncomingMedia...`);
 
             const downloadedUrl = await this.incomingMediaService.processIncomingMedia({
               messageId: messageData.key.id,
@@ -1475,26 +1390,19 @@ export class ConversationService {
 
             if (downloadedUrl) {
               processedMediaUrl = downloadedUrl;
-              console.log(`✅ [ATOMIC_MEDIA_SUCCESS] Mídia processada com sucesso:`);
-              console.log(`   🔗 Processed URL: ${downloadedUrl}`);
-              console.log(`   📝 Message ID: ${messageData.key.id}`);
 
               // Update message with processed media URL
-              console.log(`💾 [ATOMIC_DB_UPDATE] Atualizando message no banco de dados...`);
               await tx.message.update({
                 where: { id: message.id },
                 data: { mediaUrl: processedMediaUrl }
               });
-              console.log(`✅ [ATOMIC_DB_UPDATE] Message atualizada com sucesso`);
             } else {
-              console.log(`⚠️ [ATOMIC_MEDIA_NO_URL] Nenhum URL processada retornada`);
             }
           } catch (mediaError) {
             console.error(`⚠️ [ATOMIC_MEDIA_ERROR] Falha no processamento de mídia:`);
             console.error(`   📝 Message ID: ${messageData.key.id}`);
             console.error(`   💥 Erro: ${mediaError instanceof Error ? mediaError.message : String(mediaError)}`);
             // Continue with original URL if processing fails
-            console.log(`⏭️ [ATOMIC_MEDIA_FALLBACK] Continuando com URL original`);
           }
         } else {
           console.log(`⏭️ [ATOMIC_MEDIA_SKIP] Nenhuma mídia para processar (mediaUrl vazia)`);
@@ -1504,7 +1412,6 @@ export class ConversationService {
         const isConversationActive = this.socketService.isConversationActive(conversation.id);
         const shouldMarkAsRead = messageData.key.fromMe || isConversationActive;
 
-        console.log(`📱 Smart read logic: fromMe=${messageData.key.fromMe}, active=${isConversationActive}, markRead=${shouldMarkAsRead}`);
 
         // 3. Update conversation with lastMessage within transaction
         const updatedConversation = await tx.conversation.update({
@@ -1523,7 +1430,6 @@ export class ConversationService {
 
       // Auto-mark as read in Evolution API if conversation is active
       if (this.socketService.isConversationActive(transactionResult.conversation.id) && !messageData.key.fromMe) {
-        console.log(`🤖 Auto-marking as read in Evolution API`);
         try {
           const evolutionApi = new EvolutionApiService();
           if (instance.evolutionInstanceName) {
@@ -1548,7 +1454,7 @@ export class ConversationService {
           fromMe: transactionResult.message.fromMe,
           timestamp: transactionResult.message.timestamp,
           messageType: transactionResult.message.messageType,
-          mediaUrl: transactionResult.message.mediaUrl,
+          mediaUrl: processedMediaUrl || transactionResult.message.mediaUrl, // Use processed URL if available
           fileName: transactionResult.message.fileName,
           caption: transactionResult.message.caption
         }
@@ -1558,7 +1464,6 @@ export class ConversationService {
       const allConversations = await this.conversationRepository.findAllByInstanceId(instance.id);
       const updatedConversation = allConversations.find(c => c.remoteJid === formattedRemoteJid);
       if (updatedConversation) {
-        console.log(`📡 [handleIncomingMessageAtomic] Emitting conversation:updated`);
         this.socketService.emitToInstance(instance.id, 'conversation:updated', updatedConversation);
       }
 
@@ -1576,7 +1481,6 @@ export class ConversationService {
     try {
       // Use unified normalization
       let normalizedRemoteJid = this.normalizeWhatsAppNumber(remoteJid, null, false);
-      console.log(`📤 [sendMessageAtomic] Normalized: ${remoteJid} → ${normalizedRemoteJid}`);
 
       // Get instance
       const instance = await prisma.whatsAppInstance.findUnique({
@@ -1588,7 +1492,6 @@ export class ConversationService {
         throw new Error(`Instance not found: ${instanceId}`);
       }
 
-      console.log(`✅ [sendMessageAtomic] Instance: ${instance.evolutionInstanceName}`);
 
       // 🚨 Send to Evolution API FIRST (before transaction)
       // If this fails, we don't want to save anything to database
@@ -1598,7 +1501,6 @@ export class ConversationService {
         content
       );
 
-      console.log(`✅ [sendMessageAtomic] Sent to Evolution API:`, evolutionResponse);
 
       // 🚨 ATOMIC TRANSACTION: All database operations in one transaction
       const transactionResult = await prisma.$transaction(async (tx) => {
@@ -1641,7 +1543,6 @@ export class ConversationService {
               });
 
               if (conversation) {
-                console.log(`🔄 [sendMessageAtomic] Found existing conversation with format: ${format}`);
                 normalizedRemoteJid = format; // Use the existing format
                 break;
               }
@@ -1676,7 +1577,6 @@ export class ConversationService {
               isPinned: false
             }
           });
-          console.log(`📁 [sendMessageAtomic] Conversation CREATED: ${conversation.id}`);
         }
 
         // 2. Create message within transaction
@@ -1715,7 +1615,6 @@ export class ConversationService {
           }
         });
 
-        console.log(`💬 [sendMessageAtomic] Message CREATED: ${message.id}`);
 
         // 3. Update conversation within transaction
         const updatedConversation = await tx.conversation.update({
@@ -1778,7 +1677,6 @@ export class ConversationService {
     try {
       // Use unified normalization
       let normalizedRemoteJid = this.normalizeWhatsAppNumber(remoteJid, null, false);
-      console.log(`📤 [sendMediaMessageAtomic] Normalized: ${remoteJid} → ${normalizedRemoteJid}`);
 
       // Get instance
       const instance = await prisma.whatsAppInstance.findUnique({
@@ -1790,7 +1688,6 @@ export class ConversationService {
         throw new Error(`Instance not found: ${instanceId}`);
       }
 
-      console.log(`✅ [sendMediaMessageAtomic] Instance: ${instance.evolutionInstanceName}`);
 
       // Use MediaMessageService to send media
       const mediaService = new MediaMessageService();
@@ -1803,7 +1700,6 @@ export class ConversationService {
         fileName
       });
 
-      console.log(`✅ [sendMediaMessageAtomic] Media message sent: ${message.id}`);
 
       // 🚨 ATOMIC TRANSACTION: Update conversation in transaction
       const transactionResult = await prisma.$transaction(async (tx) => {
@@ -1845,7 +1741,6 @@ export class ConversationService {
               });
 
               if (conversation) {
-                console.log(`🔄 [sendMediaMessageAtomic] Found existing conversation with format: ${format}`);
                 normalizedRemoteJid = format; // Use the existing format
                 break;
               }
@@ -1880,7 +1775,6 @@ export class ConversationService {
               isPinned: false
             }
           });
-          console.log(`📁 [sendMediaMessageAtomic] Conversation CREATED: ${conversation.id}`);
         }
 
         // 2. Update the message with conversationId within transaction

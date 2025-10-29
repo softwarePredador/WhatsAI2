@@ -38,7 +38,6 @@ export class WhatsAppInstanceService {
       instances.forEach(instance => {
         this.instances.set(instance.id, instance);
       });
-      console.log(`📱 Loaded ${instances.length} instances from database`);
     } catch (error) {
       console.error('Error loading instances from database:', error);
       // Continue without database if it's not available
@@ -112,14 +111,12 @@ export class WhatsAppInstanceService {
     }
     
     // Sync status with Evolution API for all instances
-    console.log('🔄 [getAllInstances] Syncing status for all instances...');
     const instances = Array.from(this.instances.values());
     
     await Promise.all(
       instances.map(async (instance) => {
         try {
           const apiStatus = await this.evolutionApi.getInstanceStatus(instance.evolutionInstanceName);
-          console.log(`🔍 [getAllInstances] Instance ${instance.name}: Current=${instance.status}, API=${apiStatus}`);
           
           // Se a instância não existe mais na Evolution API, deletar do banco
           if (apiStatus === InstanceStatus.NOT_FOUND) {
@@ -191,7 +188,6 @@ export class WhatsAppInstanceService {
             }
             
             await this.repository.update(instance.id, updateData);
-            console.log(`💾 [getAllInstances] Database updated for ${instance.name}`);
             
             // Emit status change
             this.socketService.emitToInstance(instance.id, 'status_changed', {
@@ -221,13 +217,11 @@ export class WhatsAppInstanceService {
     // Filter instances for this user and sync status
     const userInstances = dbInstances;
 
-    console.log(`🔄 [getUserInstances] Syncing status for ${userInstances.length} instances of user ${userId}...`);
 
     await Promise.all(
       userInstances.map(async (instance) => {
         try {
           const apiStatus = await this.evolutionApi.getInstanceStatus(instance.evolutionInstanceName);
-          console.log(`🔍 [getUserInstances] Instance ${instance.name}: Current=${instance.status}, API=${apiStatus}`);
 
           // Se a instância não existe mais na Evolution API, deletar do banco
           if (apiStatus === InstanceStatus.NOT_FOUND) {
@@ -277,7 +271,6 @@ export class WhatsAppInstanceService {
 
             await this.repository.updateStatus(instance.id, apiStatus, isNowConnected);
 
-            console.log(`💾 [getUserInstances] Database updated for ${instance.name}`);
 
             // Emit status change event
             this.socketService.emitToAll('instance_status_changed', {
@@ -466,13 +459,10 @@ export class WhatsAppInstanceService {
       }
 
       // 🔄 Check real-time status with Evolution API before sending
-      console.log(`🔍 [sendMessage] Checking real-time status for instance ${instance.name}...`);
       const currentApiStatus = await this.evolutionApi.getInstanceStatus(instance.evolutionInstanceName);
-      console.log(`🔍 [sendMessage] Instance ${instance.name}: Cached=${instance.status}, API=${currentApiStatus}`);
 
       // Update cached status if different
       if (instance.status !== currentApiStatus) {
-        console.log(`🔄 [sendMessage] Updating cached status for ${instance.name} from ${instance.status} to ${currentApiStatus}`);
         instance.status = currentApiStatus;
         instance.connected = currentApiStatus === InstanceStatus.CONNECTED;
         instance.updatedAt = new Date();
@@ -491,13 +481,12 @@ export class WhatsAppInstanceService {
         throw new Error(`Instance is not connected (current status: ${currentApiStatus})`);
       }
 
-      console.log(`✅ [sendMessage] Instance ${instance.name} is ${currentApiStatus}, proceeding with message send...`);
 
       // Format the remoteJid properly (WhatsApp format)
       const remoteJid = number.includes('@') ? number : `${number}@s.whatsapp.net`;
 
-      // Use conversationService.sendMessageAtomic for atomic operations
-      const result = await this.conversationService.sendMessageAtomic(
+      // Use conversationService.sendMessage for atomic operations
+      const result = await this.conversationService.sendMessage(
         instanceId,
         remoteJid,
         text
@@ -508,7 +497,6 @@ export class WhatsAppInstanceService {
       instance.updatedAt = new Date();
       this.instances.set(instanceId, instance);
 
-      console.log(`💬 Message sent and saved via conversationService for ${remoteJid} on instance ${instanceId}`);
 
       return result;
     } catch (error: any) {

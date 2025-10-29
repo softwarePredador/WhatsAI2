@@ -9,6 +9,8 @@ import { promisify } from 'util';
 import { mediaLogger } from '../utils/media-logger';
 import sharp from 'sharp';
 import { downloadMediaMessage } from '@whiskeysockets/baileys';
+import { imageOptimizer } from './image-optimizer';
+// file-type é ESM puro, importado dinamicamente quando necessário
 
 export interface IncomingMediaOptions {
   messageId: string;
@@ -53,7 +55,6 @@ export class IncomingMediaService {
   async processIncomingMedia(options: IncomingMediaOptions): Promise<string | null> {
     const { messageId, mediaUrl, mediaType, fileName, caption, mimeType, instanceName, messageData } = options;
 
-    console.log(`🔥 [TEST_DEBUG] processIncomingMedia chamado com mediaUrl: ${mediaUrl}`);
 
     mediaLogger.log('🚀 [INCOMING_MEDIA_START] Iniciando processamento de mídia:', {
       messageId,
@@ -65,18 +66,71 @@ export class IncomingMediaService {
     });
 
     try {
-      console.log(`📥 [IncomingMedia] Processando mídia recebida: ${mediaType} - ${messageId}`);
 
       // 1. Baixar a mídia - usa Evolution API se for URL criptografada do WhatsApp
       const downloadedBuffer = await this.downloadMedia(mediaUrl, instanceName, messageData);
-      console.log(`✅ [IncomingMedia] Mídia baixada: ${downloadedBuffer.length} bytes`);
+
+      // 1.4 VALIDAR TIPO DE ARQUIVO REAL (Fase 1 - Mudança 4)
+      
+      // file-type é ESM puro, precisa importação dinâmica
+      const { fileTypeFromBuffer } = await import('file-type');
+      const detectedFileType = await fileTypeFromBuffer(downloadedBuffer);
+      
+      if (detectedFileType) {
+        console.log(`🔍 [FILE_TYPE_VALIDATION] Tipo detectado: ${detectedFileType.mime} (ext: ${detectedFileType.ext})`);
+        
+        mediaLogger.log('🔐 [FILE_TYPE_VALIDATION] Tipo de arquivo detectado', {
+          detectedMime: detectedFileType.mime,
+          detectedExt: detectedFileType.ext,
+          declaredMime: mimeType,
+          declaredMediaType: mediaType,
+          bufferSize: downloadedBuffer.length
+        });
+
+        // Validar se o tipo real corresponde ao declarado
+        if (mimeType && !this.isFileTypeCompatible(detectedFileType.mime, mimeType)) {
+          console.error(`❌ [FILE_TYPE_VALIDATION] TIPO INCOMPATÍVEL!`);
+          console.error(`   Declarado: ${mimeType}`);
+          console.error(`   Real: ${detectedFileType.mime}`);
+          
+          mediaLogger.error('❌ [FILE_TYPE_VALIDATION] Arquivo com tipo incompatível detectado', {
+            detectedMime: detectedFileType.mime,
+            declaredMime: mimeType,
+            messageId,
+            instanceName
+          });
+
+          throw new Error(
+            `Arquivo malicioso detectado: tipo declarado (${mimeType}) não corresponde ao tipo real (${detectedFileType.mime})`
+          );
+        }
+
+        // Validar se o mediaType está correto
+        const expectedMediaType = this.getMediaTypeFromMime(detectedFileType.mime);
+        if (expectedMediaType && expectedMediaType !== mediaType) {
+          console.warn(`⚠️ [FILE_TYPE_VALIDATION] mediaType incorreto: esperado '${expectedMediaType}', recebido '${mediaType}'`);
+          mediaLogger.log('⚠️ [FILE_TYPE_VALIDATION] mediaType corrigido automaticamente', {
+            original: mediaType,
+            corrected: expectedMediaType
+          });
+        }
+
+      } else {
+        console.warn(`⚠️ [FILE_TYPE_VALIDATION] Não foi possível detectar tipo do arquivo (pode ser formato desconhecido)`);
+        mediaLogger.log('⚠️ [FILE_TYPE_VALIDATION] Tipo não detectado', {
+          declaredMime: mimeType,
+          bufferSize: downloadedBuffer.length,
+          bufferStart: downloadedBuffer.subarray(0, 16).toString('hex')
+        });
+      }
 
       // 1.5 Validar se a imagem não está corrompida (usando sharp)
+      let processedBuffer = downloadedBuffer; // Buffer que será enviado ao Spaces
+      let wasOptimized = false;
+
       if (mediaType === 'image' || mimeType?.includes('image')) {
         try {
-          console.log(`🔍 [IMAGE_VALIDATION] Validando imagem com sharp...`);
           const metadata = await sharp(downloadedBuffer).metadata();
-          console.log(`✅ [IMAGE_VALIDATION] Imagem válida: ${metadata.width}x${metadata.height} ${metadata.format}`);
           mediaLogger.log('✅ [IMAGE_VALIDATION] Validação sharp bem-sucedida', {
             format: metadata.format,
             width: metadata.width,
@@ -84,6 +138,32 @@ export class IncomingMediaService {
             size: metadata.size,
             hasAlpha: metadata.hasAlpha
           });
+
+          // 1.6 OTIMIZAR IMAGEM (Fase 1 - Mudança 2)
+          const optimizationResult = await imageOptimizer.optimizeImage(downloadedBuffer, {
+            maxWidth: 1920,
+            maxHeight: 1920,
+            jpegQuality: 85,
+            webpQuality: 80,
+            convertPngToJpeg: true,
+            convertToWebp: false,
+            stripMetadata: true
+          });
+
+          processedBuffer = optimizationResult.buffer;
+          wasOptimized = true;
+
+          mediaLogger.log('🎨 [IMAGE_OPTIMIZATION] Imagem otimizada com sucesso', {
+            originalSize: optimizationResult.originalSize,
+            optimizedSize: optimizationResult.optimizedSize,
+            reductionPercent: optimizationResult.reductionPercent,
+            format: `${optimizationResult.metadata.originalFormat} → ${optimizationResult.format}`,
+            dimensions: `${optimizationResult.width}x${optimizationResult.height}`,
+            wasResized: optimizationResult.metadata.wasResized,
+            wasConverted: optimizationResult.metadata.wasConverted
+          });
+
+
         } catch (sharpError: any) {
           console.error(`❌ [IMAGE_VALIDATION] IMAGEM CORROMPIDA! sharp falhou:`, sharpError.message);
           mediaLogger.error('❌ [IMAGE_VALIDATION] Imagem corrompida detectada', {
@@ -98,9 +178,12 @@ export class IncomingMediaService {
       // 2. Determinar nome do arquivo
       const finalFileName = this.generateFileName(messageId, mediaType, fileName, mimeType);
 
-      // 3. Upload para DigitalOcean Spaces
-      const uploadResult = await this.uploadToSpaces(downloadedBuffer, finalFileName, mediaType, caption);
-      mediaLogger.log('✅ [INCOMING_MEDIA] Mídia enviada para Spaces', { key: uploadResult.key });
+      // 3. Upload para DigitalOcean Spaces (usando buffer otimizado se disponível)
+      const uploadResult = await this.uploadToSpaces(processedBuffer, finalFileName, mediaType, caption);
+      mediaLogger.log('✅ [INCOMING_MEDIA] Mídia enviada para Spaces', { 
+        key: uploadResult.key,
+        wasOptimized 
+      });
 
       // 4. Retornar a URL CDN para armazenamento no banco
       const cdnUrl = this.mediaStorageService['spacesService'].getCdnUrl(uploadResult.key);
@@ -129,21 +212,18 @@ export class IncomingMediaService {
     });
 
     try {
-      console.log(`📥 [DOWNLOAD_REQUEST] Fazendo requisição HTTP...`);
 
       // Para URLs do WhatsApp (mmg.whatsapp.net), a mídia está CRIPTOGRAFADA
       // Usamos o Baileys para baixar e descriptografar automaticamente
       const isWhatsAppUrl = mediaUrl.includes('mmg.whatsapp.net');
 
       if (isWhatsAppUrl) {
-        console.log(`🔐 [DOWNLOAD_BAILEYS] URL criptografada do WhatsApp detectada!`);
         
         if (!messageData) {
           console.error(`⚠️ [DOWNLOAD_ERROR] messageData não fornecido para descriptografar mídia!`);
           throw new Error('Cannot download encrypted WhatsApp media without messageData');
         }
 
-        console.log(`🔧 [DOWNLOAD_BAILEYS] Preparando dados para descriptografia...`);
         
         // O webhook envia os campos de criptografia como objetos numéricos {"0": 63, "1": 7, ...}
         // Precisamos converter para Buffer antes de passar para o Baileys
@@ -154,17 +234,14 @@ export class IncomingMediaService {
           // Converter arrays numéricos para Buffers
           if (mediaMessage.mediaKey && typeof mediaMessage.mediaKey === 'object' && !Buffer.isBuffer(mediaMessage.mediaKey)) {
             mediaMessage.mediaKey = Buffer.from(Object.values(mediaMessage.mediaKey));
-            console.log(`   ✅ mediaKey convertida: ${mediaMessage.mediaKey.length} bytes`);
           }
           
           if (mediaMessage.fileEncSha256 && typeof mediaMessage.fileEncSha256 === 'object' && !Buffer.isBuffer(mediaMessage.fileEncSha256)) {
             mediaMessage.fileEncSha256 = Buffer.from(Object.values(mediaMessage.fileEncSha256));
-            console.log(`   ✅ fileEncSha256 convertida: ${mediaMessage.fileEncSha256.length} bytes`);
           }
           
           if (mediaMessage.fileSha256 && typeof mediaMessage.fileSha256 === 'object' && !Buffer.isBuffer(mediaMessage.fileSha256)) {
             mediaMessage.fileSha256 = Buffer.from(Object.values(mediaMessage.fileSha256));
-            console.log(`   ✅ fileSha256 convertida: ${mediaMessage.fileSha256.length} bytes`);
           }
           
           if (mediaMessage.jpegThumbnail && typeof mediaMessage.jpegThumbnail === 'object' && !Buffer.isBuffer(mediaMessage.jpegThumbnail)) {
@@ -172,7 +249,6 @@ export class IncomingMediaService {
           }
         }
 
-        console.log(`🚀 [DOWNLOAD_BAILEYS] Chamando Baileys downloadMediaMessage...`);
         
         // downloadMediaMessage do Baileys baixa e descriptografa automaticamente
         const buffer = await downloadMediaMessage(
@@ -198,7 +274,6 @@ export class IncomingMediaService {
           throw new Error('downloadMediaMessage returned null or undefined');
         }
 
-        console.log(`✅ [DOWNLOAD_BAILEYS] Mídia descriptografada com sucesso: ${buffer.length} bytes`);
         return buffer;
       }
 
@@ -225,40 +300,30 @@ export class IncomingMediaService {
         isWhatsApp: isWhatsAppUrl
       });
 
-      console.log(`🔍 [DOWNLOAD_DEBUG] Response data type: ${typeof response.data}`);
-      console.log(`🔍 [DOWNLOAD_DEBUG] Response data constructor: ${response.data?.constructor?.name}`);
       console.log(`🔍 [DOWNLOAD_DEBUG] Response data isBuffer: ${Buffer.isBuffer(response.data)}`);
-      console.log(`🔍 [DOWNLOAD_DEBUG] Response data byteLength: ${response.data.byteLength || 'N/A'}`);
 
       // Converter ArrayBuffer para Buffer de forma segura
       // Se já for Buffer, use direto; senão converta do ArrayBuffer
       let buffer: Buffer;
       if (Buffer.isBuffer(response.data)) {
         buffer = response.data;
-        console.log(`✅ [DOWNLOAD_BUFFER] Dados já são Buffer: ${buffer.length} bytes`);
       } else if (response.data instanceof ArrayBuffer) {
         buffer = Buffer.from(response.data);
-        console.log(`✅ [DOWNLOAD_BUFFER] Convertido de ArrayBuffer para Buffer: ${buffer.length} bytes`);
       } else {
         // Fallback: assume que é Uint8Array ou similar
         buffer = Buffer.from(response.data);
-        console.log(`✅ [DOWNLOAD_BUFFER] Convertido para Buffer: ${buffer.length} bytes`);
       }
       
-      console.log(`🔄 [DOWNLOAD_BUFFER] Buffer final criado com ${buffer.length} bytes`);
 
       // Validação básica para imagens
       if (buffer.length === 0) {
         throw new Error('Buffer vazio recebido');
       }
 
-      console.log(`🔍 [VALIDATION_CHECK] Iniciando validação - isWhatsAppUrl: ${isWhatsAppUrl}, buffer.length: ${buffer.length}`);
 
       // SEMPRE verificar assinatura para URLs do WhatsApp (elas são sempre mídia)
       if (isWhatsAppUrl && buffer.length > 4) {
-        console.log(`🔍 [VALIDATION_WHATSAPP] Executando validação WhatsApp`);
         const signature = buffer.subarray(0, 4).toString('hex');
-        console.log(`🖼️ [DOWNLOAD_SIGNATURE] Assinatura da mídia WhatsApp: ${signature}`);
 
         // Verificar assinaturas comuns de imagem/vídeo
         const validImageSignatures = ['ffd8ffe0', 'ffd8ffe1', 'ffd8ffe2', '89504e47', '47494638'];
@@ -270,7 +335,6 @@ export class IncomingMediaService {
           console.warn(`⚠️ [DOWNLOAD_SIGNATURE] Buffer corrompido? Verificando primeiros 16 bytes:`, buffer.subarray(0, 16).toString('hex'));
           // Não falhar por enquanto, mas logar para investigar
         } else {
-          console.log(`✅ [DOWNLOAD_SIGNATURE] Assinatura válida detectada: ${signature}`);
         }
       }
 
@@ -357,7 +421,6 @@ export class IncomingMediaService {
       // Validação adicional para imagens
       if (mediaType === 'image' && buffer.length > 0) {
         const firstBytes = buffer.subarray(0, 8).toString('hex');
-        console.log(`🖼️ [UPLOAD_VALIDATION] Primeiros bytes da imagem: ${firstBytes}`);
 
         // Verificar se parece uma imagem válida
         if (buffer.length < 100) {
@@ -458,5 +521,91 @@ export class IncomingMediaService {
     } catch {
       return false;
     }
+  }
+
+  /**
+   * Verifica se o tipo de arquivo detectado é compatível com o declarado.
+   * Permite pequenas variações (ex: image/jpg vs image/jpeg).
+   * 
+   * @param detectedMime - Tipo MIME detectado pelo file-type
+   * @param declaredMime - Tipo MIME declarado no webhook
+   * @returns true se compatível, false se incompatível (possível arquivo malicioso)
+   */
+  private isFileTypeCompatible(detectedMime: string, declaredMime: string): boolean {
+    // Normalizar para lowercase
+    const detected = detectedMime.toLowerCase().trim();
+    const declared = declaredMime.toLowerCase().trim();
+
+    // Match exato
+    if (detected === declared) {
+      return true;
+    }
+
+    // Aliases conhecidos (formatos equivalentes)
+    const aliases: { [key: string]: string[] } = {
+      'image/jpeg': ['image/jpg', 'image/pjpeg'],
+      'image/jpg': ['image/jpeg', 'image/pjpeg'],
+      'video/quicktime': ['video/mov'],
+      'audio/mpeg': ['audio/mp3', 'audio/mpeg3'],
+      'audio/mp3': ['audio/mpeg', 'audio/mpeg3'],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['application/msword'],
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['application/vnd.ms-excel']
+    };
+
+    // Verificar aliases
+    if (aliases[detected]?.includes(declared) || aliases[declared]?.includes(detected)) {
+      return true;
+    }
+
+    // Verificar se pelo menos a categoria é a mesma (image/*, video/*, audio/*)
+    const detectedCategory = detected.split('/')[0];
+    const declaredCategory = declared.split('/')[0];
+    
+    if (detectedCategory === declaredCategory) {
+      console.warn(`⚠️ [FILE_TYPE_VALIDATION] Categoria compatível mas tipo específico diferente: ${detected} vs ${declared}`);
+      return true; // Permite com warning (mesma categoria)
+    }
+
+    // Incompatível
+    return false;
+  }
+
+  /**
+   * Mapeia MIME type para mediaType usado no sistema.
+   * 
+   * @param mime - Tipo MIME (ex: image/jpeg, video/mp4)
+   * @returns Media type (image, video, audio, sticker, document) ou null
+   */
+  private getMediaTypeFromMime(mime: string): string | null {
+    const normalized = mime.toLowerCase();
+
+    if (normalized.startsWith('image/')) {
+      // Stickers geralmente são WebP
+      if (normalized === 'image/webp') {
+        return 'sticker'; // Pode ser sticker ou image, assumir sticker
+      }
+      return 'image';
+    }
+
+    if (normalized.startsWith('video/')) {
+      return 'video';
+    }
+
+    if (normalized.startsWith('audio/')) {
+      return 'audio';
+    }
+
+    if (
+      normalized.startsWith('application/') &&
+      (normalized.includes('pdf') || 
+       normalized.includes('document') || 
+       normalized.includes('sheet') ||
+       normalized.includes('msword') ||
+       normalized.includes('excel'))
+    ) {
+      return 'document';
+    }
+
+    return null;
   }
 }

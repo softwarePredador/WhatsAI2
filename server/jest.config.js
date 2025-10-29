@@ -23,5 +23,8 @@ module.exports = {
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1'
   },
+  transformIgnorePatterns: [
+    'node_modules/(?!(@whiskeysockets/baileys|@adiwajshing/baileys-md)/)'
+  ],
   testTimeout: 10000
 };

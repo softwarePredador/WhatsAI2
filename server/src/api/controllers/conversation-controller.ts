@@ -52,9 +52,6 @@ export class ConversationController {
 
   async getConversations(req: Request, res: Response): Promise<void> {
     try {
-      console.log('🔍 [getConversations] Request completo:');
-      console.log('  - URL:', req.url);
-      console.log('  - Method:', req.method);
       console.log('  - Params:', JSON.stringify(req.params));
       console.log('  - Query:', JSON.stringify(req.query));
       console.log('  - Headers:', JSON.stringify(req.headers.authorization ? 'Bearer token presente' : 'Sem auth'));
@@ -62,32 +59,24 @@ export class ConversationController {
       const { instanceId } = req.params;
       const { instanceId: queryInstanceId } = req.query;
 
-      console.log('🔍 [getConversations] instanceId from params:', instanceId);
-      console.log('🔍 [getConversations] instanceId from query:', queryInstanceId);
 
       // Use instanceId from params or query, support both
       const targetInstanceId = instanceId || queryInstanceId as string;
 
-      console.log('🔍 [getConversations] Target instanceId:', targetInstanceId);
 
       // 🔄 Map evolutionInstanceName to database instanceId if needed
       let dbInstanceId = targetInstanceId;
       if (targetInstanceId && targetInstanceId.startsWith('whatsai_')) {
-        console.log('🔄 [getConversations] Detectado evolutionInstanceName, fazendo mapeamento...');
         const instance = await this.conversationService.getInstanceByEvolutionName(targetInstanceId);
         if (instance) {
           dbInstanceId = instance.id;
-          console.log('✅ [getConversations] Mapeamento realizado:', targetInstanceId, '→', dbInstanceId);
         } else {
-          console.log('❌ [getConversations] Instância não encontrada para evolutionInstanceName:', targetInstanceId);
         }
       }
 
       if (dbInstanceId) {
         // Get conversations for specific instance
-        console.log('🔍 [getConversations] Buscando conversas para instance:', dbInstanceId);
         const conversations = await this.conversationService.getConversationsByInstance(dbInstanceId);
-        console.log(`📋 [getConversations] Retornando ${conversations.length} conversas para instance ${dbInstanceId}`);
         if (conversations.length > 0) {
           console.log(`📝 [getConversations] Primeira conversa:`, JSON.stringify(conversations[0], null, 2));
         }
@@ -96,7 +85,6 @@ export class ConversationController {
           data: conversations
         });
       } else {
-        console.log('⚠️ [getConversations] Nenhum instanceId fornecido, retornando lista vazia');
         // Get all conversations (could be implemented for admin users)
         res.json({
           success: true,
@@ -228,6 +216,7 @@ export class ConversationController {
   }
 
   async sendMessage(req: Request, res: Response): Promise<void> {
+    const requestStart = Date.now();
     try {
       console.log('🔍 [sendMessage] Recebendo requisição:', {
         params: req.params,
@@ -242,7 +231,6 @@ export class ConversationController {
         // Buscar a conversa para obter o instanceId
         const conversation = await this.conversationService.getConversationById(conversationId);
         if (!conversation) {
-          console.log('❌ [sendMessage] Conversa não encontrada:', conversationId);
           res.status(404).json({
             success: false,
             error: 'Conversa não encontrada'
@@ -260,7 +248,7 @@ export class ConversationController {
           });
 
           const message = await this.conversationService.sendMessage(conversation.instanceId, remoteJid, content);
-          console.log('✅ [sendMessage] Mensagem enviada com sucesso:', message.id);
+          const requestTime = Date.now() - requestStart;
 
           res.json({
             success: true,
@@ -268,7 +256,6 @@ export class ConversationController {
           });
           return;
         } catch (validationError) {
-          console.log('❌ [sendMessage] Erro de validação:', validationError);
           res.status(400).json({
             success: false,
             error: 'Dados inválidos',
@@ -282,10 +269,9 @@ export class ConversationController {
       if (instanceId) {
         try {
           const { remoteJid, content } = sendMessageSchema.parse(req.body);
-          console.log('✅ [sendMessage] Dados validados:', { instanceId, remoteJid, content });
 
           const message = await this.conversationService.sendMessage(instanceId, remoteJid, content);
-          console.log('✅ [sendMessage] Mensagem enviada com sucesso:', message.id);
+          const requestTime = Date.now() - requestStart;
 
           res.json({
             success: true,
@@ -293,7 +279,6 @@ export class ConversationController {
           });
           return;
         } catch (validationError) {
-          console.log('❌ [sendMessage] Erro de validação:', validationError);
           res.status(400).json({
             success: false,
             error: 'Dados inválidos',
@@ -303,7 +288,6 @@ export class ConversationController {
         }
       }
 
-      console.log('❌ [sendMessage] Nem conversationId nem instanceId fornecidos');
       res.status(400).json({
         success: false,
         error: 'ID da instância ou conversa é obrigatório'
@@ -352,7 +336,6 @@ export class ConversationController {
       const conversation = await this.conversationService.getConversationById(conversationId);
 
       if (!conversation) {
-        console.log('❌ [sendMediaMessage] Conversa não encontrada:', conversationId);
         res.status(404).json({
           success: false,
           error: 'Conversa não encontrada'
@@ -366,7 +349,6 @@ export class ConversationController {
       });
 
       if (!instance || instance.userId !== userId) {
-        console.log('❌ [sendMediaMessage] Acesso negado à conversa:', conversationId);
         res.status(403).json({
           success: false,
           error: 'Acesso negado'
@@ -395,7 +377,6 @@ export class ConversationController {
         fileName
       );
 
-      console.log('✅ [sendMediaMessage] Mídia enviada com sucesso:', message.id);
 
       res.status(200).json({
         success: true,
@@ -404,7 +385,6 @@ export class ConversationController {
 
     } catch (error: any) {
       if (error instanceof z.ZodError) {
-        console.log('❌ [sendMediaMessage] Erro de validação:', error.errors);
         res.status(400).json({
           success: false,
           error: 'Dados inválidos',
@@ -456,7 +436,6 @@ export class ConversationController {
       const conversation = await this.conversationService.getConversationById(conversationId);
 
       if (!conversation) {
-        console.log('❌ [uploadAndSendMediaMessage] Conversa não encontrada:', conversationId);
         res.status(404).json({
           success: false,
           error: 'Conversa não encontrada'
@@ -470,7 +449,6 @@ export class ConversationController {
       });
 
       if (!instance || instance.userId !== userId) {
-        console.log('❌ [uploadAndSendMediaMessage] Acesso negado à conversa:', conversationId);
         res.status(403).json({
           success: false,
           error: 'Acesso negado'
@@ -480,7 +458,6 @@ export class ConversationController {
 
       // Verificar se a conversa tem uma instância válida
       if (!conversation.instanceId) {
-        console.log('❌ [uploadAndSendMediaMessage] Conversa sem instância válida:', conversationId);
         res.status(400).json({
           success: false,
           error: 'Conversa não tem uma instância válida'
