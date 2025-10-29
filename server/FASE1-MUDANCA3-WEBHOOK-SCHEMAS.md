@@ -496,6 +496,74 @@ cd server && npx tsc --noEmit
 ❌ Webhook com `unreadMessages: "cinco"` (string em vez de number) causava crashes  
 ✅ Agora todos esses casos são **capturados e rejeitados** antes do processamento!
 
+### Bugfixes aplicados em produção:
+
+**29/10/2025 - fileLength validation:**
+- **Problema:** `documentMessage.fileLength` vinha como objeto Long do Baileys, schema esperava string
+- **Erro:** `Expected string, received object` ao receber documentos
+- **Solução:** Criado `fileLengthSchema` union que aceita string | number | Long object
+- **Resultado:** Validação flexível para diferentes formatos do Baileys
+
+```typescript
+// Antes (❌ quebrava com documentos)
+fileLength: z.string().optional()
+
+// Depois (✅ aceita todos os formatos)
+const fileLengthSchema = z.union([
+  z.string(),
+  z.number(),
+  z.object({ low: z.number(), high: z.number(), unsigned: z.boolean().optional() })
+]).optional();
+```
+
+**29/10/2025 - timestamp validation (EXPANSÃO):**
+- **Problema:** `reactionMessage.senderTimestampMs` e outros timestamps vinham como Long objects
+- **Erro:** `Expected string, received object` ao receber reações e outros eventos
+- **Logs capturados:** 5 erros identificados automaticamente pelo sistema de logging
+- **Solução:** Criado `timestampSchema` reutilizável e aplicado em 6 campos:
+  - `messageTimestamp` (messagesUpsertDataSchema)
+  - `senderTimestampMs` (reactionMessage)
+  - `timestamp` (messagesUpdateDataSchema)
+  - `timestamp` (contactsUpdateDataSchema)
+  - `conversationTimestamp` (chatsUpsertDataSchema)
+  - `timestamp` (qrcodeUpdatedDataSchema)
+- **Resultado:** Sistema robusto que aceita timestamps em qualquer formato do Baileys
+
+```typescript
+// Criado schema reutilizável
+const timestampSchema = z.union([
+  z.string(),
+  z.number(),
+  z.object({ low: z.number(), high: z.number(), unsigned: z.boolean().optional() })
+]).optional();
+
+// Aplicado em todos os campos de timestamp
+senderTimestampMs: timestampSchema  // antes: z.string().optional()
+messageTimestamp: timestampSchema   // antes: z.union([z.number(), z.string()]).optional()
+timestamp: timestampSchema          // antes: z.union([z.number(), z.string()]).optional()
+```
+
+**29/10/2025 - buffer/thumbnail validation:**
+- **Problema:** `imageMessage.jpegThumbnail` vinha como Buffer object em vez de string base64
+- **Erro:** `Expected string, received object` ao enviar imagens
+- **Logs capturados:** 4 erros identificados pelo sistema de logging
+- **Dado recebido:** Buffer como objeto indexado `{ "0": 255, "1": 216, "2": 255, ... }`
+- **Solução:** Criado `bufferSchema` que aceita string base64 ou Buffer object
+- **Resultado:** Thumbnails e dados binários processados corretamente
+
+```typescript
+// Criado schema para buffers binários
+const bufferSchema = z.union([
+  z.string(),              // base64 string
+  z.record(z.number())     // Buffer como objeto indexado
+]).optional();
+
+// Aplicado em jpegThumbnail
+jpegThumbnail: bufferSchema  // antes: z.string().optional()
+```
+
+**Impacto:** Sistema de logging permitiu identificar e corrigir bugs proativamente antes de afetar produção!
+
 ---
 
 **Mudança 3 completada com sucesso! 🎊**

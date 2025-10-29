@@ -1325,6 +1325,9 @@ export class ConversationService {
       const formattedRemoteJid = this.formatRemoteJid(normalizedRemoteJid);
       console.log(`📨 [handleIncomingMessageAtomic] Normalized: ${messageData.key.remoteJid} → ${formattedRemoteJid}`);
 
+      // Variable to track processed media URL across transaction boundary
+      let processedMediaUrl: string | null | undefined = null;
+
       // 🚨 ATOMIC TRANSACTION: All critical database operations in one transaction
       const transactionResult = await prisma.$transaction(async (tx) => {
         // Prepare conversation data
@@ -1406,7 +1409,7 @@ export class ConversationService {
         }
 
         // 2.5. Process incoming media (download and store locally) - OUTSIDE transaction for performance
-        let processedMediaUrl = messageCreateData.mediaUrl;
+        processedMediaUrl = messageCreateData.mediaUrl;
         // Só processar se for URL do WhatsApp (não CDN)
         const isWhatsAppMediaUrl = messageCreateData.mediaUrl?.includes('mmg.whatsapp.net');
         
@@ -1516,7 +1519,7 @@ export class ConversationService {
           fromMe: transactionResult.message.fromMe,
           timestamp: transactionResult.message.timestamp,
           messageType: transactionResult.message.messageType,
-          mediaUrl: transactionResult.message.mediaUrl,
+          mediaUrl: processedMediaUrl || transactionResult.message.mediaUrl, // Use processed URL if available
           fileName: transactionResult.message.fileName,
           caption: transactionResult.message.caption
         }

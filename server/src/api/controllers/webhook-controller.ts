@@ -7,6 +7,7 @@ import { EvolutionApiService } from '../../services/evolution-api';
 import { prisma } from '../../database/prisma';
 import * as fs from 'fs';
 import * as path from 'path';
+import { webhookErrorLogger } from '../../utils/webhook-error-logger';
 import {
   evolutionWebhookSchema,
   genericWebhookSchema,
@@ -187,6 +188,15 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
           const validated = messagesUpdateSchema.safeParse(validatedWebhookData);
           if (!validated.success) {
             console.error(`❌ [MESSAGES_UPDATE] Schema validation failed:`, validated.error.errors);
+            
+            // Registrar erro no log
+            webhookErrorLogger.logValidationError(
+              instanceId,
+              'messages.update',
+              validated.error.errors,
+              validatedWebhookData
+            );
+            
             throw new Error(`Invalid messages.update schema: ${validated.error.message}`);
           }
           
@@ -228,6 +238,15 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
           const validated = messagesUpsertSchema.safeParse(validatedWebhookData);
           if (!validated.success) {
             console.error(`❌ [MESSAGES_UPSERT] Schema validation failed:`, validated.error.errors);
+            
+            // Registrar erro no log
+            webhookErrorLogger.logValidationError(
+              instanceId,
+              'messages.upsert',
+              validated.error.errors,
+              validatedWebhookData
+            );
+            
             throw new Error(`Invalid messages.upsert schema: ${validated.error.message}`);
           }
           
@@ -317,6 +336,15 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
           const validated = sendMessageSchema.safeParse(validatedWebhookData);
           if (!validated.success) {
             console.error(`❌ [SEND_MESSAGE] Schema validation failed:`, validated.error.errors);
+            
+            // Registrar erro no log
+            webhookErrorLogger.logValidationError(
+              instanceId,
+              'send.message',
+              validated.error.errors,
+              validatedWebhookData
+            );
+            
             throw new Error(`Invalid send.message schema: ${validated.error.message}`);
           }
           
@@ -348,6 +376,15 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
           const validated = contactsUpdateSchema.safeParse(validatedWebhookData);
           if (!validated.success) {
             console.error(`❌ [CONTACTS_UPDATE] Schema validation failed:`, validated.error.errors);
+            
+            // Registrar erro no log
+            webhookErrorLogger.logValidationError(
+              instanceId,
+              'contacts.update',
+              validated.error.errors,
+              validatedWebhookData
+            );
+            
             throw new Error(`Invalid contacts.update schema: ${validated.error.message}`);
           }
           
@@ -380,6 +417,15 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
           const validated = chatsUpsertSchema.safeParse(validatedWebhookData);
           if (!validated.success) {
             console.error(`❌ [CHATS_UPSERT] Schema validation failed:`, validated.error.errors);
+            
+            // Registrar erro no log
+            webhookErrorLogger.logValidationError(
+              instanceId,
+              'chats.upsert',
+              validated.error.errors,
+              validatedWebhookData
+            );
+            
             throw new Error(`Invalid chats.upsert schema: ${validated.error.message}`);
           }
           
@@ -406,6 +452,15 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
           const validated = presenceUpdateSchema.safeParse(validatedWebhookData);
           if (!validated.success) {
             console.error(`❌ [PRESENCE_UPDATE] Schema validation failed:`, validated.error.errors);
+            
+            // Registrar erro no log
+            webhookErrorLogger.logValidationError(
+              instanceId,
+              'presence.update',
+              validated.error.errors,
+              validatedWebhookData
+            );
+            
             throw new Error(`Invalid presence.update schema: ${validated.error.message}`);
           }
           
@@ -434,6 +489,15 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
           const validated = connectionUpdateSchema.safeParse(validatedWebhookData);
           if (!validated.success) {
             console.error(`❌ [CONNECTION_UPDATE] Schema validation failed:`, validated.error.errors);
+            
+            // Registrar erro no log
+            webhookErrorLogger.logValidationError(
+              instanceId,
+              'connection.update',
+              validated.error.errors,
+              validatedWebhookData
+            );
+            
             throw new Error(`Invalid connection.update schema: ${validated.error.message}`);
           }
           
@@ -490,6 +554,15 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
           const validated = qrcodeUpdatedSchema.safeParse(validatedWebhookData);
           if (!validated.success) {
             console.error(`❌ [QRCODE_UPDATED] Schema validation failed:`, validated.error.errors);
+            
+            // Registrar erro no log
+            webhookErrorLogger.logValidationError(
+              instanceId,
+              'qrcode.updated',
+              validated.error.errors,
+              validatedWebhookData
+            );
+            
             throw new Error(`Invalid qrcode.updated schema: ${validated.error.message}`);
           }
           

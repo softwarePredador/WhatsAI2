@@ -161,11 +161,14 @@ export const ChatPage: React.FC = () => {
           timestamp: new Date(data.message.timestamp),
           messageType: data.message.messageType || 'text',
           status: data.message.status || (data.message.fromMe ? 'SENT' : undefined),
-          senderName: data.message.senderName
+          senderName: data.message.senderName,
+          mediaUrl: data.message.mediaUrl,
+          fileName: data.message.fileName,
+          caption: data.message.caption
         };
         
         setMessages(prev => [...prev, newMessage]);
-        console.log(`📩 Nova mensagem recebida via WebSocket para conversa ${conversationId}`);
+        console.log(`📩 Nova mensagem recebida via WebSocket para conversa ${conversationId}`, newMessage);
       }
     };
 

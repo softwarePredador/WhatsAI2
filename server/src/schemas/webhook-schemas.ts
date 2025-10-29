@@ -28,6 +28,43 @@ import { z } from 'zod';
 // ========================================
 
 /**
+ * Schema flexível para fileLength (pode vir como string, number ou objeto Long)
+ * Baileys às vezes retorna Long { low: number, high: number, unsigned: boolean }
+ */
+const fileLengthSchema = z.union([
+  z.string(),
+  z.number(),
+  z.object({
+    low: z.number(),
+    high: z.number(),
+    unsigned: z.boolean().optional()
+  })
+]).optional();
+
+/**
+ * Schema flexível para timestamps (pode vir como string, number ou objeto Long)
+ * Baileys usa Long objects para timestamps maiores que Number.MAX_SAFE_INTEGER
+ */
+const timestampSchema = z.union([
+  z.string(),
+  z.number(),
+  z.object({
+    low: z.number(),
+    high: z.number(),
+    unsigned: z.boolean().optional()
+  })
+]).optional();
+
+/**
+ * Schema flexível para thumbnails e buffers binários
+ * Baileys às vezes retorna Buffer como objeto com índices numéricos { "0": 255, "1": 216, ... }
+ */
+const bufferSchema = z.union([
+  z.string(), // base64
+  z.record(z.number()) // Buffer como objeto indexado
+]).optional();
+
+/**
  * Schema para chave de mensagem (message key)
  * Identifica unicamente uma mensagem no WhatsApp
  */
@@ -63,13 +100,13 @@ export const whatsappMessageContentSchema = z.object({
     url: z.string().optional(),
     mimetype: z.string().optional(),
     caption: z.string().optional(),
-    fileLength: z.string().optional(),
+    fileLength: fileLengthSchema,
     height: z.number().optional(),
     width: z.number().optional(),
     mediaKey: z.record(z.any()).optional(),
     fileEncSha256: z.record(z.any()).optional(),
     fileSha256: z.record(z.any()).optional(),
-    jpegThumbnail: z.string().optional()
+    jpegThumbnail: bufferSchema
   }).optional(),
   
   /** Mensagem de vídeo */
@@ -77,7 +114,7 @@ export const whatsappMessageContentSchema = z.object({
     url: z.string().optional(),
     mimetype: z.string().optional(),
     caption: z.string().optional(),
-    fileLength: z.string().optional(),
+    fileLength: fileLengthSchema,
     seconds: z.number().optional(),
     mediaKey: z.record(z.any()).optional(),
     fileEncSha256: z.record(z.any()).optional(),
@@ -88,7 +125,7 @@ export const whatsappMessageContentSchema = z.object({
   audioMessage: z.object({
     url: z.string().optional(),
     mimetype: z.string().optional(),
-    fileLength: z.string().optional(),
+    fileLength: fileLengthSchema,
     seconds: z.number().optional(),
     ptt: z.boolean().optional(),
     mediaKey: z.record(z.any()).optional(),
@@ -102,7 +139,7 @@ export const whatsappMessageContentSchema = z.object({
     mimetype: z.string().optional(),
     title: z.string().optional(),
     fileName: z.string().optional(),
-    fileLength: z.string().optional(),
+    fileLength: fileLengthSchema,
     pageCount: z.number().optional(),
     mediaKey: z.record(z.any()).optional(),
     fileEncSha256: z.record(z.any()).optional(),
@@ -113,7 +150,7 @@ export const whatsappMessageContentSchema = z.object({
   stickerMessage: z.object({
     url: z.string().optional(),
     mimetype: z.string().optional(),
-    fileLength: z.string().optional(),
+    fileLength: fileLengthSchema,
     height: z.number().optional(),
     width: z.number().optional(),
     mediaKey: z.record(z.any()).optional(),
@@ -139,7 +176,7 @@ export const whatsappMessageContentSchema = z.object({
   reactionMessage: z.object({
     key: messageKeySchema.optional(),
     text: z.string().optional(),
-    senderTimestampMs: z.string().optional()
+    senderTimestampMs: timestampSchema
   }).optional()
 }).passthrough(); // Permitir outros tipos de mensagem não mapeados
 
@@ -179,7 +216,7 @@ export const messagesUpsertDataSchema = z.object({
   key: messageKeySchema,
   
   /** Timestamp Unix da mensagem (segundos) */
-  messageTimestamp: z.union([z.number(), z.string()]).optional(),
+  messageTimestamp: timestampSchema,
   
   /** Nome do remetente (pushName do WhatsApp) */
   pushName: z.string().optional(),
@@ -229,7 +266,7 @@ export const messagesUpdateDataSchema = z.object({
   status: z.string(),
   
   /** Timestamp da atualização */
-  timestamp: z.union([z.number(), z.string()]).optional()
+  timestamp: timestampSchema
 }).passthrough();
 
 export const messagesUpdateSchema = baseWebhookSchema.extend({
@@ -264,7 +301,7 @@ export const contactsUpdateDataSchema = z.object({
   profilePicUrl: z.string().optional(),
   
   /** Timestamp da última atualização */
-  timestamp: z.union([z.number(), z.string()]).optional()
+  timestamp: timestampSchema
 }).passthrough();
 
 export const contactsUpdateSchema = baseWebhookSchema.extend({
@@ -287,7 +324,7 @@ export const chatsUpsertDataSchema = z.object({
   unreadMessages: z.number().optional(),
   
   /** Timestamp da última mensagem */
-  conversationTimestamp: z.union([z.number(), z.string()]).optional(),
+  conversationTimestamp: timestampSchema,
   
   /** Se o chat está arquivado */
   archived: z.boolean().optional(),
@@ -364,7 +401,7 @@ export const qrcodeUpdatedDataSchema = z.object({
   qrcode: z.string(),
   
   /** Timestamp da geração */
-  timestamp: z.union([z.number(), z.string()]).optional()
+  timestamp: timestampSchema
 }).passthrough();
 
 export const qrcodeUpdatedSchema = baseWebhookSchema.extend({
