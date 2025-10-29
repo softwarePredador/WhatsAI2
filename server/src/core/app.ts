@@ -66,9 +66,23 @@ export class App {
       }
     }));
 
-    // Body parsing
-    this.app.use(express.json({ limit: '10mb' }));
-    this.app.use(express.urlencoded({ extended: true }));
+    // Body parsing - Increased limits for webhooks with large media
+    this.app.use(express.json({ limit: '100mb' }));
+    this.app.use(express.urlencoded({ extended: true, limit: '100mb' }));
+
+    // Special body parser for webhook routes that may contain large payloads
+    // This handles both JSON and raw data for webhooks
+    this.app.use('/api/webhooks', (req, res, next) => {
+      const contentType = req.headers['content-type'];
+
+      if (contentType && contentType.includes('application/json')) {
+        // For JSON webhooks, use JSON parser with high limit
+        express.json({ limit: '100mb' })(req, res, next);
+      } else {
+        // For other content types (raw data, form data, etc.), use raw parser
+        express.raw({ limit: '100mb', type: '*/*' })(req, res, next);
+      }
+    });
   }
 
   private setupRoutes(): void {

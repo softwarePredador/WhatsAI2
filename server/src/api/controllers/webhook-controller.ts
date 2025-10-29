@@ -69,13 +69,33 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
     try {
       console.log(`🚨 [WEBHOOK] ========================================`);
       console.log(`🚨 [WEBHOOK] Requisição chegou! Method: ${req.method}, Path: ${req.path}`);
-      console.log(`🚨 [WEBHOOK] Body:`, JSON.stringify(req.body, null, 2));
+      console.log(`🚨 [WEBHOOK] Content-Type: ${req.headers['content-type']}`);
+      console.log(`🚨 [WEBHOOK] Body type: ${typeof req.body}, isBuffer: ${Buffer.isBuffer(req.body)}`);
+
+      let webhookData: any;
+
+      // Handle different body types
+      if (Buffer.isBuffer(req.body)) {
+        try {
+          // Try to parse as JSON
+          const bodyString = req.body.toString('utf8');
+          webhookData = JSON.parse(bodyString);
+          console.log(`🚨 [WEBHOOK] Parsed buffer as JSON`);
+        } catch (parseError) {
+          console.log(`🚨 [WEBHOOK] Buffer is not JSON, treating as raw data`);
+          webhookData = { rawData: req.body };
+        }
+      } else {
+        webhookData = req.body;
+      }
+
+      console.log(`🚨 [WEBHOOK] Body:`, JSON.stringify(webhookData, null, 2));
       console.log(`🚨 [WEBHOOK] ========================================`);
-      
+
       const { instanceId } = req.params;
-      
+
       console.log(`🚨 [WEBHOOK] instanceId do params: ${instanceId}`);
-      
+
       if (!instanceId) {
         console.log(`❌ [WEBHOOK] instanceId não fornecido!`);
         res.status(400).json({
@@ -85,11 +105,24 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
         return;
       }
 
-      const webhookData = webhookEventSchema.parse(req.body);
+      // Only validate with schema if we have JSON data
+      if (webhookData.rawData) {
+        console.log(`⚠️ [WEBHOOK] Received raw data, skipping schema validation`);
+        res.status(200).json({
+          success: true,
+          message: 'Raw webhook data received'
+        });
+        return;
+      }
+
+      const validatedWebhookData = webhookEventSchema.parse(webhookData);
+
+      // Log the webhook for debugging
+      this.logWebhook(validatedWebhookData, instanceId);
 
       // 🔍 LOG DO EVENTO PARA DEBUG
-      console.log(`🔍 [WEBHOOK] Evento recebido: ${webhookData.event}`);
-      console.log(`🔍 [WEBHOOK] Dados do webhook:`, JSON.stringify(webhookData, null, 2));
+      console.log(`🔍 [WEBHOOK] Evento recebido: ${validatedWebhookData.event}`);
+      console.log(`🔍 [WEBHOOK] Dados do webhook:`, JSON.stringify(validatedWebhookData, null, 2));
 
       // 🔍 Check if instance exists in database
       const instance = await prisma.whatsAppInstance.findUnique({
@@ -109,16 +142,16 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
 
       // 🔍 LOG ANTES DA CONDIÇÃO PRINCIPAL
       console.log(`🔍 [WEBHOOK] Verificando webhookData.data:`, {
-        hasData: !!webhookData.data,
-        dataType: typeof webhookData.data,
-        event: webhookData.event
+        hasData: !!validatedWebhookData.data,
+        dataType: typeof validatedWebhookData.data,
+        event: validatedWebhookData.event
       });
 
       // Process different types of webhook events
-      if (webhookData.data && typeof webhookData.data === 'object') {
+      if (validatedWebhookData.data && typeof validatedWebhookData.data === 'object') {
         // 🗺️ CRITICAL: Capture @lid to real number mapping from messages.update
-        if (webhookData.event === 'messages.update') {
-          const updates = Array.isArray(webhookData.data) ? webhookData.data : [webhookData.data];
+        if (validatedWebhookData.event === 'messages.update') {
+          const updates = Array.isArray(validatedWebhookData.data) ? validatedWebhookData.data : [validatedWebhookData.data];
           
           for (const data of updates) {
             const remoteJid = data.remoteJid;
@@ -149,13 +182,13 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
         }
         
         // 📥 Process incoming messages (MESSAGES_UPSERT) - ATOMIC VERSION
-        if (webhookData.event === 'messages.upsert' && webhookData.data['key'] && webhookData.data['message']) {
+        if (validatedWebhookData.event === 'messages.upsert' && validatedWebhookData.data['key'] && validatedWebhookData.data['message']) {
           console.log(`💬 [MESSAGES_UPSERT] Processing message for instance ${instanceId} (ATOMIC)`);
-          console.log(`💬 [MESSAGES_UPSERT] Message data:`, JSON.stringify(webhookData.data, null, 2));
-          await this.conversationService.handleIncomingMessageAtomic(instanceId, webhookData.data);
+          console.log(`💬 [MESSAGES_UPSERT] Message data:`, JSON.stringify(validatedWebhookData.data, null, 2));
+          await this.conversationService.handleIncomingMessageAtomic(instanceId, validatedWebhookData.data);
 
           // 🎯 GROUP NAME AUTO-UPDATE: Se for mensagem de grupo, verificar se precisamos buscar nome
-          const remoteJid = webhookData.data['key']?.remoteJid;
+          const remoteJid = validatedWebhookData.data['key']?.remoteJid;
           if (remoteJid && remoteJid.endsWith('@g.us')) {
             console.log(`👥 [GROUP_CHECK] Message from group ${remoteJid}, checking if name needs update...`);
 

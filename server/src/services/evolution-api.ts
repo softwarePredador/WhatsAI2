@@ -665,6 +665,36 @@ export class EvolutionApiService {
   }
 
   /**
+   * Download encrypted media from WhatsApp using Evolution API
+   * This method fetches and decrypts media that is stored encrypted on WhatsApp servers
+   * @param instanceName - The Evolution API instance name
+   * @param messageData - The complete message data from webhook containing encrypted media URL and keys
+   * @returns Buffer with decrypted media content
+   */
+  async downloadMedia(instanceName: string, messageData: any): Promise<Buffer> {
+    try {
+      console.log(`🔐 [EvolutionAPI] Downloading encrypted media via Evolution API for instance ${instanceName}`);
+      
+      // Evolution API endpoint para baixar mídia descriptografada
+      // Envia a mensagem completa com as chaves de criptografia
+      const response = await this.client.post(`/message/downloadMedia/${instanceName}`, {
+        message: messageData
+      }, {
+        responseType: 'arraybuffer', // Receber dados binários
+        timeout: 60000 // 60 segundos para download de mídia grande
+      });
+
+      console.log(`✅ [EvolutionAPI] Media downloaded and decrypted successfully: ${response.data.byteLength} bytes`);
+      
+      // Converter ArrayBuffer para Buffer
+      return Buffer.from(response.data);
+    } catch (error: any) {
+      console.error('❌ [EvolutionAPI] Error downloading media:', error.response?.data || error.message);
+      throw new Error(`Failed to download media via Evolution API: ${error.message}`);
+    }
+  }
+
+  /**
    * Format phone number for display
    * Example: 5511999999999 -> +55 (11) 99999-9999
    */

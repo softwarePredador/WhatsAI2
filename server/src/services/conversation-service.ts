@@ -702,9 +702,9 @@ export class ConversationService {
         }
       }
 
-      // 🖼️ Process incoming media if present (outside transaction for better performance)
+      // 🖼️ Process incoming media if present (NOW SYNCHRONOUS to avoid URL expiration)
       if (message.mediaUrl) {
-        mediaLogger.log('🖼️ [MEDIA_PROCESS_START] Iniciando processamento de mídia', {
+        mediaLogger.log('🖼️ [MEDIA_PROCESS_START] Iniciando processamento SÍNCRONO de mídia', {
           messageId: message.id,
           mediaUrl: message.mediaUrl.substring(0, 100) + '...',
           messageType: message.messageType,
@@ -712,11 +712,13 @@ export class ConversationService {
         });
 
         try {
-          // Process media asynchronously (don't await to avoid blocking)
+          // Process media SYNCHRONOUSLY to avoid URL expiration
           const mediaOptions: any = {
             messageId: message.id,
             mediaUrl: message.mediaUrl,
-            mediaType: this.getMediaType(messageData)
+            mediaType: this.getMediaType(messageData),
+            instanceName: instanceId, // Evolution instance name for decryption
+            messageData: messageData // Complete message data with encryption keys
           };
 
           if (message.fileName) mediaOptions.fileName = message.fileName;
@@ -724,46 +726,40 @@ export class ConversationService {
           const mimeType = this.getMimeType(messageData);
           if (mimeType) mediaOptions.mimeType = mimeType;
 
-          mediaLogger.log('📋 [MEDIA_OPTIONS] Opções preparadas para processamento', {
+          mediaLogger.log('📋 [MEDIA_OPTIONS] Opções preparadas para processamento síncrono', {
             mediaType: mediaOptions.mediaType,
             fileName: mediaOptions.fileName,
             caption: mediaOptions.caption,
             mimeType: mediaOptions.mimeType
           });
 
-          console.log(`🚀 [MEDIA_PROCESS_CALL] Chamando IncomingMediaService.processIncomingMedia...`);          this.incomingMediaService.processIncomingMedia(mediaOptions)
-            .then(async (processedMediaUrl) => {
-              mediaLogger.log('✅ [MEDIA_PROCESS_SUCCESS] Mídia processada com sucesso', {
-                messageId: message.id,
-                processedUrl: processedMediaUrl
-              });
+          console.log(`🚀 [MEDIA_PROCESS_CALL] Processando mídia SÍNCRONAMENTE...`);
+          const processedMediaUrl = await this.incomingMediaService.processIncomingMedia(mediaOptions);
 
-              // Update message with processed media URL
-              console.log(`💾 [DB_UPDATE] Atualizando message no banco de dados...`);
-              await prisma.message.update({
-                where: { id: message.id },
-                data: { mediaUrl: processedMediaUrl }
-              });
-              console.log(`✅ [DB_UPDATE] Message atualizada com sucesso`);
+          mediaLogger.log('✅ [MEDIA_PROCESS_SUCCESS] Mídia processada com sucesso', {
+            messageId: message.id,
+            processedUrl: processedMediaUrl
+          });
 
-              // Emit update to frontend with processed media
-              console.log(`📡 [SOCKET_EMIT] Emitindo atualização para frontend...`);
-              this.socketService.emitToInstance(instance.id, 'message:updated', {
-                messageId: message.id,
-                mediaUrl: processedMediaUrl
-              });
-              console.log(`✅ [SOCKET_EMIT] Evento emitido com sucesso`);
-            })
-            .catch((error) => {
-              console.error(`❌ [MEDIA_PROCESS_ERROR] Falha no processamento de mídia:`);
-              console.error(`   📝 Message ID: ${message.id}`);
-              console.error(`   💥 Erro: ${error instanceof Error ? error.message : String(error)}`);
-              console.error(`   📊 Stack: ${error instanceof Error ? error.stack : 'N/A'}`);
-            });
-        } catch (error) {
-          console.error(`❌ [MEDIA_PROCESS_INIT_ERROR] Erro ao iniciar processamento de mídia:`);
-          console.error(`   📝 Message ID: ${message.id}`);
-          console.error(`   💥 Erro: ${error instanceof Error ? error.message : String(error)}`);
+          // Update message with processed media URL immediately
+          console.log(`💾 [DB_UPDATE] Atualizando message no banco com URL processada...`);
+          await prisma.message.update({
+            where: { id: message.id },
+            data: { mediaUrl: processedMediaUrl }
+          });
+          console.log(`✅ [DB_UPDATE] Message atualizada com URL processada`);
+
+          // Update the message object for socket emission
+          message.mediaUrl = processedMediaUrl;
+
+        } catch (mediaError: any) {
+          console.error(`❌ [MEDIA_PROCESS_ERROR] Erro ao processar mídia:`, mediaError.message);
+          mediaLogger.error('❌ [MEDIA_PROCESS_ERROR] Falha no processamento síncrono', {
+            messageId: message.id,
+            error: mediaError.message,
+            stack: mediaError.stack
+          });
+          // Continue with original mediaUrl if processing fails
         }
       } else {
         console.log(`⏭️ [MEDIA_PROCESS_SKIP] Nenhuma mídia para processar (mediaUrl vazia)`);
@@ -1443,7 +1439,10 @@ export class ConversationService {
 
         // 2.5. Process incoming media (download and store locally) - OUTSIDE transaction for performance
         let processedMediaUrl = messageCreateData.mediaUrl;
-        if (messageCreateData.mediaUrl) {
+        // Só processar se for URL do WhatsApp (não CDN)
+        const isWhatsAppMediaUrl = messageCreateData.mediaUrl?.includes('mmg.whatsapp.net');
+        
+        if (messageCreateData.mediaUrl && isWhatsAppMediaUrl) {
           console.log(`🖼️ [ATOMIC_MEDIA_PROCESS_START] Iniciando processamento de mídia atômico:`);
           console.log(`   � Message ID: ${messageData.key.id}`);
           console.log(`   🔗 Media URL: ${messageCreateData.mediaUrl}`);
@@ -1469,7 +1468,9 @@ export class ConversationService {
               mediaType,
               fileName: messageCreateData.fileName,
               caption: messageCreateData.caption,
-              mimeType
+              mimeType,
+              instanceName: instanceId, // Evolution instance name for decryption
+              messageData: messageData // Complete message data with encryption keys
             });
 
             if (downloadedUrl) {
