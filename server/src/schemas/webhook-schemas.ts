@@ -297,8 +297,8 @@ export const contactsUpdateDataSchema = z.object({
   /** Nome do contato (pushName) */
   pushName: z.string().optional(),
   
-  /** URL da foto de perfil */
-  profilePicUrl: z.string().optional(),
+  /** URL da foto de perfil (pode ser null se o contato não tem foto) */
+  profilePicUrl: z.string().nullable().optional(),
   
   /** Timestamp da última atualização */
   timestamp: timestampSchema
