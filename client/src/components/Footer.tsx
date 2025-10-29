@@ -24,10 +24,10 @@ const Footer = () => {
 
           {/* Links Columns */}
           <div>
-            <h3 className="font-medium mb-3 text-base-content">Product</h3>
+            <h3 className="font-medium mb-3 text-base-content">Produto</h3>
             <ul className="space-y-2 text-base-content/70">
-              <li><Link to="/features" className="link link-hover">Features</Link></li>
-              <li><Link to="/pricing" className="link link-hover">Pricing</Link></li>
+              <li><Link to="/features" className="link link-hover">Recursos</Link></li>
+              <li><Link to="/pricing" className="link link-hover">Preços</Link></li>
               <li>
               <a 
                   href="#faq" 
@@ -40,17 +40,17 @@ const Footer = () => {
                   }}
                   className="link link-hover"
                 >
-                  FAQ
+                  Perguntas Frequentes
                 </a>
               </li>
             </ul>
           </div>
 
           <div>
-            <h3 className="font-medium mb-3 text-base-content">Company</h3>
+            <h3 className="font-medium mb-3 text-base-content">Empresa</h3>
             <ul className="space-y-2 text-base-content/70">
-            <li><a href="https://github.com/rafaelhalder" target="_blank" rel="noopener noreferrer" className={`hover:text-primary transition-colors`}>About Us</a></li>
-              <li><a href='https://www.linkedin.com/in/rafahsilva/' target='_blank' className={`hover:text-primary transition-colors`}>Contact</a></li>
+            <li><a href="https://github.com/rafaelhalder" target="_blank" rel="noopener noreferrer" className={`hover:text-primary transition-colors`}>Sobre Nós</a></li>
+              <li><a href='https://www.linkedin.com/in/rafahsilva/' target='_blank' className={`hover:text-primary transition-colors`}>Contato</a></li>
               <li><Link to="/blog" className={`hover:text-primary transition-colors`}>Blog</Link></li>
             </ul>
           </div>
@@ -58,9 +58,9 @@ const Footer = () => {
           <div>
             <h3 className="font-medium mb-3 text-base-content">Legal</h3>
             <ul className="space-y-2 text-base-content/70">
-              <li><Link to="/privacy" className={`hover:text-primary transition-colors`}>Privacy Policy</Link></li>
-              <li><Link to="/terms" className={`hover:text-primary transition-colors`}>Terms of Service</Link></li>
-              <li><Link to="/cookies" className={`hover:text-primary transition-colors`}>Cookie Policy</Link></li>
+              <li><Link to="/privacy" className={`hover:text-primary transition-colors`}>Política de Privacidade</Link></li>
+              <li><Link to="/terms" className={`hover:text-primary transition-colors`}>Termos de Serviço</Link></li>
+              <li><Link to="/cookies" className={`hover:text-primary transition-colors`}>Política de Cookies</Link></li>
             </ul>
           </div>
         </div>
@@ -68,7 +68,7 @@ const Footer = () => {
         {/* Copyright and social */}
         <div className={`border-t pt-6 flex flex-col sm:flex-row justify-between items-center border-base-300`}>
           <div className="mb-4 sm:mb-0 text-sm text-base-content/60">
-            © {new Date().getFullYear()} WhatsAI. All rights reserved.
+            © {new Date().getFullYear()} WhatsAI. Todos os direitos reservados.
           </div>
           <div className="flex space-x-4">
             {/* Social Media Icons */}
