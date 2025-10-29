@@ -6,6 +6,13 @@ import { SocketService } from './socket-service';
 import { MediaMessageService } from './messages';
 import { IncomingMediaService } from './incoming-media-service';
 import { mediaLogger } from '../utils/media-logger';
+import {
+  normalizeWhatsAppNumber as normalizeWithBaileys,
+  compareJids,
+  normalizeJid,
+  isLidJid
+} from '../utils/baileys-helpers';
+
 
 type Conversation = {
   id: string;
@@ -137,15 +144,14 @@ export class ConversationService {
   }
 
   /**
-   * UNIFIED METHOD: Normalize WhatsApp number applying all rules in correct order
-   * Returns always format: number@s.whatsapp.net or number@g.us
-   *
+   * REFATORADO: Normaliza número usando helpers do Baileys
+   * 
+   * Mantém cache de @lid e usa normalização oficial do Baileys
+   * 
    * Order of operations:
    * 1. Use remoteJidAlt if it's a real number (not @lid)
    * 2. Resolve @lid if possible (cache or remoteJidAlt)
-   * 3. Clean suffixes and device IDs
-   * 4. Brazilian number normalization (+9)
-   * 5. Format with correct suffix
+   * 3. Use Baileys normalization (includes Brazilian logic)
    */
   private normalizeWhatsAppNumber(
     remoteJid: string,
@@ -155,13 +161,13 @@ export class ConversationService {
 
     // 1. PRIORITY: Use remoteJidAlt if it's a real number (not @lid)
     let number = remoteJid;
-    if (remoteJidAlt && !remoteJidAlt.includes('@lid')) {
+    if (remoteJidAlt && !isLidJid(remoteJidAlt)) {
       console.log(`🔄 [normalizeWhatsAppNumber] Using remoteJidAlt: ${remoteJid} → ${remoteJidAlt}`);
       number = remoteJidAlt;
     }
 
     // 2. Resolve @lid if possible (cache or remoteJidAlt)
-    if (number.includes('@lid')) {
+    if (isLidJid(number)) {
       if (remoteJidAlt && remoteJidAlt.includes('@s.whatsapp.net')) {
         console.log(`🔄 [normalizeWhatsAppNumber] Resolving @lid via remoteJidAlt: ${number} → ${remoteJidAlt}`);
         number = remoteJidAlt;
@@ -171,71 +177,33 @@ export class ConversationService {
           console.log(`🔄 [normalizeWhatsAppNumber] Resolving @lid via cache: ${number} → ${cached}`);
           number = cached;
         } else {
-          console.warn(`⚠️ [normalizeWhatsAppNumber] Could not resolve @lid: ${number} - removing @lid and assuming direct number`);
-          // Fallback: remove @lid and assume it's a direct number
-          number = number.replace('@lid', '');
+          console.warn(`⚠️ [normalizeWhatsAppNumber] Could not resolve @lid: ${number} - using Baileys normalizer`);
+          // Baileys will handle @lid the best way possible
         }
       }
     }
 
-    // 3. Clean suffixes and device IDs
-    let cleanNumber = number
-      .replace(/:\d+@/, '@')  // Remove device ID (e.g., :98@)
-      .replace('@s.whatsapp.net', '')
-      .replace('@g.us', '')
-      .replace('@c.us', '')
-      .replace('@lid', '');
-
-    // 4. Brazilian number normalization - COMPREHENSIVE normalization to avoid duplicates
-    if (cleanNumber.startsWith('55') && !isGroup) {
-      const withoutCountry = cleanNumber.substring(2); // Remove "55"
-
-      if (withoutCountry.length === 8) {
-        // Old Brazilian format (8 digits) - assume DDD 11 + add 9th digit
-        const phone = withoutCountry;
-        cleanNumber = `55119${phone}`;
-        console.log(`🇧🇷 [normalizeWhatsAppNumber] Brazilian 8→11 digits: ${number} → ${cleanNumber}`);
-      } else if (withoutCountry.length === 9) {
-        // 9 digits (DDD + 8 digits phone) - add 9th digit after DDD
-        const ddd = withoutCountry.substring(0, 2);
-        const phone = withoutCountry.substring(2);
-        cleanNumber = `55${ddd}9${phone}`;
-        console.log(`🇧🇷 [normalizeWhatsAppNumber] Brazilian 9→11 digits: ${number} → ${cleanNumber}`);
-      } else if (withoutCountry.length === 10) {
-        // 10 digits (DDD + 9 digits) - check if phone part has 8 digits (missing 9th)
-        const ddd = withoutCountry.substring(0, 2);
-        const phone = withoutCountry.substring(2);
-        if (phone.length === 8) {
-          // Missing 9th digit
-          cleanNumber = `55${ddd}9${phone}`;
-          console.log(`🇧🇷 [normalizeWhatsAppNumber] Brazilian 10→11 digits: ${number} → ${cleanNumber}`);
-        }
-        // If phone.length === 9, already has 9th digit, keep as is
-      }
-      // If already 11 digits, keep as is (modern format with 9th digit)
-    }
-
-    // 5. Format with correct suffix
-    const result = isGroup ? `${cleanNumber}@g.us` : `${cleanNumber}@s.whatsapp.net`;
+    // 3. Use Baileys helper for complete normalization (includes Brazilian logic)
+    const result = normalizeWithBaileys(number, isGroup);
 
     console.log(`📞 [normalizeWhatsAppNumber] Final: ${remoteJid} → ${result}`);
     return result;
   }
 
   /**
-   * Format number with @s.whatsapp.net suffix for Evolution API
+   * REFATORADO: Format number using Baileys helper
    * NEVER use @lid - always convert to @s.whatsapp.net
    */
   private formatRemoteJid(number: string): string {
-    // If already has @, check if it's @lid and replace
+    // If already has @, normalize via Baileys
     if (number.includes('@')) {
-      // If it's @lid, remove it and format as normal number
-      if (number.includes('@lid')) {
-        const cleanNumber = number.replace('@lid', '');
-        console.log(`🔄 [formatRemoteJid] Converting @lid to @s.whatsapp.net: ${number} → ${cleanNumber}@s.whatsapp.net`);
-        return `${cleanNumber}@s.whatsapp.net`;
+      // If it's @lid, Baileys will normalize it
+      if (isLidJid(number)) {
+        const normalized = normalizeJid(number);
+        console.log(`🔄 [formatRemoteJid] Converting @lid: ${number} → ${normalized}`);
+        return normalized;
       }
-      return number; // Already formatted correctly
+      return normalizeJid(number); // Normalize via Baileys
     }
     
     // Check if it's a group

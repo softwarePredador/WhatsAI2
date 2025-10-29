@@ -7,9 +7,26 @@ import { EvolutionApiService } from '../../services/evolution-api';
 import { prisma } from '../../database/prisma';
 import * as fs from 'fs';
 import * as path from 'path';
+import {
+  evolutionWebhookSchema,
+  genericWebhookSchema,
+  messagesUpsertSchema,
+  messagesUpdateSchema,
+  sendMessageSchema,
+  contactsUpdateSchema,
+  chatsUpsertSchema,
+  presenceUpdateSchema,
+  connectionUpdateSchema,
+  qrcodeUpdatedSchema,
+  type EvolutionWebhook,
+  type MessagesUpsertWebhook,
+  type MessagesUpdateWebhook,
+  type ContactsUpdateWebhook,
+  type ChatsUpsertWebhook
+} from '../../schemas/webhook-schemas';
 
-// Validation schema for webhook events (Evolution API format)
-const webhookEventSchema = z.object({
+// Legacy schema for backward compatibility (deprecated)
+const legacyWebhookEventSchema = z.object({
   event: z.string().optional(),
   data: z.record(z.any()).optional(),
   datetime: z.string().optional(),
@@ -115,7 +132,19 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
         return;
       }
 
-      const validatedWebhookData = webhookEventSchema.parse(webhookData);
+      // 🎯 FASE 1 - MUDANÇA 3: Validação robusta com schemas Zod específicos
+      let validatedWebhookData: EvolutionWebhook | any;
+      
+      try {
+        // Tentar validação com schema discriminado (recomendado)
+        validatedWebhookData = evolutionWebhookSchema.parse(webhookData);
+        console.log(`✅ [WEBHOOK_VALIDATION] Schema específico validado: ${validatedWebhookData.event}`);
+      } catch (validationError: any) {
+        // Fallback: usar schema genérico para eventos não mapeados
+        console.log(`⚠️ [WEBHOOK_VALIDATION] Schema específico falhou, usando genérico: ${validationError.message}`);
+        validatedWebhookData = genericWebhookSchema.parse(webhookData);
+        console.log(`✅ [WEBHOOK_VALIDATION] Schema genérico validado para evento: ${validatedWebhookData.event}`);
+      }
 
       // Log the webhook for debugging
       this.logWebhook(validatedWebhookData, instanceId);
@@ -149,9 +178,19 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
 
       // Process different types of webhook events
       if (validatedWebhookData.data && typeof validatedWebhookData.data === 'object') {
+        
         // 🗺️ CRITICAL: Capture @lid to real number mapping from messages.update
         if (validatedWebhookData.event === 'messages.update') {
-          const updates = Array.isArray(validatedWebhookData.data) ? validatedWebhookData.data : [validatedWebhookData.data];
+          console.log(`📬 [MESSAGES_UPDATE] Processing message status updates`);
+          
+          // Validar com schema específico para garantir type-safety
+          const validated = messagesUpdateSchema.safeParse(validatedWebhookData);
+          if (!validated.success) {
+            console.error(`❌ [MESSAGES_UPDATE] Schema validation failed:`, validated.error.errors);
+            throw new Error(`Invalid messages.update schema: ${validated.error.message}`);
+          }
+          
+          const updates = Array.isArray(validated.data.data) ? validated.data.data : [validated.data.data];
           
           for (const data of updates) {
             const remoteJid = data.remoteJid;
@@ -175,7 +214,7 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
               await this.conversationService.handleMessageStatusUpdate(instanceId, {
                 messageId: keyId,
                 status: status.toUpperCase(),
-                remoteJid
+                ...(remoteJid && { remoteJid }) // Só inclui se definido
               });
             }
           }
@@ -184,11 +223,19 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
         // 📥 Process incoming messages (MESSAGES_UPSERT) - ATOMIC VERSION
         if (validatedWebhookData.event === 'messages.upsert' && validatedWebhookData.data['key'] && validatedWebhookData.data['message']) {
           console.log(`💬 [MESSAGES_UPSERT] Processing message for instance ${instanceId} (ATOMIC)`);
-          console.log(`💬 [MESSAGES_UPSERT] Message data:`, JSON.stringify(validatedWebhookData.data, null, 2));
-          await this.conversationService.handleIncomingMessageAtomic(instanceId, validatedWebhookData.data);
+          
+          // Validar com schema específico
+          const validated = messagesUpsertSchema.safeParse(validatedWebhookData);
+          if (!validated.success) {
+            console.error(`❌ [MESSAGES_UPSERT] Schema validation failed:`, validated.error.errors);
+            throw new Error(`Invalid messages.upsert schema: ${validated.error.message}`);
+          }
+          
+          console.log(`💬 [MESSAGES_UPSERT] Message data:`, JSON.stringify(validated.data.data, null, 2));
+          await this.conversationService.handleIncomingMessageAtomic(instanceId, validated.data.data);
 
           // 🎯 GROUP NAME AUTO-UPDATE: Se for mensagem de grupo, verificar se precisamos buscar nome
-          const remoteJid = validatedWebhookData.data['key']?.remoteJid;
+          const remoteJid = validated.data.data.key.remoteJid;
           if (remoteJid && remoteJid.endsWith('@g.us')) {
             console.log(`👥 [GROUP_CHECK] Message from group ${remoteJid}, checking if name needs update...`);
 
@@ -263,21 +310,29 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
         }
         
         // 📤 Process sent messages (SEND_MESSAGE) - MENSAGENS ENVIADAS PELO USUÁRIO!
-        if (webhookData.event === 'send.message' && webhookData.data['key'] && webhookData.data['message']) {
+        if (validatedWebhookData.event === 'send.message' && validatedWebhookData.data['key'] && validatedWebhookData.data['message']) {
           console.log(`📤 [SEND_MESSAGE] Processing sent message for instance ${instanceId}`);
-          console.log(`📤 [SEND_MESSAGE] Message data:`, JSON.stringify(webhookData.data, null, 2));
+          
+          // Validar com schema específico
+          const validated = sendMessageSchema.safeParse(validatedWebhookData);
+          if (!validated.success) {
+            console.error(`❌ [SEND_MESSAGE] Schema validation failed:`, validated.error.errors);
+            throw new Error(`Invalid send.message schema: ${validated.error.message}`);
+          }
+          
+          console.log(`📤 [SEND_MESSAGE] Message data:`, JSON.stringify(validated.data.data, null, 2));
           
           // Criar um messages.upsert artificial para reaproveitar a lógica existente
           const upsertData = {
             key: {
-              ...webhookData.data['key'],
+              ...validated.data.data.key,
               fromMe: true
             },
-            pushName: webhookData.data['pushName'] || 'Você',
+            pushName: validated.data.data.pushName || 'Você',
             status: 'SENT',
-            message: webhookData.data['message'],
+            message: validated.data.data.message,
             messageTimestamp: Math.floor(Date.now() / 1000),
-            instanceId: webhookData.data['instanceId'],
+            instanceId: validated.data.data.instanceId,
             source: 'web'
           };
           
@@ -286,11 +341,18 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
         }
         
         // 👤 Process contact updates (CONTACTS_UPDATE) - FOTO E NOME AUTOMÁTICOS!
-        console.log(`🔍 [WEBHOOK] Checking event: ${webhookData.event}`);
-        if (webhookData.event === 'contacts.update') {
-          console.log(`👤 [CONTACTS_UPDATE] Processing contacts update for instance ${instanceId}`);
+        if (validatedWebhookData.event === 'contacts.update') {
+          console.log(`� [CONTACTS_UPDATE] Processing contacts update for instance ${instanceId}`);
+          
+          // Validar com schema específico
+          const validated = contactsUpdateSchema.safeParse(validatedWebhookData);
+          if (!validated.success) {
+            console.error(`❌ [CONTACTS_UPDATE] Schema validation failed:`, validated.error.errors);
+            throw new Error(`Invalid contacts.update schema: ${validated.error.message}`);
+          }
+          
           // Pode vir como array ou objeto
-          const contacts = Array.isArray(webhookData.data) ? webhookData.data : [webhookData.data];
+          const contacts = Array.isArray(validated.data.data) ? validated.data.data : [validated.data.data];
           console.log(`👤 [CONTACTS_UPDATE] Found ${contacts.length} contact(s) to update`);
           
           for (const contactData of contacts) {
@@ -303,8 +365,8 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
             if (remoteJid && (profilePicUrl || pushName)) {
               console.log(`👤 [CONTACTS_UPDATE] ${pushName || remoteJid}: foto=${!!profilePicUrl}, nome=${!!pushName}`);
               await this.conversationService.updateContactFromWebhook(instanceId, remoteJid, {
-                contactName: pushName,
-                contactPicture: profilePicUrl
+                ...(pushName && { contactName: pushName }),
+                ...(profilePicUrl && { contactPicture: profilePicUrl })
               });
             } else {
               console.log(`👤 [CONTACTS_UPDATE] Skipping contact ${remoteJid} - no updates needed`);
@@ -313,9 +375,16 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
         }
         
         // 💬 Process chat updates (CHATS_UPSERT) - CONTADOR DE NÃO LIDAS!
-        if (webhookData.event === 'chats.upsert') {
+        if (validatedWebhookData.event === 'chats.upsert') {
+          // Validar com schema específico
+          const validated = chatsUpsertSchema.safeParse(validatedWebhookData);
+          if (!validated.success) {
+            console.error(`❌ [CHATS_UPSERT] Schema validation failed:`, validated.error.errors);
+            throw new Error(`Invalid chats.upsert schema: ${validated.error.message}`);
+          }
+          
           try {
-            const chatsData = Array.isArray(webhookData.data) ? webhookData.data : [webhookData.data];
+            const chatsData = Array.isArray(validated.data.data) ? validated.data.data : [validated.data.data];
             for (const chat of chatsData) {
               const remoteJid = chat.remoteJid;
               const unreadMessages = chat.unreadMessages || 0;
@@ -332,8 +401,15 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
         }
         
         // 🟢 Process presence updates (PRESENCE_UPDATE) - DIGITANDO/ONLINE!
-        if (webhookData.event === 'presence.update') {
-          const presenceData = webhookData.data as any;
+        if (validatedWebhookData.event === 'presence.update') {
+          // Validar com schema específico
+          const validated = presenceUpdateSchema.safeParse(validatedWebhookData);
+          if (!validated.success) {
+            console.error(`❌ [PRESENCE_UPDATE] Schema validation failed:`, validated.error.errors);
+            throw new Error(`Invalid presence.update schema: ${validated.error.message}`);
+          }
+          
+          const presenceData = validated.data.data;
           const contactId = presenceData.id;
           const presences = presenceData.presences || {};
           const presence = presences[contactId];
@@ -353,9 +429,16 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
         }
         
         // 🔗 Process connection updates (CONNECTION_UPDATE) - CRÍTICO!
-        if (webhookData.event === 'connection.update') {
-          const state = webhookData.data['state']; // open, close, connecting
-          const statusCode = webhookData.data['statusCode'];
+        if (validatedWebhookData.event === 'connection.update') {
+          // Validar com schema específico
+          const validated = connectionUpdateSchema.safeParse(validatedWebhookData);
+          if (!validated.success) {
+            console.error(`❌ [CONNECTION_UPDATE] Schema validation failed:`, validated.error.errors);
+            throw new Error(`Invalid connection.update schema: ${validated.error.message}`);
+          }
+          
+          const state = validated.data.data.state; // open, close, connecting
+          const statusCode = validated.data.data.statusCode;
           console.log(`🔗 [CONNECTION_UPDATE] Instance ${instanceId}: state=${state}, code=${statusCode}`);
           
           // Mapear state para InstanceStatus
@@ -402,8 +485,15 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
         }
         
         // 📱 Process QR code updates (QRCODE_UPDATED) - CRÍTICO para UX!
-        if (webhookData.event === 'qrcode.updated') {
-          const qrCode = webhookData.data['qrcode']; // base64
+        if (validatedWebhookData.event === 'qrcode.updated') {
+          // Validar com schema específico
+          const validated = qrcodeUpdatedSchema.safeParse(validatedWebhookData);
+          if (!validated.success) {
+            console.error(`❌ [QRCODE_UPDATED] Schema validation failed:`, validated.error.errors);
+            throw new Error(`Invalid qrcode.updated schema: ${validated.error.message}`);
+          }
+          
+          const qrCode = validated.data.data.qrcode; // base64
           console.log(`📱 [QRCODE_UPDATED] New QR available for ${instanceId}`);
           
           if (qrCode) {

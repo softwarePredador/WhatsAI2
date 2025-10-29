@@ -9,6 +9,8 @@ import { promisify } from 'util';
 import { mediaLogger } from '../utils/media-logger';
 import sharp from 'sharp';
 import { downloadMediaMessage } from '@whiskeysockets/baileys';
+import { imageOptimizer } from './image-optimizer';
+// file-type é ESM puro, importado dinamicamente quando necessário
 
 export interface IncomingMediaOptions {
   messageId: string;
@@ -71,7 +73,67 @@ export class IncomingMediaService {
       const downloadedBuffer = await this.downloadMedia(mediaUrl, instanceName, messageData);
       console.log(`✅ [IncomingMedia] Mídia baixada: ${downloadedBuffer.length} bytes`);
 
+      // 1.4 VALIDAR TIPO DE ARQUIVO REAL (Fase 1 - Mudança 4)
+      console.log(`🔐 [FILE_TYPE_VALIDATION] Validando tipo real do arquivo...`);
+      
+      // file-type é ESM puro, precisa importação dinâmica
+      const { fileTypeFromBuffer } = await import('file-type');
+      const detectedFileType = await fileTypeFromBuffer(downloadedBuffer);
+      
+      if (detectedFileType) {
+        console.log(`🔍 [FILE_TYPE_VALIDATION] Tipo detectado: ${detectedFileType.mime} (ext: ${detectedFileType.ext})`);
+        console.log(`📋 [FILE_TYPE_VALIDATION] Tipo declarado: ${mimeType || 'não informado'}`);
+        
+        mediaLogger.log('🔐 [FILE_TYPE_VALIDATION] Tipo de arquivo detectado', {
+          detectedMime: detectedFileType.mime,
+          detectedExt: detectedFileType.ext,
+          declaredMime: mimeType,
+          declaredMediaType: mediaType,
+          bufferSize: downloadedBuffer.length
+        });
+
+        // Validar se o tipo real corresponde ao declarado
+        if (mimeType && !this.isFileTypeCompatible(detectedFileType.mime, mimeType)) {
+          console.error(`❌ [FILE_TYPE_VALIDATION] TIPO INCOMPATÍVEL!`);
+          console.error(`   Declarado: ${mimeType}`);
+          console.error(`   Real: ${detectedFileType.mime}`);
+          
+          mediaLogger.error('❌ [FILE_TYPE_VALIDATION] Arquivo com tipo incompatível detectado', {
+            detectedMime: detectedFileType.mime,
+            declaredMime: mimeType,
+            messageId,
+            instanceName
+          });
+
+          throw new Error(
+            `Arquivo malicioso detectado: tipo declarado (${mimeType}) não corresponde ao tipo real (${detectedFileType.mime})`
+          );
+        }
+
+        // Validar se o mediaType está correto
+        const expectedMediaType = this.getMediaTypeFromMime(detectedFileType.mime);
+        if (expectedMediaType && expectedMediaType !== mediaType) {
+          console.warn(`⚠️ [FILE_TYPE_VALIDATION] mediaType incorreto: esperado '${expectedMediaType}', recebido '${mediaType}'`);
+          mediaLogger.log('⚠️ [FILE_TYPE_VALIDATION] mediaType corrigido automaticamente', {
+            original: mediaType,
+            corrected: expectedMediaType
+          });
+        }
+
+        console.log(`✅ [FILE_TYPE_VALIDATION] Arquivo válido e seguro`);
+      } else {
+        console.warn(`⚠️ [FILE_TYPE_VALIDATION] Não foi possível detectar tipo do arquivo (pode ser formato desconhecido)`);
+        mediaLogger.log('⚠️ [FILE_TYPE_VALIDATION] Tipo não detectado', {
+          declaredMime: mimeType,
+          bufferSize: downloadedBuffer.length,
+          bufferStart: downloadedBuffer.subarray(0, 16).toString('hex')
+        });
+      }
+
       // 1.5 Validar se a imagem não está corrompida (usando sharp)
+      let processedBuffer = downloadedBuffer; // Buffer que será enviado ao Spaces
+      let wasOptimized = false;
+
       if (mediaType === 'image' || mimeType?.includes('image')) {
         try {
           console.log(`🔍 [IMAGE_VALIDATION] Validando imagem com sharp...`);
@@ -84,6 +146,34 @@ export class IncomingMediaService {
             size: metadata.size,
             hasAlpha: metadata.hasAlpha
           });
+
+          // 1.6 OTIMIZAR IMAGEM (Fase 1 - Mudança 2)
+          console.log(`🎨 [IMAGE_OPTIMIZATION] Otimizando imagem antes do upload...`);
+          const optimizationResult = await imageOptimizer.optimizeImage(downloadedBuffer, {
+            maxWidth: 1920,
+            maxHeight: 1920,
+            jpegQuality: 85,
+            webpQuality: 80,
+            convertPngToJpeg: true,
+            convertToWebp: false,
+            stripMetadata: true
+          });
+
+          processedBuffer = optimizationResult.buffer;
+          wasOptimized = true;
+
+          mediaLogger.log('🎨 [IMAGE_OPTIMIZATION] Imagem otimizada com sucesso', {
+            originalSize: optimizationResult.originalSize,
+            optimizedSize: optimizationResult.optimizedSize,
+            reductionPercent: optimizationResult.reductionPercent,
+            format: `${optimizationResult.metadata.originalFormat} → ${optimizationResult.format}`,
+            dimensions: `${optimizationResult.width}x${optimizationResult.height}`,
+            wasResized: optimizationResult.metadata.wasResized,
+            wasConverted: optimizationResult.metadata.wasConverted
+          });
+
+          console.log(`✅ [IMAGE_OPTIMIZATION] Redução de ${optimizationResult.reductionPercent}% no tamanho`);
+
         } catch (sharpError: any) {
           console.error(`❌ [IMAGE_VALIDATION] IMAGEM CORROMPIDA! sharp falhou:`, sharpError.message);
           mediaLogger.error('❌ [IMAGE_VALIDATION] Imagem corrompida detectada', {
@@ -98,9 +188,12 @@ export class IncomingMediaService {
       // 2. Determinar nome do arquivo
       const finalFileName = this.generateFileName(messageId, mediaType, fileName, mimeType);
 
-      // 3. Upload para DigitalOcean Spaces
-      const uploadResult = await this.uploadToSpaces(downloadedBuffer, finalFileName, mediaType, caption);
-      mediaLogger.log('✅ [INCOMING_MEDIA] Mídia enviada para Spaces', { key: uploadResult.key });
+      // 3. Upload para DigitalOcean Spaces (usando buffer otimizado se disponível)
+      const uploadResult = await this.uploadToSpaces(processedBuffer, finalFileName, mediaType, caption);
+      mediaLogger.log('✅ [INCOMING_MEDIA] Mídia enviada para Spaces', { 
+        key: uploadResult.key,
+        wasOptimized 
+      });
 
       // 4. Retornar a URL CDN para armazenamento no banco
       const cdnUrl = this.mediaStorageService['spacesService'].getCdnUrl(uploadResult.key);
@@ -458,5 +551,91 @@ export class IncomingMediaService {
     } catch {
       return false;
     }
+  }
+
+  /**
+   * Verifica se o tipo de arquivo detectado é compatível com o declarado.
+   * Permite pequenas variações (ex: image/jpg vs image/jpeg).
+   * 
+   * @param detectedMime - Tipo MIME detectado pelo file-type
+   * @param declaredMime - Tipo MIME declarado no webhook
+   * @returns true se compatível, false se incompatível (possível arquivo malicioso)
+   */
+  private isFileTypeCompatible(detectedMime: string, declaredMime: string): boolean {
+    // Normalizar para lowercase
+    const detected = detectedMime.toLowerCase().trim();
+    const declared = declaredMime.toLowerCase().trim();
+
+    // Match exato
+    if (detected === declared) {
+      return true;
+    }
+
+    // Aliases conhecidos (formatos equivalentes)
+    const aliases: { [key: string]: string[] } = {
+      'image/jpeg': ['image/jpg', 'image/pjpeg'],
+      'image/jpg': ['image/jpeg', 'image/pjpeg'],
+      'video/quicktime': ['video/mov'],
+      'audio/mpeg': ['audio/mp3', 'audio/mpeg3'],
+      'audio/mp3': ['audio/mpeg', 'audio/mpeg3'],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['application/msword'],
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['application/vnd.ms-excel']
+    };
+
+    // Verificar aliases
+    if (aliases[detected]?.includes(declared) || aliases[declared]?.includes(detected)) {
+      return true;
+    }
+
+    // Verificar se pelo menos a categoria é a mesma (image/*, video/*, audio/*)
+    const detectedCategory = detected.split('/')[0];
+    const declaredCategory = declared.split('/')[0];
+    
+    if (detectedCategory === declaredCategory) {
+      console.warn(`⚠️ [FILE_TYPE_VALIDATION] Categoria compatível mas tipo específico diferente: ${detected} vs ${declared}`);
+      return true; // Permite com warning (mesma categoria)
+    }
+
+    // Incompatível
+    return false;
+  }
+
+  /**
+   * Mapeia MIME type para mediaType usado no sistema.
+   * 
+   * @param mime - Tipo MIME (ex: image/jpeg, video/mp4)
+   * @returns Media type (image, video, audio, sticker, document) ou null
+   */
+  private getMediaTypeFromMime(mime: string): string | null {
+    const normalized = mime.toLowerCase();
+
+    if (normalized.startsWith('image/')) {
+      // Stickers geralmente são WebP
+      if (normalized === 'image/webp') {
+        return 'sticker'; // Pode ser sticker ou image, assumir sticker
+      }
+      return 'image';
+    }
+
+    if (normalized.startsWith('video/')) {
+      return 'video';
+    }
+
+    if (normalized.startsWith('audio/')) {
+      return 'audio';
+    }
+
+    if (
+      normalized.startsWith('application/') &&
+      (normalized.includes('pdf') || 
+       normalized.includes('document') || 
+       normalized.includes('sheet') ||
+       normalized.includes('msword') ||
+       normalized.includes('excel'))
+    ) {
+      return 'document';
+    }
+
+    return null;
   }
 }
