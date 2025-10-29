@@ -228,6 +228,7 @@ export class ConversationController {
   }
 
   async sendMessage(req: Request, res: Response): Promise<void> {
+    const requestStart = Date.now();
     try {
       console.log('🔍 [sendMessage] Recebendo requisição:', {
         params: req.params,
@@ -260,7 +261,9 @@ export class ConversationController {
           });
 
           const message = await this.conversationService.sendMessage(conversation.instanceId, remoteJid, content);
-          console.log('✅ [sendMessage] Mensagem enviada com sucesso:', message.id);
+          const requestTime = Date.now() - requestStart;
+          console.log(`✅ [sendMessage] Mensagem enviada com sucesso: ${message.id}`);
+          console.log(`⏱️  [HTTP REQUEST] Total time: ${requestTime}ms`);
 
           res.json({
             success: true,
@@ -285,7 +288,9 @@ export class ConversationController {
           console.log('✅ [sendMessage] Dados validados:', { instanceId, remoteJid, content });
 
           const message = await this.conversationService.sendMessage(instanceId, remoteJid, content);
-          console.log('✅ [sendMessage] Mensagem enviada com sucesso:', message.id);
+          const requestTime = Date.now() - requestStart;
+          console.log(`✅ [sendMessage] Mensagem enviada com sucesso: ${message.id}`);
+          console.log(`⏱️  [HTTP REQUEST] Total time: ${requestTime}ms`);
 
           res.json({
             success: true,

@@ -496,8 +496,8 @@ export class WhatsAppInstanceService {
       // Format the remoteJid properly (WhatsApp format)
       const remoteJid = number.includes('@') ? number : `${number}@s.whatsapp.net`;
 
-      // Use conversationService.sendMessageAtomic for atomic operations
-      const result = await this.conversationService.sendMessageAtomic(
+      // Use conversationService.sendMessage for atomic operations
+      const result = await this.conversationService.sendMessage(
         instanceId,
         remoteJid,
         text
