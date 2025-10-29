@@ -7,6 +7,8 @@ import { createServer } from 'http';
 import { env } from '../config/env';
 import { apiRoutes } from '../api/routes';
 import { SocketService } from '../services/socket-service';
+import { cacheService } from '../services/cache-service';
+import { logger, LogContext } from '../services/logger-service';
 
 export class App {
   private app: express.Application;
@@ -166,19 +168,29 @@ export class App {
   }
 
   public async start(): Promise<void> {
-    const port = env.PORT;
+    try {
+      // Initialize cache service
+      await cacheService.initialize();
+      console.log('💾 Cache service initialized');
+      logger.info(LogContext.CACHE, 'Cache service initialized successfully');
 
-    return new Promise((resolve) => {
-      this.server.listen(port, () => {
-        console.log('🚀 WhatsAI Multi-Instance Manager Started');
-        console.log(`📡 Server running on port ${port}`);
-        console.log(`🌍 Environment: ${env.NODE_ENV}`);
-        console.log(`🔗 Evolution API URL: ${env.EVOLUTION_API_URL}`);
-        console.log(`💡 WebSocket server initialized`);
-        console.log(`📱 Ready to manage WhatsApp instances!`);
-        resolve();
+      const port = env.PORT;
+
+      return new Promise((resolve) => {
+        this.server.listen(port, () => {
+          console.log('🚀 WhatsAI Multi-Instance Manager Started');
+          console.log(`📡 Server running on port ${port}`);
+          console.log(`🌍 Environment: ${env.NODE_ENV}`);
+          console.log(`🔗 Evolution API URL: ${env.EVOLUTION_API_URL}`);
+          console.log(`💡 WebSocket server initialized`);
+          console.log(`📱 Ready to manage WhatsApp instances!`);
+          resolve();
+        });
       });
-    });
+    } catch (error) {
+      logger.error(LogContext.CACHE, 'Failed to start application', error as Error);
+      throw error;
+    }
   }
 
   public async stop(): Promise<void> {

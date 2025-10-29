@@ -375,15 +375,22 @@ export class EvolutionApiService {
   }>): Promise<{ message: string; read: string }> {
     try {
       console.log(`📖 Marking messages as read for instance ${instanceName}`);
+      console.log(`📖 [MARK_READ_PAYLOAD] Sending ${messages.length} messages:`, JSON.stringify(messages, null, 2));
       
-      const response = await this.client.post(`/chat/markMessageAsRead/${instanceName}`, {
-        readMessages: messages
-      });
+      const payload = { readMessages: messages };
+      console.log(`📖 [MARK_READ_REQUEST] POST /chat/markMessageAsRead/${instanceName}`, JSON.stringify(payload, null, 2));
+      
+      const response = await this.client.post(`/chat/markMessageAsRead/${instanceName}`, payload);
 
       console.log(`✅ Messages marked as read successfully`);
       return response.data;
     } catch (error: any) {
-      console.error('❌ Error marking messages as read:', error.response?.data || error.message);
+      console.error('❌ [MARK_READ_ERROR] Full error:', JSON.stringify({
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        request: error.config?.data
+      }, null, 2));
       throw new Error(`Failed to mark messages as read: ${error.response?.data?.message || error.message}`);
     }
   }

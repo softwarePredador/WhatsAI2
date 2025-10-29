@@ -1,4 +1,6 @@
 import { PrismaClient } from '@prisma/client';
+import { cacheService } from '../../services/cache-service';
+import { logger, LogContext } from '../../services/logger-service';
 
 type Conversation = {
   id: string;
@@ -72,9 +74,30 @@ export class ConversationRepository {
   constructor(private prisma: PrismaClient) {}
 
   async findById(conversationId: string): Promise<Conversation | null> {
-    return (this.prisma as any).conversation.findUnique({
+    const startTime = Date.now();
+    
+    // Tentar buscar do cache primeiro
+    const cached = await cacheService.getConversation<Conversation>(conversationId);
+    if (cached) {
+      const duration = Date.now() - startTime;
+      logger.debug(LogContext.CACHE, `findById CACHE HIT: ${conversationId} (${duration}ms)`);
+      return cached;
+    }
+    
+    // Cache miss - buscar do banco
+    const conversation = await (this.prisma as any).conversation.findUnique({
       where: { id: conversationId }
     });
+    
+    if (conversation) {
+      // Armazenar no cache
+      await cacheService.setConversation(conversationId, conversation);
+    }
+    
+    const duration = Date.now() - startTime;
+    logger.debug(LogContext.CACHE, `findById CACHE MISS: ${conversationId} (${duration}ms)`);
+    
+    return conversation;
   }
 
   async findByInstanceId(instanceId: string): Promise<Conversation[]> {
@@ -118,6 +141,17 @@ export class ConversationRepository {
   }
 
   async findAllByInstanceId(instanceId: string): Promise<Conversation[]> {
+    const startTime = Date.now();
+    
+    // Tentar buscar do cache primeiro
+    const cached = await cacheService.getConversations<Conversation[]>(instanceId);
+    if (cached) {
+      const duration = Date.now() - startTime;
+      logger.debug(LogContext.CACHE, `findAllByInstanceId CACHE HIT: ${instanceId} (${duration}ms, ${cached.length} conversations)`);
+      return cached;
+    }
+    
+    // Cache miss - buscar do banco
     const result = await (this.prisma as any).conversation.findMany({
       where: {
         instanceId
@@ -127,6 +161,12 @@ export class ConversationRepository {
         { lastMessageAt: 'desc' }
       ]
     });
+
+    // Armazenar no cache
+    await cacheService.setConversations(instanceId, result);
+    
+    const duration = Date.now() - startTime;
+    logger.debug(LogContext.CACHE, `findAllByInstanceId CACHE MISS: ${instanceId} (${duration}ms, ${result.length} conversations)`);
 
     return result;
   }
@@ -157,22 +197,34 @@ export class ConversationRepository {
   }
 
   async create(data: CreateConversationData): Promise<Conversation> {
-    return (this.prisma as any).conversation.create({
+    const conversation = await (this.prisma as any).conversation.create({
       data: {
         ...data,
         lastMessageAt: new Date()
       }
     });
+    
+    // Invalidar cache da lista de conversas da instância
+    await cacheService.invalidateConversations(data.instanceId);
+    logger.debug(LogContext.CACHE, `Cache invalidated after create: instance ${data.instanceId}`);
+    
+    return conversation;
   }
 
   async update(id: string, data: UpdateConversationData): Promise<Conversation> {
-    return (this.prisma as any).conversation.update({
+    const conversation = await (this.prisma as any).conversation.update({
       where: { id },
       data: {
         ...data,
         updatedAt: new Date()
       }
     });
+    
+    // Invalidar cache desta conversa E da lista de conversas
+    await cacheService.invalidateConversationCaches(id, conversation.instanceId);
+    logger.debug(LogContext.CACHE, `Cache invalidated after update: conversation ${id}`);
+    
+    return conversation;
   }
 
   async upsert(instanceId: string, remoteJid: string, data: Partial<CreateConversationData>): Promise<Conversation> {
@@ -192,7 +244,7 @@ export class ConversationRepository {
       updateData.contactPicture = data.contactPicture;
     }
     
-    return (this.prisma as any).conversation.upsert({
+    const conversation = await (this.prisma as any).conversation.upsert({
       where: {
         instanceId_remoteJid: {
           instanceId,
@@ -209,20 +261,32 @@ export class ConversationRepository {
       },
       update: updateData
     });
+    
+    // Invalidar cache
+    await cacheService.invalidateConversations(instanceId);
+    logger.debug(LogContext.CACHE, `Cache invalidated after upsert: instance ${instanceId}`);
+    
+    return conversation;
   }
 
   async markAsRead(id: string): Promise<Conversation> {
-    return (this.prisma as any).conversation.update({
+    const conversation = await (this.prisma as any).conversation.update({
       where: { id },
       data: {
         unreadCount: 0,
         updatedAt: new Date()
       }
     });
+    
+    // Invalidar cache
+    await cacheService.invalidateConversationCaches(id, conversation.instanceId);
+    logger.debug(LogContext.CACHE, `Cache invalidated after markAsRead: conversation ${id}`);
+    
+    return conversation;
   }
 
   async incrementUnreadCount(id: string): Promise<Conversation> {
-    return (this.prisma as any).conversation.update({
+    const conversation = await (this.prisma as any).conversation.update({
       where: { id },
       data: {
         unreadCount: {
@@ -231,42 +295,76 @@ export class ConversationRepository {
         updatedAt: new Date()
       }
     });
+    
+    // Invalidar cache
+    await cacheService.invalidateConversationCaches(id, conversation.instanceId);
+    logger.debug(LogContext.CACHE, `Cache invalidated after incrementUnreadCount: conversation ${id}`);
+    
+    return conversation;
   }
 
   async archive(id: string): Promise<Conversation> {
-    return (this.prisma as any).conversation.update({
+    const conversation = await (this.prisma as any).conversation.update({
       where: { id },
       data: {
         isArchived: true,
         updatedAt: new Date()
       }
     });
+    
+    // Invalidar cache
+    await cacheService.invalidateConversationCaches(id, conversation.instanceId);
+    logger.debug(LogContext.CACHE, `Cache invalidated after archive: conversation ${id}`);
+    
+    return conversation;
   }
 
   async pin(id: string): Promise<Conversation> {
-    return (this.prisma as any).conversation.update({
+    const conversation = await (this.prisma as any).conversation.update({
       where: { id },
       data: {
         isPinned: true,
         updatedAt: new Date()
       }
     });
+    
+    // Invalidar cache
+    await cacheService.invalidateConversationCaches(id, conversation.instanceId);
+    logger.debug(LogContext.CACHE, `Cache invalidated after pin: conversation ${id}`);
+    
+    return conversation;
   }
 
   async unpin(id: string): Promise<Conversation> {
-    return (this.prisma as any).conversation.update({
+    const conversation = await (this.prisma as any).conversation.update({
       where: { id },
       data: {
         isPinned: false,
         updatedAt: new Date()
       }
     });
+    
+    // Invalidar cache
+    await cacheService.invalidateConversationCaches(id, conversation.instanceId);
+    logger.debug(LogContext.CACHE, `Cache invalidated after unpin: conversation ${id}`);
+    
+    return conversation;
   }
 
   async delete(id: string): Promise<void> {
+    const conversation = await (this.prisma as any).conversation.findUnique({
+      where: { id }
+    });
+    
     await (this.prisma as any).conversation.delete({
       where: { id }
     });
+    
+    if (conversation) {
+      // Invalidar cache
+      await cacheService.invalidateConversationCaches(id, conversation.instanceId);
+      logger.debug(LogContext.CACHE, `Cache invalidated after delete: conversation ${id}`);
+    }
   }
 
   async getArchivedConversations(instanceId: string): Promise<Conversation[]> {

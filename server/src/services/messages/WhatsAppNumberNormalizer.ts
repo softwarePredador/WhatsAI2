@@ -2,21 +2,22 @@
  * WhatsApp Number Normalizer
  * 
  * Serviço responsável por normalização de números do WhatsApp e resolução de @lid.
- * Agora utiliza helpers do Baileys para maior confiabilidade.
+ * Agora utiliza libphonenumber-js via phone-helper para validação internacional robusta.
  * 
- * REFATORADO: Agora usa baileys-helpers.ts com funções nativas do Baileys
- * - areJidsSameUser: Comparação robusta de JIDs
- * - jidNormalizedUser: Normalização oficial
+ * REFATORADO (Fase 2): Migrado de Baileys helpers para libphonenumber-js
+ * - Validação internacional de números de telefone
+ * - Formatação consistente E.164
  * - Mantém cache de @lid → número real
+ * - Suporte a grupos (@g.us) e newsletters (@newsletter)
  */
 
 import { 
-  normalizeWhatsAppNumber as normalizeWithBaileys,
   compareJids,
   normalizeJid,
   isLidJid,
   extractNumber
 } from '../../utils/baileys-helpers';
+import { normalizeWhatsAppJid, isGroupJid } from '../../utils/phone-helper';
 
 export class WhatsAppNumberNormalizer {
   /**
@@ -37,7 +38,7 @@ export class WhatsAppNumberNormalizer {
   /**
    * Normaliza número do WhatsApp aplicando todas as regras em ordem correta.
    * 
-   * REFATORADO: Agora usa helpers do Baileys + lógica de @lid cache
+   * REFATORADO (Fase 2): Usa libphonenumber-js via phone-helper + lógica de @lid cache
    * 
    * @param remoteJid - JID do contato/grupo
    * @param remoteJidAlt - JID alternativo (pode resolver @lid)
@@ -67,14 +68,21 @@ export class WhatsAppNumberNormalizer {
           console.log(`🔄 [normalizeWhatsAppNumber] Resolvendo @lid via cache: ${number} → ${cached}`);
           number = cached;
         } else {
-          console.warn(`⚠️ [normalizeWhatsAppNumber] Não foi possível resolver @lid: ${number} - usando Baileys normalizer`);
-          // Baileys vai lidar com @lid da melhor forma possível
+          console.warn(`⚠️ [normalizeWhatsAppNumber] Não foi possível resolver @lid: ${number} - usando as-is`);
+          // Se não conseguiu resolver @lid, mantém como está
+          return number;
         }
       }
     }
 
-    // 3. Usar helper do Baileys para normalização completa (inclui lógica brasileira)
-    const result = normalizeWithBaileys(number, isGroup);
+    // 3. Se for grupo, não normaliza (mantém @g.us)
+    if (isGroup || isGroupJid(number)) {
+      console.log(`📞 [normalizeWhatsAppNumber] Grupo detectado, preservando: ${number}`);
+      return number;
+    }
+
+    // 4. Usa phone-helper para normalização robusta (suporta internacional)
+    const result = normalizeWhatsAppJid(number);
 
     console.log(`📞 [normalizeWhatsAppNumber] Final: ${remoteJid} → ${result}`);
     return result;
@@ -83,37 +91,38 @@ export class WhatsAppNumberNormalizer {
   /**
    * Normaliza remoteJid (versão simplificada).
    * 
-   * REFATORADO: Usa normalizeJid do Baileys
+   * REFATORADO (Fase 2): Usa phone-helper com detecção automática de grupo
    */
   static normalizeRemoteJid(remoteJid: string): string {
-    const isGroup = remoteJid.includes('@g.us');
-    return normalizeWithBaileys(remoteJid, isGroup);
+    return normalizeWhatsAppJid(remoteJid);
   }
 
   /**
    * Formatar número com sufixo @s.whatsapp.net para Evolution API.
    * NUNCA usar @lid - sempre converter para @s.whatsapp.net
    * 
-   * REFATORADO: Usa helper do Baileys
+   * REFATORADO (Fase 2): Usa phone-helper para normalização robusta
    */
   static formatRemoteJid(number: string): string {
     // Se já tem @, verificar se é @lid e substituir
     if (number.includes('@')) {
-      // Se é @lid, normalizar via Baileys
+      // Se é @lid, normalizar via normalizeJid do Baileys (mantém compatibilidade)
       if (isLidJid(number)) {
         const normalized = normalizeJid(number);
         console.log(`🔄 [formatRemoteJid] Convertendo @lid: ${number} → ${normalized}`);
         return normalized;
       }
-      return normalizeJid(number); // Normalizar via Baileys
+      // Se já é JID válido, apenas normaliza
+      return normalizeJid(number);
     }
 
-    // Verificar se é grupo
+    // Verificar se é grupo (contém traço no ID)
     if (number.includes('-')) {
       return `${number}@g.us`;
     }
 
-    return `${number}@s.whatsapp.net`;
+    // Números individuais: usa phone-helper para normalização internacional
+    return normalizeWhatsAppJid(number);
   }
 
   /**

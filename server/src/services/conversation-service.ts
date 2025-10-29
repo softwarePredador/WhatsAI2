@@ -7,11 +7,11 @@ import { MediaMessageService } from './messages';
 import { IncomingMediaService } from './incoming-media-service';
 import { mediaLogger } from '../utils/media-logger';
 import {
-  normalizeWhatsAppNumber as normalizeWithBaileys,
   compareJids,
   normalizeJid,
   isLidJid
 } from '../utils/baileys-helpers';
+import { normalizeWhatsAppJid, isGroupJid } from '../utils/phone-helper';
 
 
 type Conversation = {
@@ -153,6 +153,15 @@ export class ConversationService {
    * 2. Resolve @lid if possible (cache or remoteJidAlt)
    * 3. Use Baileys normalization (includes Brazilian logic)
    */
+  /**
+   * Normaliza número de WhatsApp usando libphonenumber-js para validação internacional
+   * Mantém lógica de resolução de @lid (LID-based numbers) via remoteJidAlt ou cache
+   * 
+   * @param remoteJid - JID principal (pode ser @lid, @s.whatsapp.net, @g.us)
+   * @param remoteJidAlt - JID alternativo para resolver @lid
+   * @param isGroup - Se true, preserva @g.us sem normalização
+   * @returns JID normalizado
+   */
   private normalizeWhatsAppNumber(
     remoteJid: string,
     remoteJidAlt?: string | null,
@@ -177,14 +186,21 @@ export class ConversationService {
           console.log(`🔄 [normalizeWhatsAppNumber] Resolving @lid via cache: ${number} → ${cached}`);
           number = cached;
         } else {
-          console.warn(`⚠️ [normalizeWhatsAppNumber] Could not resolve @lid: ${number} - using Baileys normalizer`);
-          // Baileys will handle @lid the best way possible
+          console.warn(`⚠️ [normalizeWhatsAppNumber] Could not resolve @lid: ${number} - using as-is`);
+          // Se não conseguiu resolver @lid, mantém como está
+          return number;
         }
       }
     }
 
-    // 3. Use Baileys helper for complete normalization (includes Brazilian logic)
-    const result = normalizeWithBaileys(number, isGroup);
+    // 3. Se for grupo, não normaliza (mantém @g.us)
+    if (isGroup || isGroupJid(number)) {
+      console.log(`📞 [normalizeWhatsAppNumber] Group detected, preserving: ${number}`);
+      return number;
+    }
+
+    // 4. Usa phone-helper para normalização robusta (suporta internacional)
+    const result = normalizeWhatsAppJid(number);
 
     console.log(`📞 [normalizeWhatsAppNumber] Final: ${remoteJid} → ${result}`);
     return result;
@@ -501,6 +517,12 @@ export class ConversationService {
           // Notify frontend
           const updated = await this.conversationRepository.findById(conversation.id);
           if (updated) {
+            console.log(`📡 [CONTACT_UPDATE] Emitindo conversation:updated via WebSocket:`, {
+              id: updated.id,
+              remoteJid: updated.remoteJid,
+              contactName: updated.contactName,
+              contactPicture: updated.contactPicture ? '✅ TEM FOTO' : '❌ SEM FOTO'
+            });
             this.socketService.emitToInstance(instanceId, 'conversation:updated', updated);
           }
 
@@ -900,12 +922,14 @@ export class ConversationService {
       const unreadMessages = conversation.messages
         .filter(msg => !msg.fromMe)
         .map(msg => ({
-          remoteJid: msg.remoteJid,
+          remoteJid: conversation.remoteJid, // ✅ Usar remoteJid da CONVERSA, não da mensagem individual
           fromMe: msg.fromMe,
           id: msg.messageId
         }));
 
       if (unreadMessages.length > 0) {
+        console.log(`📖 [MARK_AS_READ] Preparing to mark ${unreadMessages.length} messages as read for conversation ${conversation.remoteJid}`);
+        
         // Criar service específico para esta instância
         const evolutionService = new EvolutionApiService(instance.evolutionApiUrl, instance.evolutionApiKey);
         
