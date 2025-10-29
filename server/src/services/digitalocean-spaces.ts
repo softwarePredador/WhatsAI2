@@ -44,6 +44,31 @@ export class DigitalOceanSpacesService {
   }
 
   /**
+   * Sanitiza metadados para serem compatíveis com headers HTTP S3
+   * Remove caracteres inválidos que causam erro em headers
+   */
+  private sanitizeMetadata(metadata?: Record<string, string>): Record<string, string> {
+    if (!metadata) return {};
+    
+    const sanitized: Record<string, string> = {};
+    
+    for (const [key, value] of Object.entries(metadata)) {
+      // Remove caracteres não-ASCII e controle
+      // S3 headers só aceitam ASCII imprimível (32-126)
+      const cleanValue = value
+        .replace(/[^\x20-\x7E]/g, '') // Remove não-ASCII
+        .replace(/[\r\n\t]/g, ' ')    // Remove quebras de linha
+        .trim();
+      
+      if (cleanValue) {
+        sanitized[key] = cleanValue;
+      }
+    }
+    
+    return sanitized;
+  }
+
+  /**
    * Upload file to DigitalOcean Spaces
    */
   async uploadFile(
@@ -67,7 +92,7 @@ export class DigitalOceanSpacesService {
           Body: fileBuffer,
           ContentType: contentType,
           ACL: options.acl || 'public-read', // Make files publicly accessible
-          Metadata: options.metadata || {},
+          Metadata: this.sanitizeMetadata(options.metadata), // Sanitiza metadados
           // CDN optimization headers
           CacheControl: 'max-age=31536000', // 1 year cache
           ContentDisposition: 'inline', // Display in browser instead of download
