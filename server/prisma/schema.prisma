@@ -24,8 +24,9 @@ model User {
   updatedAt DateTime @updatedAt
 
   // Relations
-  instances WhatsAppInstance[]
-  settings  UserSettings?
+  instances        WhatsAppInstance[]
+  settings         UserSettings?
+  messageTemplates MessageTemplate[]
 
   @@map("users")
 }
@@ -184,6 +185,39 @@ model UserSettings {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_settings")
+}
+
+model MessageTemplate {
+  id       String  @id @default(cuid())
+  userId   String
+  name     String
+  content  String  @db.Text
+  category String? // greeting, farewell, follow_up, promotional, support, custom
+
+  // Usage tracking
+  usageCount Int @default(0)
+
+  // Template variables (stored as JSON array of variable names)
+  variables String? @db.Text // JSON: ["nome", "empresa", "produto"]
+
+  // Media attachment
+  mediaUrl  String?
+  mediaType String? // image, video, audio, document
+
+  // Organization
+  tags       String? @db.Text // JSON: ["vip", "new_customer"]
+  isFavorite Boolean @default(false)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([category])
+  @@map("message_templates")
 }
 
 // SQLite doesn't support enums, so we use string literals

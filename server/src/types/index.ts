@@ -235,3 +235,59 @@ export interface ActivityLog {
   instanceId?: string;
   metadata?: Record<string, any>;
 }
+
+// Message Templates
+export interface MessageTemplate {
+  id: string;
+  userId: string;
+  name: string;
+  content: string;
+  category?: string;
+  usageCount: number;
+  variables?: string[]; // Extracted from content: {{nome}}, {{empresa}}
+  mediaUrl?: string;
+  mediaType?: string;
+  tags?: string[];
+  isFavorite: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CreateTemplateRequest {
+  name: string;
+  content: string;
+  category?: string;
+  mediaUrl?: string;
+  mediaType?: string;
+  tags?: string[];
+  isFavorite?: boolean;
+}
+
+export interface UpdateTemplateRequest {
+  name?: string;
+  content?: string;
+  category?: string;
+  mediaUrl?: string;
+  mediaType?: string;
+  tags?: string[];
+  isFavorite?: boolean;
+}
+
+export interface RenderTemplateRequest {
+  templateId: string;
+  variables: Record<string, string>; // { "nome": "João", "empresa": "ACME" }
+}
+
+export interface RenderTemplateResponse {
+  content: string;
+  mediaUrl?: string;
+  mediaType?: string;
+}
+
+export interface TemplateUsageStats {
+  templateId: string;
+  name: string;
+  usageCount: number;
+  lastUsed?: Date;
+  category?: string;
+}
