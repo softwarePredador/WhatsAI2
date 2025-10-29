@@ -4,18 +4,22 @@
   "private": true,
   "description": "WhatsAI Multi-Instance Manager - Monorepo (Frontend + Backend)",
   "scripts": {
-    "predev": "powershell -Command \"try { Get-Process ngrok -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue; npx kill-port-process 3001 3000; Write-Host '🧹 Processes and Ports cleaned' } catch { Write-Host 'ℹ️  No processes to clean or cleanup failed' }\"",
+    "predev": "npm run kill:all",
     "dev": "concurrently -n \"BACK,FRONT,NGROK\" -c \"bgBlue.bold,bgMagenta.bold,bgYellow.bold\" \"npm run dev:server\" \"npm run dev:client\" \"npm run tunnel\"",
     "dev:server": "cd server && npm run dev",
     "dev:client": "cd client && npm run dev",
+    "dev:no-tunnel": "concurrently -n \"BACK,FRONT\" -c \"bgBlue.bold,bgMagenta.bold\" \"npm run dev:server\" \"npm run dev:client\"",
     "build": "npm run build:server && npm run build:client",
     "build:server": "cd server && npm run build",
     "build:client": "cd client && npm run build",
     "start": "npm run start:server",
     "start:server": "cd server && npm start",
     "install:all": "npm install && cd server && npm install && cd ../client && npm install",
-    "clean": "Remove-Item -Recurse -Force server/node_modules,server/dist,client/node_modules,client/dist,node_modules -ErrorAction SilentlyContinue",
-    "tunnel": "ngrok http 3001"
+    "clean": "rimraf server/node_modules server/dist client/node_modules client/dist node_modules",
+    "kill:ports": "npx kill-port-process 3001 3000 || echo '✅ Ports cleaned'",
+    "kill:ngrok": "pkill -9 ngrok || echo '✅ Ngrok killed'",
+    "kill:all": "npm run kill:ngrok && npm run kill:ports",
+    "tunnel": "ngrok http 3001 --log=stdout"
   },
   "workspaces": [
     "server",
@@ -34,7 +38,8 @@
   "devDependencies": {
     "concurrently": "^8.2.2",
     "daisyui": "^5.3.7",
-    "kill-port-process": "^3.2.1"
+    "kill-port-process": "^3.2.1",
+    "rimraf": "^6.0.1"
   },
   "engines": {
     "node": ">=18.0.0",
