@@ -200,6 +200,60 @@ export class DigitalOceanSpacesService {
   }
 
   /**
+   * Download file from Spaces (returns Buffer)
+   */
+  async downloadFile(key: string): Promise<Buffer> {
+    try {
+      const command = new GetObjectCommand({
+        Bucket: this.config.bucket,
+        Key: key,
+      });
+
+      const response = await this.s3Client.send(command);
+      
+      if (!response.Body) {
+        throw new Error('No file content returned');
+      }
+
+      // Convert stream to buffer
+      const chunks: Uint8Array[] = [];
+      for await (const chunk of response.Body as any) {
+        chunks.push(chunk);
+      }
+      
+      return Buffer.concat(chunks);
+    } catch (error) {
+      console.error(`❌ [Spaces] Failed to download ${key}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get file info (size, last modified, etc)
+   */
+  async getFileInfo(key: string): Promise<{ size: number; modified: Date } | null> {
+    try {
+      const command = new GetObjectCommand({
+        Bucket: this.config.bucket,
+        Key: key,
+      });
+
+      const response = await this.s3Client.send(command);
+      
+      return {
+        size: response.ContentLength || 0,
+        modified: response.LastModified || new Date()
+      };
+    } catch (error: any) {
+      if (error.name === 'NoSuchKey' || error.$metadata?.httpStatusCode === 404) {
+        return null;
+      }
+      console.error(`❌ [Spaces] Failed to get file info for ${key}:`, error);
+      throw error;
+    }
+  }
+
+  /**
    * Generate unique file key
    */
   static generateFileKey(
