@@ -91,8 +91,11 @@ model Message {
 
   // Performance indexes
   @@index([instanceId])
-  @@index([conversationId, timestamp(sort: Desc)])
+  @@index([conversationId, timestamp(sort: Desc)]) // Timeline de mensagens por conversa
   @@index([remoteJid])
+  @@index([instanceId, timestamp(sort: Desc)]) // Timeline global por instância
+  @@index([conversationId, fromMe]) // Filtrar mensagens enviadas/recebidas
+  @@index([status]) // Rastrear status de mensagens
   @@map("messages")
 }
 
@@ -124,7 +127,10 @@ model Conversation {
 
   @@unique([instanceId, remoteJid])
   // Performance indexes
-  @@index([instanceId, lastMessageAt(sort: Desc)])
+  @@index([instanceId, lastMessageAt(sort: Desc)]) // Lista ordenada por última mensagem
+  @@index([instanceId, isPinned, lastMessageAt(sort: Desc)]) // Conversas fixadas no topo
+  @@index([instanceId, isArchived]) // Filtrar conversas arquivadas
+  @@index([instanceId, unreadCount]) // Ordenar por não lidas
   @@index([remoteJid])
   @@map("conversations")
 }

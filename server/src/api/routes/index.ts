@@ -7,6 +7,8 @@ import accountRoutes from './account';
 import { conversationRoutes } from './conversation-routes';
 import { dashboardRoutes } from './dashboard';
 import { authMiddleware } from '@/api/middlewares/auth-middleware';
+import { debounceService } from '../../services/debounce-service';
+import { cacheService } from '../../services/cache-service';
 
 const router = Router();
 
@@ -18,6 +20,25 @@ router.get('/health', (req, res) => {
     service: 'WhatsAI Multi-Instance Manager',
     version: '1.0.0'
   });
+});
+
+// Performance stats endpoint (public)
+router.get('/stats', (req, res) => {
+  try {
+    const debounceStats = debounceService.getStats();
+    const cacheStats = cacheService.getStats();
+    
+    res.json({
+      timestamp: new Date().toISOString(),
+      debounce: debounceStats,
+      cache: cacheStats
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      error: 'Failed to fetch stats',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
 });
 
 // Authentication routes (public)

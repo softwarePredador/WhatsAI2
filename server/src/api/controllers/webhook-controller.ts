@@ -8,6 +8,8 @@ import { prisma } from '../../database/prisma';
 import * as fs from 'fs';
 import * as path from 'path';
 import { webhookErrorLogger } from '../../utils/webhook-error-logger';
+import { debounceService } from '../../services/debounce-service';
+import { logger, LogContext } from '../../services/logger-service';
 import {
   evolutionWebhookSchema,
   genericWebhookSchema,
@@ -48,6 +50,10 @@ export class WebhookController {
     this.conversationService = new ConversationService();
     this.evolutionApiService = new EvolutionApiService();
     this.webhookLogPath = path.join(process.cwd(), 'webhook-logs.txt');
+
+    // Inicializar debounce service
+    debounceService.initialize();
+    logger.info(LogContext.WEBHOOK, 'Debounce service initialized in webhook controller');
 
     // Criar arquivo de log se não existir
     if (!fs.existsSync(this.webhookLogPath)) {
@@ -350,22 +356,10 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
           
           console.log(`📤 [SEND_MESSAGE] Message data:`, JSON.stringify(validated.data.data, null, 2));
           
-          // Criar um messages.upsert artificial para reaproveitar a lógica existente
-          const upsertData = {
-            key: {
-              ...validated.data.data.key,
-              fromMe: true
-            },
-            pushName: validated.data.data.pushName || 'Você',
-            status: 'SENT',
-            message: validated.data.data.message,
-            messageTimestamp: Math.floor(Date.now() / 1000),
-            instanceId: validated.data.data.instanceId,
-            source: 'web'
-          };
-          
-          console.log(`📤 [SEND_MESSAGE] Converting to upsert format:`, JSON.stringify(upsertData, null, 2));
-          await this.conversationService.handleIncomingMessageAtomic(instanceId, upsertData);
+          // ⚠️ NÃO PROCESSAR AQUI - messages.upsert já processa esta mensagem
+          // O evento send.message é apenas informativo (status PENDING)
+          // O processamento real acontece no messages.upsert subsequente
+          console.log(`ℹ️ [SEND_MESSAGE] Skipping processing - will be handled by messages.upsert event`);
         }
         
         // 👤 Process contact updates (CONTACTS_UPDATE) - FOTO E NOME AUTOMÁTICOS!
@@ -431,15 +425,25 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
           
           try {
             const chatsData = Array.isArray(validated.data.data) ? validated.data.data : [validated.data.data];
-            for (const chat of chatsData) {
-              const remoteJid = chat.remoteJid;
-              const unreadMessages = chat.unreadMessages || 0;
+            
+            // Aplicar throttle - processa no máximo 1 vez por segundo por instância
+            const processChats = debounceService.throttleChatUpsert(
+              async (data: { instanceId: string; chats: typeof chatsData }) => {
+                for (const chat of data.chats) {
+                  const remoteJid = chat.remoteJid;
+                  const unreadMessages = chat.unreadMessages || 0;
 
-              if (remoteJid) {
-                console.log(`💬 [CHATS_UPSERT] Chat ${remoteJid}: ${unreadMessages} não lidas`);
-                await this.conversationService.updateUnreadCount(instanceId, remoteJid, unreadMessages);
-              }
-            }
+                  if (remoteJid) {
+                    console.log(`💬 [CHATS_UPSERT] THROTTLED ${remoteJid}: ${unreadMessages} não lidas`);
+                    await this.conversationService.updateUnreadCount(data.instanceId, remoteJid, unreadMessages);
+                  }
+                }
+              },
+              instanceId // Chave única por instância
+            );
+            
+            // Chama função throttled
+            processChats({ instanceId, chats: chatsData });
           } catch (error) {
             console.error(`❌ [CHATS_UPSERT] Error processing chats.upsert:`, error);
             throw error; // Re-throw to cause 500 instead of silent failure
@@ -471,15 +475,25 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
           
           if (presence) {
             const status = presence.lastKnownPresence; // composing, available, unavailable
-            console.log(`🟢 [PRESENCE_UPDATE] ${contactId}: ${status}`);
             
-            // Emitir para o frontend via WebSocket
-            this.socketService.emitToInstance(instanceId, 'presence:update', {
-              contactId,
-              status,
-              isTyping: status === 'composing',
-              isOnline: status === 'available'
-            });
+            // Aplicar debounce - apenas processa a última mudança de presença em 2s
+            const processPresence = debounceService.debouncePresenceUpdate(
+              (data: { contactId: string; status: string; instanceId: string }) => {
+                console.log(`🟢 [PRESENCE_UPDATE] DEBOUNCED ${data.contactId}: ${data.status}`);
+                
+                // Emitir para o frontend via WebSocket
+                this.socketService.emitToInstance(data.instanceId, 'presence:update', {
+                  contactId: data.contactId,
+                  status: data.status,
+                  isTyping: data.status === 'composing',
+                  isOnline: data.status === 'available'
+                });
+              },
+              contactId // Chave única por contato
+            );
+            
+            // Chama função debounced
+            processPresence({ contactId, status, instanceId });
           }
         }
         
