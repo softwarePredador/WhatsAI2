@@ -240,7 +240,7 @@ export class TemplateService {
       }
     });
 
-    return templates.map(t => ({
+    return templates.map((t): TemplateUsageStats => ({
       templateId: t.id,
       name: t.name,
       usageCount: t.usageCount,
