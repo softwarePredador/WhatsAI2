@@ -1460,7 +1460,7 @@ export class ConversationService {
                    messageData.message?.documentMessage?.url,
           fileName: messageData.message?.documentMessage?.fileName,
           caption: messageData.message?.imageMessage?.caption || messageData.message?.videoMessage?.caption,
-          senderName: senderName,
+          senderName: senderName || null,
           conversationId: conversation.id
         };
 

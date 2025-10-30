@@ -54,7 +54,7 @@ export const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
     try {
       const token = localStorage.getItem('token');
       if (!token) return;
-      const data = await templatesService.getTemplates(token, { isActive: true });
+      const data = await templatesService.getTemplates(token);
       setTemplates(data);
     } catch (error) {
       console.error('Error loading templates:', error);

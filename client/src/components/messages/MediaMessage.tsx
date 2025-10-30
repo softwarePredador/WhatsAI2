@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Play, Pause, Download, Image as ImageIcon, File, Music, AlertCircle, Loader } from 'lucide-react';
+import { Download, Image as ImageIcon, File, AlertCircle, Loader } from 'lucide-react';
 import { AudioPlayer } from './AudioPlayer';
 
 interface MediaMessageProps {
@@ -24,22 +24,6 @@ export const MediaMessage: React.FC<MediaMessageProps> = ({
   const [isDownloading, setIsDownloading] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-
-  const handlePlayPause = () => {
-    if (mediaType === 'audio' && audioRef.current) {
-      if (isPlaying) {
-        audioRef.current.pause();
-      } else {
-        audioRef.current.play();
-      }
-    } else if (mediaType === 'video' && videoRef.current) {
-      if (isPlaying) {
-        videoRef.current.pause();
-      } else {
-        videoRef.current.play();
-      }
-    }
-  };
 
   const handleDownload = async () => {
     if (isDownloading) return;
@@ -171,7 +155,7 @@ export const MediaMessage: React.FC<MediaMessageProps> = ({
                 src={mediaUrl}
                 alt="Sticker"
                 className={`w-32 h-32 object-contain cursor-pointer hover:scale-105 transition-transform ${isLoading ? 'hidden' : ''}`}
-                onError={(e) => {
+                onError={() => {
                   console.error('Erro ao carregar sticker:', mediaUrl);
                   setHasError(true);
                   setIsLoading(false);

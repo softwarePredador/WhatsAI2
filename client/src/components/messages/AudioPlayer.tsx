@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import WaveSurfer from 'wavesurfer.js';
 import { Play, Pause, Download } from 'lucide-react';
+import { audioManager } from '../../utils/audioManager';
 
 interface AudioPlayerProps {
   mediaUrl: string;
@@ -10,6 +11,7 @@ interface AudioPlayerProps {
 export const AudioPlayer: React.FC<AudioPlayerProps> = ({ mediaUrl, fromMe }) => {
   const waveformRef = useRef<HTMLDivElement>(null);
   const wavesurferRef = useRef<WaveSurfer | null>(null);
+  const audioIdRef = useRef<string>(`audio-${Math.random().toString(36).substr(2, 9)}`);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState('0:00');
   const [duration, setDuration] = useState('0:00');
@@ -45,9 +47,24 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ mediaUrl, fromMe }) =>
       setDuration(formatTime(durationSeconds));
     });
 
-    wavesurfer.on('play', () => setIsPlaying(true));
-    wavesurfer.on('pause', () => setIsPlaying(false));
-    wavesurfer.on('finish', () => setIsPlaying(false));
+    wavesurfer.on('play', () => {
+      setIsPlaying(true);
+      // Notificar o gerenciador que este áudio está tocando
+      audioManager.play(audioIdRef.current, () => {
+        wavesurfer.pause();
+      });
+    });
+
+    wavesurfer.on('pause', () => {
+      setIsPlaying(false);
+      // Notificar o gerenciador que este áudio foi pausado
+      audioManager.pause(audioIdRef.current);
+    });
+
+    wavesurfer.on('finish', () => {
+      setIsPlaying(false);
+      audioManager.pause(audioIdRef.current);
+    });
 
     wavesurfer.on('audioprocess', () => {
       const time = wavesurfer.getCurrentTime();
@@ -60,6 +77,8 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ mediaUrl, fromMe }) =>
     });
 
     return () => {
+      // Limpar ao desmontar
+      audioManager.pause(audioIdRef.current);
       wavesurfer.destroy();
     };
   }, [mediaUrl, fromMe]);

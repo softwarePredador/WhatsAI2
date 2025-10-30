@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import { Search, MessageSquare, Archive, Pin, MoreVertical, Check, Mail, CheckCheck, Image, Music, Video, FileText, MapPin, User, Smile, ArchiveRestore, Trash2, Eraser } from 'lucide-react';
+import { Search, MessageSquare, Archive, Pin, MoreVertical, Check, Mail, CheckCheck, Image, Music, Video, FileText, MapPin, User, Smile, Trash2, Eraser } from 'lucide-react';
 import { userAuthStore } from '../features/auth/store/authStore';
 import { conversationService } from '../services/conversationService';
 import { socketService } from '../services/socketService';
@@ -352,7 +352,7 @@ export const ConversationList: React.FC = () => {
       setConversations(prev => 
         prev.map(conv => 
           conv.id === conversationId 
-            ? { ...conv, lastMessage: null, lastMessageAt: null, unreadCount: 0 }
+            ? { ...conv, lastMessage: undefined, lastMessageAt: undefined, unreadCount: 0 }
             : conv
         )
       );
