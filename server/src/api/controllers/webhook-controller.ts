@@ -241,71 +241,8 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
           console.log(`💬 [MESSAGES_UPSERT] Message data:`, JSON.stringify(validated.data.data, null, 2));
           await this.conversationService.handleIncomingMessageAtomic(instanceId, validated.data.data);
 
-          // 🎯 GROUP NAME AUTO-UPDATE: Se for mensagem de grupo, verificar se precisamos buscar nome
-          const remoteJid = validated.data.data.key.remoteJid;
-          if (remoteJid && remoteJid.endsWith('@g.us')) {
-
-            try {
-              // Verificar se o grupo já tem nome no banco
-              const existingConversation = await prisma.conversation.findFirst({
-                where: {
-                  remoteJid: remoteJid,
-                  instance: {
-                    evolutionInstanceName: instanceId
-                  }
-                },
-                select: {
-                  id: true,
-                  contactName: true,
-                  isGroup: true
-                }
-              });
-
-
-              // Se não tem nome ou nome é genérico (apenas números), buscar informações do grupo
-              const needsNameUpdate = !existingConversation?.contactName ||
-                existingConversation.contactName === remoteJid ||
-                /^\d+$/.test(existingConversation.contactName.replace('@g.us', ''));
-
-              console.log(`👥 [GROUP_CHECK] Needs name update: ${needsNameUpdate} (current: "${existingConversation?.contactName || 'none'}")`);
-
-              if (needsNameUpdate) {
-
-                // Buscar informações do grupo na Evolution API
-                const groupInfo = await this.evolutionApiService.findGroupByJid(instanceId, remoteJid);
-
-                if (groupInfo?.subject) {
-
-                  // Atualizar nome do grupo no banco
-                  const updateResult = await prisma.conversation.updateMany({
-                    where: {
-                      remoteJid: remoteJid,
-                      instance: {
-                        evolutionInstanceName: instanceId
-                      }
-                    },
-                    data: {
-                      contactName: groupInfo.subject,
-                      contactPicture: groupInfo.pictureUrl || null,
-                      isGroup: true
-                    }
-                  });
-
-
-                  // Notificar frontend sobre a atualização
-                  this.socketService.emitToInstance(instanceId, 'conversation:updated', {
-                    conversationId: existingConversation?.id,
-                    contactName: groupInfo.subject,
-                    contactPicture: groupInfo.pictureUrl
-                  });
-                } else {
-                }
-              } else {
-              }
-            } catch (error) {
-              console.error(`❌ [GROUP_UPDATE] Error updating group name for ${remoteJid}:`, error);
-            }
-          }
+          // ✅ Nome do grupo agora é buscado automaticamente dentro de handleIncomingMessageAtomic
+          // quando detecta @g.us no remoteJid. Não precisa mais fazer busca separada aqui.
         }
         
         // 📤 Process sent messages (SEND_MESSAGE) - MENSAGENS ENVIADAS PELO USUÁRIO!

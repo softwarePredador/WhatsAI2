@@ -485,8 +485,18 @@ export class ConversationService {
 
       if (conversation) {
         const updateData: any = {};
-        if (data.contactName) updateData.contactName = data.contactName;
-        if (data.contactPicture) updateData.contactPicture = data.contactPicture;
+        
+        // ⚠️ IMPORTANTE: Para grupos, NÃO atualizar contactName com pushName do webhook!
+        // O pushName vem do remetente da mensagem, não do grupo
+        // O nome do grupo será buscado via Evolution API quando necessário
+        if (!isGroupContact && data.contactName) {
+          updateData.contactName = data.contactName;
+        }
+        
+        // Para foto de perfil, podemos atualizar normalmente (tanto individual quanto grupo)
+        if (data.contactPicture) {
+          updateData.contactPicture = data.contactPicture;
+        }
 
         if (Object.keys(updateData).length > 0) {
           await this.conversationRepository.update(conversation.id, updateData);
@@ -498,12 +508,14 @@ export class ConversationService {
               id: updated.id,
               remoteJid: updated.remoteJid,
               contactName: updated.contactName,
-              contactPicture: updated.contactPicture ? '✅ TEM FOTO' : '❌ SEM FOTO'
+              contactPicture: updated.contactPicture ? '✅ TEM FOTO' : '❌ SEM FOTO',
+              isGroup: isGroupContact ? '✅ GROUP' : '❌ INDIVIDUAL'
             });
             this.socketService.emitToInstance(instanceId, 'conversation:updated', updated);
           }
 
         } else {
+          console.log(`⏭️ [CONTACT_UPDATE] No updates needed for ${isGroupContact ? 'GROUP' : 'CONTACT'}: ${remoteJid}`);
         }
       } else {
         console.log(`❌ [CONTACT_UPDATE] Conversation not found for remoteJid: ${remoteJid} (normalized: ${normalizedJid})`);
@@ -1293,14 +1305,39 @@ export class ConversationService {
       // Variable to track processed media URL across transaction boundary
       let processedMediaUrl: string | null | undefined = null;
 
-      // 🚨 ATOMIC TRANSACTION: All critical database operations in one transaction
+      // � Se for GRUPO, buscar informações do grupo na Evolution API ANTES da transação
+      const isGroupConversation = messageData.key.remoteJid.includes('@g.us');
+      let groupInfo: { subject?: string; pictureUrl?: string } | null = null;
+      
+      if (isGroupConversation && instance.evolutionInstanceName) {
+        try {
+          console.log(`👥 [GROUP_INFO] Buscando informações do grupo ${formattedRemoteJid}...`);
+          const evolutionService = new EvolutionApiService();
+          groupInfo = await evolutionService.findGroupByJid(instance.evolutionInstanceName, formattedRemoteJid);
+          if (groupInfo?.subject) {
+            console.log(`✅ [GROUP_INFO] Nome do grupo encontrado: "${groupInfo.subject}"`);
+          } else {
+            console.warn(`⚠️ [GROUP_INFO] Nome do grupo não encontrado na API`);
+          }
+        } catch (error) {
+          console.error(`❌ [GROUP_INFO] Erro ao buscar informações do grupo:`, error);
+          // Não falhar a transação se não conseguir buscar info do grupo
+        }
+      }
+
+      // �🚨 ATOMIC TRANSACTION: All critical database operations in one transaction
       const transactionResult = await prisma.$transaction(async (tx) => {
         // Prepare conversation data
         const conversationData: any = {
-          isGroup: messageData.key.remoteJid.includes('@g.us')
+          isGroup: isGroupConversation
         };
 
-        if (!messageData.key.fromMe && messageData.pushName) {
+        // ⚠️ IMPORTANTE: Usar nome do GRUPO se foi buscado da API
+        // Caso contrário, para contatos individuais, usar pushName
+        if (isGroupConversation && groupInfo?.subject) {
+          conversationData.contactName = groupInfo.subject;
+          conversationData.contactPicture = groupInfo.pictureUrl || null;
+        } else if (!messageData.key.fromMe && messageData.pushName && !isGroupConversation) {
           conversationData.contactName = messageData.pushName;
         }
 
@@ -1320,11 +1357,21 @@ export class ConversationService {
               ...conversationData
             }
           });
+          console.log(`✅ [CONVERSATION_CREATED] ${isGroupConversation ? 'Grupo' : 'Contato'}: ${conversation.remoteJid}`);
         } else {
-          conversation = await tx.conversation.update({
-            where: { id: conversation.id },
-            data: conversationData
-          });
+          // Se for grupo E já tiver nome, NÃO sobrescrever
+          const updateData = { ...conversationData };
+          if (isGroupConversation && conversation.contactName) {
+            delete updateData.contactName;
+          }
+          
+          // Só atualizar se houver dados para atualizar
+          if (Object.keys(updateData).length > 0) {
+            conversation = await tx.conversation.update({
+              where: { id: conversation.id },
+              data: updateData
+            });
+          }
         }
 
         // Prepare message data
@@ -1469,11 +1516,16 @@ export class ConversationService {
         }
       });
 
-      // Update conversation list
-      const allConversations = await this.conversationRepository.findAllByInstanceId(instance.id);
-      const updatedConversation = allConversations.find(c => c.remoteJid === formattedRemoteJid);
-      if (updatedConversation) {
-        this.socketService.emitToInstance(instance.id, 'conversation:updated', updatedConversation);
+      // SEMPRE emitir conversation:updated com dados atualizados
+      // Buscar a conversa atualizada com todas as relações
+      const freshConversation = await this.conversationRepository.findById(transactionResult.conversation.id);
+      if (freshConversation) {
+        console.log(`📡 [EMIT_WEBSOCKET] Emitindo conversation:updated para conversa ${freshConversation.id}`);
+        this.socketService.emitToInstance(instance.id, 'conversation:updated', freshConversation);
+      } else {
+        console.warn(`⚠️ [EMIT_WEBSOCKET] Conversa ${transactionResult.conversation.id} não encontrada após transação!`);
+        // Fallback: emitir com dados da transação
+        this.socketService.emitToInstance(instance.id, 'conversation:updated', transactionResult.conversation);
       }
 
     } catch (error) {
