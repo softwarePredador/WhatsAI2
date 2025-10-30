@@ -1,5 +1,8 @@
 # 📋 GUIA DE COMANDOS TESTADOS - WhatsAI2
 
+> **📅 Última atualização**: 30/10/2025  
+> **🧹 Limpeza de arquivos**: Ver CLEANUP-SUMMARY.md
+
 ## ✅ COMANDOS QUE FUNCIONARAM (USE ESTES!)
 
 ### 1. Teste de Webhook com Instância Válida
