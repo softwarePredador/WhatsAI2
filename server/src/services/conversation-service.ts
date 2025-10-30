@@ -1410,7 +1410,11 @@ export class ConversationService {
           messageId: messageData.key.id,
           timestamp: new Date(messageData.messageTimestamp * 1000),
           status: messageData.key.fromMe ? 'SENT' : 'DELIVERED',
-          mediaUrl: messageData.message?.imageMessage?.url || messageData.message?.videoMessage?.url || messageData.message?.audioMessage?.url,
+          mediaUrl: messageData.message?.imageMessage?.url || 
+                   messageData.message?.videoMessage?.url || 
+                   messageData.message?.audioMessage?.url || 
+                   messageData.message?.stickerMessage?.url || 
+                   messageData.message?.documentMessage?.url,
           fileName: messageData.message?.documentMessage?.fileName,
           caption: messageData.message?.imageMessage?.caption || messageData.message?.videoMessage?.caption,
           senderName: senderName,

@@ -613,57 +613,81 @@ export const ChatPage: React.FC = () => {
             <p className="text-sm mt-2">Envie a primeira mensagem para iniciar a conversa!</p>
           </div>
         ) : (
-          messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex ${message.fromMe ? 'justify-end' : 'justify-start'}`}
-            >
+          messages.map((message) => {
+            const isSticker = message.messageType?.toUpperCase() === 'STICKER';
+            
+            return (
               <div
-                className={`max-w-[85%] sm:max-w-[70%] lg:max-w-[60%] px-4 py-2 rounded-lg break-words ${
-                  message.fromMe
-                    ? 'bg-primary text-primary-content rounded-br-none'
-                    : `bg-base-100 text-base-content rounded-bl-none shadow-sm`
-                }`}
+                key={message.id}
+                className={`flex ${message.fromMe ? 'justify-end' : 'justify-start'}`}
               >
-                {/* Nome do remetente (apenas para mensagens de grupo recebidas) */}
-                {message.senderName && !message.fromMe && (
-                  <div className="text-xs font-medium text-base-content/80 mb-1">
-                    {message.senderName}
+                {/* Stickers sem balão de mensagem */}
+                {isSticker ? (
+                  <div className="relative">
+                    {message.mediaUrl && (
+                      <MediaMessage
+                        mediaUrl={message.mediaUrl}
+                        mediaType="sticker"
+                        fromMe={message.fromMe}
+                      />
+                    )}
+                    {/* Timestamp pequeno abaixo do sticker */}
+                    <div className={`text-[10px] mt-1 ${
+                      message.fromMe ? 'text-right text-base-content/60' : 'text-left text-base-content/50'
+                    }`}>
+                      {formatTime(message.timestamp)}
+                    </div>
+                  </div>
+                ) : (
+                  /* Mensagens normais com balão */
+                  <div
+                    className={`max-w-[85%] sm:max-w-[70%] lg:max-w-[60%] px-4 py-2 rounded-lg break-words ${
+                      message.fromMe
+                        ? 'bg-primary text-primary-content rounded-br-none'
+                        : `bg-base-100 text-base-content rounded-bl-none shadow-sm`
+                    }`}
+                  >
+                    {/* Nome do remetente (apenas para mensagens de grupo recebidas) */}
+                    {message.senderName && !message.fromMe && (
+                      <div className="text-xs font-medium text-base-content/80 mb-1">
+                        {message.senderName}
+                      </div>
+                    )}
+
+                    {/* Renderizar mídia se existir */}
+                    {message.mediaUrl && (
+                      <div className="mb-2">
+                        <MediaMessage
+                          mediaUrl={message.mediaUrl}
+                          mediaType={message.messageType?.toLowerCase() as any || 'image'}
+                          fileName={message.fileName}
+                          caption={message.caption}
+                          fromMe={message.fromMe}
+                        />
+                      </div>
+                    )}
+
+                    {/* Renderizar texto se existir */}
+                    {message.content && message.content.trim() && (
+                      <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+                    )}
+
+                    {/* Timestamp e status */}
+                    <div className="flex items-center justify-end space-x-1 mt-1">
+                      <span className={`text-xs ${
+                        message.fromMe ? 'text-primary-content/70' : 'text-base-content/60'
+                      }`}>
+                        {formatTime(message.timestamp)}
+                      </span>
+                      {message.fromMe && (
+                        <MessageStatusCheck status={message.status} />
+                      )}
+                    </div>
                   </div>
                 )}
-
-                {/* Renderizar mídia se existir */}
-                {message.mediaUrl && (
-                  <div className="mb-2">
-                    <MediaMessage
-                      mediaUrl={message.mediaUrl}
-                      mediaType={message.messageType?.toLowerCase() as any || 'image'}
-                      fileName={message.fileName}
-                      caption={message.caption}
-                      fromMe={message.fromMe}
-                    />
-                  </div>
-                )}
-
-                {/* Renderizar texto se existir */}
-                {message.content && message.content.trim() && (
-                  <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
-                )}
-
-                {/* Timestamp e status */}
-                <div className="flex items-center justify-end space-x-1 mt-1">
-                  <span className={`text-xs ${
-                    message.fromMe ? 'text-primary-content/70' : 'text-base-content/60'
-                  }`}>
-                    {formatTime(message.timestamp)}
-                  </span>
-                  {message.fromMe && (
-                    <MessageStatusCheck status={message.status} />
-                  )}
-                </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
         <div ref={messagesEndRef} />
       </div>

@@ -155,16 +155,34 @@ export const MediaMessage: React.FC<MediaMessageProps> = ({
 
       case 'sticker':
         return (
-          <div className="relative">
-            <img
-              src={mediaUrl}
-              alt="Sticker"
-              className="w-24 h-24 object-contain"
-              onError={(e) => {
-                console.error('Erro ao carregar sticker:', mediaUrl);
-                e.currentTarget.style.display = 'none';
-              }}
-            />
+          <div className="relative inline-block">
+            {isLoading && (
+              <div className="flex items-center justify-center w-32 h-32">
+                <Loader className="animate-spin text-base-content/60" size={24} />
+              </div>
+            )}
+            {hasError ? (
+              <div className="flex flex-col items-center justify-center w-32 h-32 rounded-lg bg-base-200">
+                <AlertCircle className="text-error mb-2" size={24} />
+                <p className="text-xs text-base-content/60">Erro ao carregar</p>
+              </div>
+            ) : (
+              <img
+                src={mediaUrl}
+                alt="Sticker"
+                className={`w-32 h-32 object-contain cursor-pointer hover:scale-105 transition-transform ${isLoading ? 'hidden' : ''}`}
+                onError={(e) => {
+                  console.error('Erro ao carregar sticker:', mediaUrl);
+                  setHasError(true);
+                  setIsLoading(false);
+                }}
+                onLoad={() => {
+                  setIsLoading(false);
+                  setHasError(false);
+                }}
+                onClick={() => setShowImageModal(true)}
+              />
+            )}
           </div>
         );
 

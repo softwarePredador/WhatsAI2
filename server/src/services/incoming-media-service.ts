@@ -128,41 +128,62 @@ export class IncomingMediaService {
       let processedBuffer = downloadedBuffer; // Buffer que será enviado ao Spaces
       let wasOptimized = false;
 
-      if (mediaType === 'image' || mimeType?.includes('image')) {
+      // Processar stickers e imagens
+      if (mediaType === 'sticker' || mediaType === 'image' || mimeType?.includes('image')) {
         try {
           const metadata = await sharp(downloadedBuffer).metadata();
+          
+          // Detectar se é WebP animado (sticker animado)
+          const isAnimatedWebp = metadata.format === 'webp' && metadata.pages && metadata.pages > 1;
+          
           mediaLogger.log('✅ [IMAGE_VALIDATION] Validação sharp bem-sucedida', {
             format: metadata.format,
             width: metadata.width,
             height: metadata.height,
             size: metadata.size,
-            hasAlpha: metadata.hasAlpha
+            hasAlpha: metadata.hasAlpha,
+            pages: metadata.pages,
+            isAnimated: isAnimatedWebp
           });
 
-          // 1.6 OTIMIZAR IMAGEM (Fase 1 - Mudança 2)
-          const optimizationResult = await imageOptimizer.optimizeImage(downloadedBuffer, {
-            maxWidth: 1920,
-            maxHeight: 1920,
-            jpegQuality: 85,
-            webpQuality: 80,
-            convertPngToJpeg: true,
-            convertToWebp: false,
-            stripMetadata: true
-          });
+          // IMPORTANTE: Não otimizar stickers animados (WebP com múltiplos frames)
+          // A otimização remove a animação e mantém apenas o primeiro frame
+          if (isAnimatedWebp) {
+            console.log('🎬 [ANIMATED_STICKER] WebP animado detectado - PULANDO otimização para preservar animação');
+            mediaLogger.log('🎬 [ANIMATED_STICKER] Sticker animado preservado', {
+              format: metadata.format,
+              pages: metadata.pages,
+              originalSize: downloadedBuffer.length,
+              dimensions: `${metadata.width}x${metadata.height}`
+            });
+            // Usar buffer original sem otimizar
+            processedBuffer = downloadedBuffer;
+            wasOptimized = false;
+          } else {
+            // 1.6 OTIMIZAR IMAGEM (apenas se não for animado)
+            const optimizationResult = await imageOptimizer.optimizeImage(downloadedBuffer, {
+              maxWidth: 1920,
+              maxHeight: 1920,
+              jpegQuality: 85,
+              webpQuality: 80,
+              convertPngToJpeg: true,
+              convertToWebp: false,
+              stripMetadata: true
+            });
 
-          processedBuffer = optimizationResult.buffer;
-          wasOptimized = true;
+            processedBuffer = optimizationResult.buffer;
+            wasOptimized = true;
 
-          mediaLogger.log('🎨 [IMAGE_OPTIMIZATION] Imagem otimizada com sucesso', {
-            originalSize: optimizationResult.originalSize,
-            optimizedSize: optimizationResult.optimizedSize,
-            reductionPercent: optimizationResult.reductionPercent,
-            format: `${optimizationResult.metadata.originalFormat} → ${optimizationResult.format}`,
-            dimensions: `${optimizationResult.width}x${optimizationResult.height}`,
-            wasResized: optimizationResult.metadata.wasResized,
-            wasConverted: optimizationResult.metadata.wasConverted
-          });
-
+            mediaLogger.log('🎨 [IMAGE_OPTIMIZATION] Imagem otimizada com sucesso', {
+              originalSize: optimizationResult.originalSize,
+              optimizedSize: optimizationResult.optimizedSize,
+              reductionPercent: optimizationResult.reductionPercent,
+              format: `${optimizationResult.metadata.originalFormat} → ${optimizationResult.format}`,
+              dimensions: `${optimizationResult.width}x${optimizationResult.height}`,
+              wasResized: optimizationResult.metadata.wasResized,
+              wasConverted: optimizationResult.metadata.wasConverted
+            });
+          }
 
         } catch (sharpError: any) {
           console.error(`❌ [IMAGE_VALIDATION] IMAGEM CORROMPIDA! sharp falhou:`, sharpError.message);

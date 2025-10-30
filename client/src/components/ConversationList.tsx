@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import { Search, MessageSquare, Archive, Pin, MoreVertical, Check, Mail, CheckCheck, Image, Music, Video, FileText, MapPin, User } from 'lucide-react';
+import { Search, MessageSquare, Archive, Pin, MoreVertical, Check, Mail, CheckCheck, Image, Music, Video, FileText, MapPin, User, Smile } from 'lucide-react';
 import { userAuthStore } from '../features/auth/store/authStore';
 import { conversationService } from '../services/conversationService';
 import { socketService } from '../services/socketService';
@@ -254,6 +254,8 @@ export const ConversationList: React.FC = () => {
         return <Video className="h-4 w-4 inline mr-1" />;
       case 'DOCUMENT':
         return <FileText className="h-4 w-4 inline mr-1" />;
+      case 'STICKER':
+        return <Smile className="h-4 w-4 inline mr-1" />;
       case 'LOCATION':
         return <MapPin className="h-4 w-4 inline mr-1" />;
       case 'CONTACT':
