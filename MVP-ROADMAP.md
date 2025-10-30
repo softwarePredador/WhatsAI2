@@ -21,16 +21,18 @@
 - [x] Dashboard com estrutura básica
 - [x] Debounce/Throttle em webhooks (95% redução DB writes)
 
-### ⚠️ Gaps Críticos Identificados
-- [ ] Storage de mídia incompleto (S3/Spaces com TODOs)
-- [ ] Dashboard com dados mockados (não reais)
-- [ ] Falta envio em massa (broadcast)
-- [ ] Sem sistema de templates
-- [ ] Sem sistema de planos/billing
-- [ ] Sem limites e quotas por plano
-- [ ] Multi-tenancy incompleto (falta organizações)
-- [ ] Sem automação/chatbot
-- [ ] Sem onboarding de usuários
+### ✅ FASE 3 - MVP Funcional (COMPLETA!)
+- [x] Storage de mídia completo (DigitalOcean Spaces/S3)
+- [x] Dashboard com dados reais (métricas, gráficos, custos)
+- [x] Sistema de templates (CRUD, variáveis, categorias)
+- [x] Envio em massa (campanhas, rate limiting, fila)
+- [x] Sistema de limites e quotas por plano
+
+### ⚠️ Gaps Críticos Pendentes (FASE 4)
+- [ ] Sistema de planos/billing (Stripe integration)
+- [ ] Multi-tenancy completo (organizações)
+- [ ] Automação/chatbot básico
+- [ ] Onboarding de usuários
 
 ---
 
@@ -302,21 +304,21 @@ const PLANS = {
 ```
 
 **Subtasks:**
-- [ ] Backend:
-  - [ ] Middleware `checkLimits` para validar quotas
-  - [ ] Contador de mensagens diárias (reset automático)
-  - [ ] Bloqueio ao atingir limite
-  - [ ] Endpoint GET `/api/usage` (estatísticas de uso)
-  - [ ] Endpoint GET `/api/plans` (planos disponíveis)
-  - [ ] Jobs de reset diário de contadores
+- [x] Backend:
+  - [x] Middleware `checkLimits` para validar quotas
+  - [x] Contador de mensagens diárias (reset automático)
+  - [x] Bloqueio ao atingir limite
+  - [x] Endpoint GET `/api/usage` (estatísticas de uso)
+  - [x] Endpoint GET `/api/plans` (planos disponíveis)
+  - [x] Jobs de reset diário de contadores
 - [ ] Frontend:
   - [ ] Componente `UsageBar` (barra de progresso)
   - [ ] Modal de upgrade quando atinge limite
   - [ ] Página `PlansPage.tsx` com comparação
   - [ ] Badge do plano atual no perfil
-- [ ] Testes:
-  - [ ] Testes de middleware de limites
-  - [ ] Testes de reset de contadores
+- [x] Testes:
+  - [x] Testes de middleware de limites
+  - [x] Testes de reset de contadores
 
 **Critérios de Aceitação:**
 - ✅ Usuário FREE não pode criar 2ª instância
