@@ -229,10 +229,10 @@ model MessageTemplate {
 }
 
 model Campaign {
-  id         String  @id @default(cuid())
+  id         String @id @default(cuid())
   userId     String
   name       String
-  status     String  @default("DRAFT") // DRAFT, SCHEDULED, RUNNING, PAUSED, COMPLETED, FAILED
+  status     String @default("DRAFT") // DRAFT, SCHEDULED, RUNNING, PAUSED, COMPLETED, FAILED
   instanceId String
 
   // Campaign content
@@ -264,10 +264,10 @@ model Campaign {
   updatedAt DateTime @updatedAt
 
   // Relations
-  user     User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  instance WhatsAppInstance   @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  instance WhatsAppInstance  @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   messages CampaignMessage[]
-  template MessageTemplate?   @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  template MessageTemplate?  @relation(fields: [templateId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([status])
@@ -276,11 +276,11 @@ model Campaign {
 }
 
 model CampaignMessage {
-  id         String  @id @default(cuid())
+  id         String @id @default(cuid())
   campaignId String
   recipient  String // Phone number
-  status     String  @default("PENDING") // PENDING, SENT, DELIVERED, FAILED
-  message    String  @db.Text // Rendered message with variables
+  status     String @default("PENDING") // PENDING, SENT, DELIVERED, FAILED
+  message    String @db.Text // Rendered message with variables
 
   // Message variables for this recipient
   variables String? @db.Text // JSON object with recipient-specific data
@@ -289,10 +289,10 @@ model CampaignMessage {
   messageId String?
 
   // Error tracking
-  error        String?
-  retryCount   Int     @default(0)
-  maxRetries   Int     @default(3)
-  lastRetryAt  DateTime?
+  error       String?
+  retryCount  Int       @default(0)
+  maxRetries  Int       @default(3)
+  lastRetryAt DateTime?
 
   // Timestamps
   createdAt   DateTime  @default(now())
