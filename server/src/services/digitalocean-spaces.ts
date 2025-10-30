@@ -276,4 +276,13 @@ export class DigitalOceanSpacesService {
     // DigitalOcean Spaces CDN URL format
     return `https://${this.config.bucket}.${this.config.region}.cdn.digitaloceanspaces.com/${key}`;
   }
+
+  /**
+   * Get direct Spaces URL (without CDN) - useful when CDN cache causes issues
+   * This URL directly hits the Spaces origin and respects CORS configuration immediately
+   */
+  getDirectUrl(key: string): string {
+    // Direct DigitalOcean Spaces URL (bypasses CDN)
+    return `https://${this.config.bucket}.${this.config.region}.digitaloceanspaces.com/${key}`;
+  }
 }
