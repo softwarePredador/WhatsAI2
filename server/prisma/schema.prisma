@@ -80,6 +80,7 @@ model Message {
   mediaUrl    String?
   fileName    String?
   caption     String?
+  senderName  String? // Nome de quem enviou (importante para grupos)
 
   // WhatsApp message data
   messageId String   @unique

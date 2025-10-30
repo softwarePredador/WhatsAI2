@@ -63,6 +63,8 @@ export interface ConversationSummary {
     fromMe: boolean;
     timestamp: Date;
     messageType: string;
+    senderName?: string;
+    status?: 'PENDING' | 'SERVER_ACK' | 'DELIVERY_ACK' | 'READ' | 'PLAYED';
   } | undefined;
 }
 
@@ -257,7 +259,9 @@ export class ConversationService {
           content: lastMessage.content,
           timestamp: lastMessage.timestamp,
           fromMe: lastMessage.fromMe,
-          messageType: lastMessage.messageType
+          messageType: lastMessage.messageType,
+          senderName: (lastMessage as any).senderName,
+          status: (lastMessage as any).status
         } : undefined
       };
     });
@@ -316,7 +320,9 @@ export class ConversationService {
         content: lastMessage.content,
         timestamp: lastMessage.timestamp,
         fromMe: lastMessage.fromMe,
-        messageType: lastMessage.messageType
+        messageType: lastMessage.messageType,
+        senderName: (lastMessage as any).senderName,
+        status: (lastMessage as any).status
       } : undefined
     };
     
@@ -741,7 +747,9 @@ export class ConversationService {
             content: message.content,
             timestamp: message.timestamp,
             fromMe: message.fromMe,
-            messageType: message.messageType
+            messageType: message.messageType,
+            senderName: (message as any).senderName,
+            status: (message as any).status
           } : undefined
         };
         
@@ -1332,6 +1340,7 @@ export class ConversationService {
           mediaUrl: messageData.message?.imageMessage?.url || messageData.message?.videoMessage?.url || messageData.message?.audioMessage?.url,
           fileName: messageData.message?.documentMessage?.fileName,
           caption: messageData.message?.imageMessage?.caption || messageData.message?.videoMessage?.caption,
+          senderName: !messageData.key.fromMe && messageData.pushName ? messageData.pushName : undefined,
           conversationId: conversation.id
         };
 

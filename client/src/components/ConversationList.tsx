@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import { Search, MessageSquare, Archive, Pin, MoreVertical, Check, Mail } from 'lucide-react';
+import { Search, MessageSquare, Archive, Pin, MoreVertical, Check, Mail, CheckCheck, Image, Music, Video, FileText, MapPin, User } from 'lucide-react';
 import { userAuthStore } from '../features/auth/store/authStore';
 import { conversationService } from '../services/conversationService';
 import { socketService } from '../services/socketService';
@@ -23,6 +23,8 @@ interface ConversationSummary {
     fromMe: boolean;
     timestamp: Date;
     messageType: string;
+    senderName?: string;
+    status?: 'PENDING' | 'SERVER_ACK' | 'DELIVERY_ACK' | 'READ' | 'PLAYED';
   };
 }
 
@@ -240,6 +242,35 @@ export const ConversationList: React.FC = () => {
     return message.substring(0, maxLength) + '...';
   };
 
+  // Helper para ícone de tipo de mensagem
+  const getMessageTypeIcon = (messageType: string) => {
+    switch (messageType.toUpperCase()) {
+      case 'IMAGE':
+        return <Image className="h-4 w-4 inline mr-1" />;
+      case 'AUDIO':
+      case 'PTT':
+        return <Music className="h-4 w-4 inline mr-1" />;
+      case 'VIDEO':
+        return <Video className="h-4 w-4 inline mr-1" />;
+      case 'DOCUMENT':
+        return <FileText className="h-4 w-4 inline mr-1" />;
+      case 'LOCATION':
+        return <MapPin className="h-4 w-4 inline mr-1" />;
+      case 'CONTACT':
+        return <User className="h-4 w-4 inline mr-1" />;
+      default:
+        return null;
+    }
+  };
+
+  // Helper para ícone de status de leitura
+  const getStatusIcon = (status?: string) => {
+    if (!status || status === 'PENDING') return <Check className="h-3 w-3 inline" />;
+    if (status === 'SERVER_ACK' || status === 'DELIVERY_ACK') return <CheckCheck className="h-3 w-3 inline" />;
+    if (status === 'READ' || status === 'PLAYED') return <CheckCheck className="h-3 w-3 inline text-blue-500" />;
+    return <Check className="h-3 w-3 inline" />;
+  };
+
   const handleMarkAsRead = async (e: React.MouseEvent, conversationId: string) => {
     e.preventDefault();
     e.stopPropagation();
@@ -417,12 +448,31 @@ export const ConversationList: React.FC = () => {
                         {(() => {
                           // Priorizar lastMessagePreview (mais completo)
                           if (conversation.lastMessagePreview?.content) {
+                            const preview = conversation.lastMessagePreview;
+                            const messageTypeIcon = getMessageTypeIcon(preview.messageType);
+                            
                             return (
-                              <p className={`text-sm truncate text-base-content/70`}>
-                                {conversation.lastMessagePreview.fromMe && (
-                                  <span className="text-primary">Você: </span>
+                              <p className={`text-sm truncate text-base-content/70 flex items-center`}>
+                                {/* Status de leitura (só para mensagens enviadas) */}
+                                {preview.fromMe && (
+                                  <span className="mr-1">{getStatusIcon(preview.status)}</span>
                                 )}
-                                {truncateMessage(conversation.lastMessagePreview.content)}
+                                
+                                {/* Nome do remetente em grupos (só para mensagens recebidas) - BOLD como WhatsApp */}
+                                {!preview.fromMe && conversation.isGroup && preview.senderName && (
+                                  <span className="font-semibold">{preview.senderName}:&nbsp;</span>
+                                )}
+                                
+                                {/* "Você:" para mensagens enviadas */}
+                                {preview.fromMe && (
+                                  <span className="text-primary">Você:&nbsp;</span>
+                                )}
+                                
+                                {/* Ícone de tipo de mensagem */}
+                                {messageTypeIcon && <span className="mr-1">{messageTypeIcon}</span>}
+                                
+                                {/* Conteúdo da mensagem */}
+                                <span className="truncate">{truncateMessage(preview.content)}</span>
                               </p>
                             );
                           }
