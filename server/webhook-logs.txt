@@ -46450,3 +46450,1421 @@ PushName: Equipe Canal Rodrigo Moreira
 Message: N/A
 === END ENTRY ===
 
+
+[2025-10-30T07:41:55.106Z] INSTANCE: whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795
+=== WEBHOOK DATA ===
+{
+  "event": "messages.update",
+  "sender": "554191188909@s.whatsapp.net",
+  "data": {
+    "remoteJid": "554198773200@s.whatsapp.net",
+    "keyId": "3F7EA39ED26BCDB19E27",
+    "status": "READ",
+    "fromMe": false,
+    "instanceId": "24e9bb18-7c4f-49b2-ba13-a9b8f0c17732",
+    "messageId": "cmhcsherk9upukb4is9o2rngv"
+  }
+}
+=== RAW BODY ===
+{
+  "event": "messages.update",
+  "sender": "554191188909@s.whatsapp.net",
+  "data": {
+    "remoteJid": "554198773200@s.whatsapp.net",
+    "keyId": "3F7EA39ED26BCDB19E27",
+    "status": "READ",
+    "fromMe": false,
+    "instanceId": "24e9bb18-7c4f-49b2-ba13-a9b8f0c17732",
+    "messageId": "cmhcsherk9upukb4is9o2rngv"
+  }
+}
+=== EXTRACTED INFO ===
+Event: messages.update
+RemoteJid: 554198773200@s.whatsapp.net
+RemoteJidAlt: N/A
+PushName: N/A
+Message: N/A
+=== END ENTRY ===
+
+
+[2025-10-30T07:41:55.114Z] INSTANCE: whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795
+=== WEBHOOK DATA ===
+{
+  "event": "chats.upsert",
+  "sender": "554191188909@s.whatsapp.net",
+  "data": [
+    {
+      "remoteJid": "554198773200@s.whatsapp.net",
+      "unreadMessages": 0,
+      "instanceId": "24e9bb18-7c4f-49b2-ba13-a9b8f0c17732"
+    }
+  ]
+}
+=== RAW BODY ===
+{
+  "event": "chats.upsert",
+  "sender": "554191188909@s.whatsapp.net",
+  "data": [
+    {
+      "remoteJid": "554198773200@s.whatsapp.net",
+      "unreadMessages": 0,
+      "instanceId": "24e9bb18-7c4f-49b2-ba13-a9b8f0c17732"
+    }
+  ]
+}
+=== EXTRACTED INFO ===
+Event: chats.upsert
+RemoteJid: N/A
+RemoteJidAlt: N/A
+PushName: N/A
+Message: N/A
+=== END ENTRY ===
+
+
+[2025-10-30T07:41:55.361Z] INSTANCE: whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795
+=== WEBHOOK DATA ===
+{
+  "event": "messages.update",
+  "sender": "554191188909@s.whatsapp.net",
+  "data": {
+    "remoteJid": "554198773200@s.whatsapp.net",
+    "keyId": "3F6CD0B1428F03DE8542",
+    "status": "READ",
+    "fromMe": false,
+    "instanceId": "24e9bb18-7c4f-49b2-ba13-a9b8f0c17732",
+    "messageId": "cmhcsh4yy9upokb4i44827jeu"
+  }
+}
+=== RAW BODY ===
+{
+  "event": "messages.update",
+  "sender": "554191188909@s.whatsapp.net",
+  "data": {
+    "remoteJid": "554198773200@s.whatsapp.net",
+    "keyId": "3F6CD0B1428F03DE8542",
+    "status": "READ",
+    "fromMe": false,
+    "instanceId": "24e9bb18-7c4f-49b2-ba13-a9b8f0c17732",
+    "messageId": "cmhcsh4yy9upokb4i44827jeu"
+  }
+}
+=== EXTRACTED INFO ===
+Event: messages.update
+RemoteJid: 554198773200@s.whatsapp.net
+RemoteJidAlt: N/A
+PushName: N/A
+Message: N/A
+=== END ENTRY ===
+
+
+[2025-10-30T07:41:55.366Z] INSTANCE: whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795
+=== WEBHOOK DATA ===
+{
+  "event": "chats.upsert",
+  "sender": "554191188909@s.whatsapp.net",
+  "data": [
+    {
+      "remoteJid": "554198773200@s.whatsapp.net",
+      "unreadMessages": 0,
+      "instanceId": "24e9bb18-7c4f-49b2-ba13-a9b8f0c17732"
+    }
+  ]
+}
+=== RAW BODY ===
+{
+  "event": "chats.upsert",
+  "sender": "554191188909@s.whatsapp.net",
+  "data": [
+    {
+      "remoteJid": "554198773200@s.whatsapp.net",
+      "unreadMessages": 0,
+      "instanceId": "24e9bb18-7c4f-49b2-ba13-a9b8f0c17732"
+    }
+  ]
+}
+=== EXTRACTED INFO ===
+Event: chats.upsert
+RemoteJid: N/A
+RemoteJidAlt: N/A
+PushName: N/A
+Message: N/A
+=== END ENTRY ===
+
+
+[2025-10-30T07:41:56.839Z] INSTANCE: whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795
+=== WEBHOOK DATA ===
+{
+  "event": "messages.upsert",
+  "sender": "554191188909@s.whatsapp.net",
+  "data": {
+    "key": {
+      "remoteJid": "554195524626-1525411348@g.us",
+      "fromMe": false,
+      "id": "ACE2EEFFD657793B7A530A59D6998F85",
+      "participant": "262564554473562@lid"
+    },
+    "messageTimestamp": 1761807962,
+    "pushName": "262564554473562@lid",
+    "message": {
+      "imageMessage": {
+        "url": "https://mmg.whatsapp.net/o1/v/t24/f2/m231/AQMTm3Ms59sS0Zqny4qArzEzIYCaKCRjDp9IbBQg-qFhw-MOUuSm9_Rp2ycJEQlF9MUJ_fhxXVk-qw5JVFktKeKg3wRyNhJAWJHG9w7hoA?ccb=9-4&oh=01_Q5Aa2wHmISkUVMOvw7_zQ2U_yfec_iADseIWDfFgzkeWAylAxg&oe=692A643B&_nc_sid=e6ed6c&mms3=true",
+        "mimetype": "image/jpeg",
+        "caption": "4 Sea gate",
+        "fileLength": {
+          "low": 187880,
+          "high": 0,
+          "unsigned": true
+        },
+        "height": 1409,
+        "width": 1080,
+        "mediaKey": {
+          "0": 40,
+          "1": 45,
+          "2": 58,
+          "3": 61,
+          "4": 115,
+          "5": 19,
+          "6": 129,
+          "7": 250,
+          "8": 105,
+          "9": 81,
+          "10": 249,
+          "11": 217,
+          "12": 125,
+          "13": 130,
+          "14": 69,
+          "15": 192,
+          "16": 34,
+          "17": 79,
+          "18": 251,
+          "19": 85,
+          "20": 44,
+          "21": 180,
+          "22": 206,
+          "23": 245,
+          "24": 113,
+          "25": 203,
+          "26": 83,
+          "27": 27,
+          "28": 4,
+          "29": 139,
+          "30": 106,
+          "31": 43
+        },
+        "fileEncSha256": {
+          "0": 111,
+          "1": 208,
+          "2": 61,
+          "3": 111,
+          "4": 30,
+          "5": 77,
+          "6": 84,
+          "7": 185,
+          "8": 173,
+          "9": 222,
+          "10": 48,
+          "11": 228,
+          "12": 50,
+          "13": 63,
+          "14": 215,
+          "15": 102,
+          "16": 237,
+          "17": 186,
+          "18": 61,
+          "19": 116,
+          "20": 158,
+          "21": 212,
+          "22": 3,
+          "23": 134,
+          "24": 76,
+          "25": 172,
+          "26": 212,
+          "27": 104,
+          "28": 38,
+          "29": 67,
+          "30": 192,
+          "31": 162
+        },
+        "fileSha256": {
+          "0": 247,
+          "1": 198,
+          "2": 111,
+          "3": 22,
+          "4": 46,
+          "5": 199,
+          "6": 183,
+          "7": 240,
+          "8": 50,
+          "9": 141,
+          "10": 156,
+          "11": 63,
+          "12": 109,
+          "13": 37,
+          "14": 134,
+          "15": 187,
+          "16": 236,
+          "17": 241,
+          "18": 156,
+          "19": 248,
+          "20": 159,
+          "21": 127,
+          "22": 252,
+          "23": 222,
+          "24": 67,
+          "25": 8,
+          "26": 235,
+          "27": 100,
+          "28": 221,
+          "29": 177,
+          "30": 202,
+          "31": 213
+        }
+      },
+      "messageContextInfo": {
+        "messageSecret": {
+          "0": 140,
+          "1": 153,
+          "2": 24,
+          "3": 123,
+          "4": 125,
+          "5": 8,
+          "6": 121,
+          "7": 14,
+          "8": 90,
+          "9": 94,
+          "10": 225,
+          "11": 1,
+          "12": 63,
+          "13": 0,
+          "14": 87,
+          "15": 170,
+          "16": 98,
+          "17": 84,
+          "18": 225,
+          "19": 105,
+          "20": 165,
+          "21": 93,
+          "22": 100,
+          "23": 139,
+          "24": 124,
+          "25": 175,
+          "26": 117,
+          "27": 165,
+          "28": 159,
+          "29": 245,
+          "30": 233,
+          "31": 31
+        }
+      }
+    },
+    "messageType": "imageMessage",
+    "instanceId": "24e9bb18-7c4f-49b2-ba13-a9b8f0c17732",
+    "source": "android",
+    "status": "DELIVERY_ACK",
+    "contextInfo": {
+      "mentionedJid": [],
+      "groupMentions": [],
+      "expiration": 86400,
+      "disappearingMode": {
+        "initiator": 0,
+        "trigger": 0
+      },
+      "pairedMediaType": 0
+    }
+  }
+}
+=== RAW BODY ===
+{
+  "event": "messages.upsert",
+  "sender": "554191188909@s.whatsapp.net",
+  "data": {
+    "key": {
+      "remoteJid": "554195524626-1525411348@g.us",
+      "fromMe": false,
+      "id": "ACE2EEFFD657793B7A530A59D6998F85",
+      "participant": "262564554473562@lid"
+    },
+    "messageTimestamp": 1761807962,
+    "pushName": "262564554473562@lid",
+    "message": {
+      "imageMessage": {
+        "url": "https://mmg.whatsapp.net/o1/v/t24/f2/m231/AQMTm3Ms59sS0Zqny4qArzEzIYCaKCRjDp9IbBQg-qFhw-MOUuSm9_Rp2ycJEQlF9MUJ_fhxXVk-qw5JVFktKeKg3wRyNhJAWJHG9w7hoA?ccb=9-4&oh=01_Q5Aa2wHmISkUVMOvw7_zQ2U_yfec_iADseIWDfFgzkeWAylAxg&oe=692A643B&_nc_sid=e6ed6c&mms3=true",
+        "mimetype": "image/jpeg",
+        "caption": "4 Sea gate",
+        "fileLength": {
+          "low": 187880,
+          "high": 0,
+          "unsigned": true
+        },
+        "height": 1409,
+        "width": 1080,
+        "mediaKey": {
+          "0": 40,
+          "1": 45,
+          "2": 58,
+          "3": 61,
+          "4": 115,
+          "5": 19,
+          "6": 129,
+          "7": 250,
+          "8": 105,
+          "9": 81,
+          "10": 249,
+          "11": 217,
+          "12": 125,
+          "13": 130,
+          "14": 69,
+          "15": 192,
+          "16": 34,
+          "17": 79,
+          "18": 251,
+          "19": 85,
+          "20": 44,
+          "21": 180,
+          "22": 206,
+          "23": 245,
+          "24": 113,
+          "25": 203,
+          "26": 83,
+          "27": 27,
+          "28": 4,
+          "29": 139,
+          "30": 106,
+          "31": 43
+        },
+        "fileEncSha256": {
+          "0": 111,
+          "1": 208,
+          "2": 61,
+          "3": 111,
+          "4": 30,
+          "5": 77,
+          "6": 84,
+          "7": 185,
+          "8": 173,
+          "9": 222,
+          "10": 48,
+          "11": 228,
+          "12": 50,
+          "13": 63,
+          "14": 215,
+          "15": 102,
+          "16": 237,
+          "17": 186,
+          "18": 61,
+          "19": 116,
+          "20": 158,
+          "21": 212,
+          "22": 3,
+          "23": 134,
+          "24": 76,
+          "25": 172,
+          "26": 212,
+          "27": 104,
+          "28": 38,
+          "29": 67,
+          "30": 192,
+          "31": 162
+        },
+        "fileSha256": {
+          "0": 247,
+          "1": 198,
+          "2": 111,
+          "3": 22,
+          "4": 46,
+          "5": 199,
+          "6": 183,
+          "7": 240,
+          "8": 50,
+          "9": 141,
+          "10": 156,
+          "11": 63,
+          "12": 109,
+          "13": 37,
+          "14": 134,
+          "15": 187,
+          "16": 236,
+          "17": 241,
+          "18": 156,
+          "19": 248,
+          "20": 159,
+          "21": 127,
+          "22": 252,
+          "23": 222,
+          "24": 67,
+          "25": 8,
+          "26": 235,
+          "27": 100,
+          "28": 221,
+          "29": 177,
+          "30": 202,
+          "31": 213
+        }
+      },
+      "messageContextInfo": {
+        "messageSecret": {
+          "0": 140,
+          "1": 153,
+          "2": 24,
+          "3": 123,
+          "4": 125,
+          "5": 8,
+          "6": 121,
+          "7": 14,
+          "8": 90,
+          "9": 94,
+          "10": 225,
+          "11": 1,
+          "12": 63,
+          "13": 0,
+          "14": 87,
+          "15": 170,
+          "16": 98,
+          "17": 84,
+          "18": 225,
+          "19": 105,
+          "20": 165,
+          "21": 93,
+          "22": 100,
+          "23": 139,
+          "24": 124,
+          "25": 175,
+          "26": 117,
+          "27": 165,
+          "28": 159,
+          "29": 245,
+          "30": 233,
+          "31": 31
+        }
+      }
+    },
+    "messageType": "imageMessage",
+    "instanceId": "24e9bb18-7c4f-49b2-ba13-a9b8f0c17732",
+    "source": "android",
+    "status": "DELIVERY_ACK",
+    "contextInfo": {
+      "mentionedJid": [],
+      "groupMentions": [],
+      "expiration": 86400,
+      "disappearingMode": {
+        "initiator": 0,
+        "trigger": 0
+      },
+      "pairedMediaType": 0
+    }
+  }
+}
+=== EXTRACTED INFO ===
+Event: messages.upsert
+RemoteJid: 554195524626-1525411348@g.us
+RemoteJidAlt: N/A
+PushName: 262564554473562@lid
+Message: {"imageMessage":{"url":"https://mmg.whatsapp.net/o1/v/t24/f2/m231/AQMTm3Ms59sS0Zqny4qArzEzIYCaKCRjDp9IbBQg-qFhw-MOUuSm9_Rp2ycJEQlF9MUJ_fhxXVk-qw5JVFktKeKg3wRyNhJAWJHG9w7hoA?ccb=9-4&oh=01_Q5Aa2wHmISkUV...
+=== END ENTRY ===
+
+
+[2025-10-30T07:41:56.909Z] INSTANCE: whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795
+=== WEBHOOK DATA ===
+{
+  "event": "contacts.update",
+  "sender": "554191188909@s.whatsapp.net",
+  "data": {
+    "remoteJid": "554195524626-1525411348@g.us",
+    "pushName": null,
+    "profilePicUrl": "https://pps.whatsapp.net/v/t61.24694-24/173747738_289723262661065_1968163826499460377_n.jpg?ccb=11-4&oh=01_Q5Aa2wEhRRtAAeyih_v-3ivjyTQxDWpE7-sI5BanknAVLLtYBA&oe=691017E3&_nc_sid=5e03e0&_nc_cat=106",
+    "instanceId": "24e9bb18-7c4f-49b2-ba13-a9b8f0c17732"
+  },
+  "instance": "whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795",
+  "destination": "https://ardath-quaky-epiphenomenally.ngrok-free.dev/api/webhooks/evolution/whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795",
+  "date_time": "2025-10-30T04:41:57.028Z",
+  "server_url": "https://hsapi.studio",
+  "apikey": "717376BB-0133-4A66-8994-BCA8A6F039D9"
+}
+=== RAW BODY ===
+{
+  "event": "contacts.update",
+  "sender": "554191188909@s.whatsapp.net",
+  "data": {
+    "remoteJid": "554195524626-1525411348@g.us",
+    "pushName": null,
+    "profilePicUrl": "https://pps.whatsapp.net/v/t61.24694-24/173747738_289723262661065_1968163826499460377_n.jpg?ccb=11-4&oh=01_Q5Aa2wEhRRtAAeyih_v-3ivjyTQxDWpE7-sI5BanknAVLLtYBA&oe=691017E3&_nc_sid=5e03e0&_nc_cat=106",
+    "instanceId": "24e9bb18-7c4f-49b2-ba13-a9b8f0c17732"
+  },
+  "instance": "whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795",
+  "destination": "https://ardath-quaky-epiphenomenally.ngrok-free.dev/api/webhooks/evolution/whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795",
+  "date_time": "2025-10-30T04:41:57.028Z",
+  "server_url": "https://hsapi.studio",
+  "apikey": "717376BB-0133-4A66-8994-BCA8A6F039D9"
+}
+=== EXTRACTED INFO ===
+Event: contacts.update
+RemoteJid: 554195524626-1525411348@g.us
+RemoteJidAlt: N/A
+PushName: N/A
+Message: N/A
+=== END ENTRY ===
+
+
+[2025-10-30T07:42:03.303Z] INSTANCE: whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795
+=== WEBHOOK DATA ===
+{
+  "event": "contacts.update",
+  "sender": "554191188909@s.whatsapp.net",
+  "data": {
+    "remoteJid": "554195524626-1525411348@g.us",
+    "pushName": null,
+    "profilePicUrl": "https://pps.whatsapp.net/v/t61.24694-24/173747738_289723262661065_1968163826499460377_n.jpg?ccb=11-4&oh=01_Q5Aa2wEhRRtAAeyih_v-3ivjyTQxDWpE7-sI5BanknAVLLtYBA&oe=691017E3&_nc_sid=5e03e0&_nc_cat=106",
+    "instanceId": "24e9bb18-7c4f-49b2-ba13-a9b8f0c17732"
+  },
+  "instance": "whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795",
+  "destination": "https://ardath-quaky-epiphenomenally.ngrok-free.dev/api/webhooks/evolution/whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795",
+  "date_time": "2025-10-30T04:41:57.028Z",
+  "server_url": "https://hsapi.studio",
+  "apikey": "717376BB-0133-4A66-8994-BCA8A6F039D9"
+}
+=== RAW BODY ===
+{
+  "event": "contacts.update",
+  "sender": "554191188909@s.whatsapp.net",
+  "data": {
+    "remoteJid": "554195524626-1525411348@g.us",
+    "pushName": null,
+    "profilePicUrl": "https://pps.whatsapp.net/v/t61.24694-24/173747738_289723262661065_1968163826499460377_n.jpg?ccb=11-4&oh=01_Q5Aa2wEhRRtAAeyih_v-3ivjyTQxDWpE7-sI5BanknAVLLtYBA&oe=691017E3&_nc_sid=5e03e0&_nc_cat=106",
+    "instanceId": "24e9bb18-7c4f-49b2-ba13-a9b8f0c17732"
+  },
+  "instance": "whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795",
+  "destination": "https://ardath-quaky-epiphenomenally.ngrok-free.dev/api/webhooks/evolution/whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795",
+  "date_time": "2025-10-30T04:41:57.028Z",
+  "server_url": "https://hsapi.studio",
+  "apikey": "717376BB-0133-4A66-8994-BCA8A6F039D9"
+}
+=== EXTRACTED INFO ===
+Event: contacts.update
+RemoteJid: 554195524626-1525411348@g.us
+RemoteJidAlt: N/A
+PushName: N/A
+Message: N/A
+=== END ENTRY ===
+
+
+[2025-10-30T07:42:13.563Z] INSTANCE: whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795
+=== WEBHOOK DATA ===
+{
+  "event": "contacts.update",
+  "sender": "554191188909@s.whatsapp.net",
+  "data": {
+    "remoteJid": "554195524626-1525411348@g.us",
+    "pushName": null,
+    "profilePicUrl": "https://pps.whatsapp.net/v/t61.24694-24/173747738_289723262661065_1968163826499460377_n.jpg?ccb=11-4&oh=01_Q5Aa2wEhRRtAAeyih_v-3ivjyTQxDWpE7-sI5BanknAVLLtYBA&oe=691017E3&_nc_sid=5e03e0&_nc_cat=106",
+    "instanceId": "24e9bb18-7c4f-49b2-ba13-a9b8f0c17732"
+  },
+  "instance": "whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795",
+  "destination": "https://ardath-quaky-epiphenomenally.ngrok-free.dev/api/webhooks/evolution/whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795",
+  "date_time": "2025-10-30T04:41:57.028Z",
+  "server_url": "https://hsapi.studio",
+  "apikey": "717376BB-0133-4A66-8994-BCA8A6F039D9"
+}
+=== RAW BODY ===
+{
+  "event": "contacts.update",
+  "sender": "554191188909@s.whatsapp.net",
+  "data": {
+    "remoteJid": "554195524626-1525411348@g.us",
+    "pushName": null,
+    "profilePicUrl": "https://pps.whatsapp.net/v/t61.24694-24/173747738_289723262661065_1968163826499460377_n.jpg?ccb=11-4&oh=01_Q5Aa2wEhRRtAAeyih_v-3ivjyTQxDWpE7-sI5BanknAVLLtYBA&oe=691017E3&_nc_sid=5e03e0&_nc_cat=106",
+    "instanceId": "24e9bb18-7c4f-49b2-ba13-a9b8f0c17732"
+  },
+  "instance": "whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795",
+  "destination": "https://ardath-quaky-epiphenomenally.ngrok-free.dev/api/webhooks/evolution/whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795",
+  "date_time": "2025-10-30T04:41:57.028Z",
+  "server_url": "https://hsapi.studio",
+  "apikey": "717376BB-0133-4A66-8994-BCA8A6F039D9"
+}
+=== EXTRACTED INFO ===
+Event: contacts.update
+RemoteJid: 554195524626-1525411348@g.us
+RemoteJidAlt: N/A
+PushName: N/A
+Message: N/A
+=== END ENTRY ===
+
+
+[2025-10-30T07:42:32.079Z] INSTANCE: whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795
+=== WEBHOOK DATA ===
+{
+  "event": "contacts.update",
+  "sender": "554191188909@s.whatsapp.net",
+  "data": {
+    "remoteJid": "554195524626-1525411348@g.us",
+    "pushName": null,
+    "profilePicUrl": "https://pps.whatsapp.net/v/t61.24694-24/173747738_289723262661065_1968163826499460377_n.jpg?ccb=11-4&oh=01_Q5Aa2wEhRRtAAeyih_v-3ivjyTQxDWpE7-sI5BanknAVLLtYBA&oe=691017E3&_nc_sid=5e03e0&_nc_cat=106",
+    "instanceId": "24e9bb18-7c4f-49b2-ba13-a9b8f0c17732"
+  },
+  "instance": "whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795",
+  "destination": "https://ardath-quaky-epiphenomenally.ngrok-free.dev/api/webhooks/evolution/whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795",
+  "date_time": "2025-10-30T04:41:57.028Z",
+  "server_url": "https://hsapi.studio",
+  "apikey": "717376BB-0133-4A66-8994-BCA8A6F039D9"
+}
+=== RAW BODY ===
+{
+  "event": "contacts.update",
+  "sender": "554191188909@s.whatsapp.net",
+  "data": {
+    "remoteJid": "554195524626-1525411348@g.us",
+    "pushName": null,
+    "profilePicUrl": "https://pps.whatsapp.net/v/t61.24694-24/173747738_289723262661065_1968163826499460377_n.jpg?ccb=11-4&oh=01_Q5Aa2wEhRRtAAeyih_v-3ivjyTQxDWpE7-sI5BanknAVLLtYBA&oe=691017E3&_nc_sid=5e03e0&_nc_cat=106",
+    "instanceId": "24e9bb18-7c4f-49b2-ba13-a9b8f0c17732"
+  },
+  "instance": "whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795",
+  "destination": "https://ardath-quaky-epiphenomenally.ngrok-free.dev/api/webhooks/evolution/whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795",
+  "date_time": "2025-10-30T04:41:57.028Z",
+  "server_url": "https://hsapi.studio",
+  "apikey": "717376BB-0133-4A66-8994-BCA8A6F039D9"
+}
+=== EXTRACTED INFO ===
+Event: contacts.update
+RemoteJid: 554195524626-1525411348@g.us
+RemoteJidAlt: N/A
+PushName: N/A
+Message: N/A
+=== END ENTRY ===
+
+
+[2025-10-30T07:43:14.034Z] INSTANCE: whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795
+=== WEBHOOK DATA ===
+{
+  "event": "contacts.update",
+  "sender": "554191188909@s.whatsapp.net",
+  "data": {
+    "remoteJid": "554195524626-1525411348@g.us",
+    "pushName": null,
+    "profilePicUrl": "https://pps.whatsapp.net/v/t61.24694-24/173747738_289723262661065_1968163826499460377_n.jpg?ccb=11-4&oh=01_Q5Aa2wEhRRtAAeyih_v-3ivjyTQxDWpE7-sI5BanknAVLLtYBA&oe=691017E3&_nc_sid=5e03e0&_nc_cat=106",
+    "instanceId": "24e9bb18-7c4f-49b2-ba13-a9b8f0c17732"
+  },
+  "instance": "whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795",
+  "destination": "https://ardath-quaky-epiphenomenally.ngrok-free.dev/api/webhooks/evolution/whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795",
+  "date_time": "2025-10-30T04:41:57.028Z",
+  "server_url": "https://hsapi.studio",
+  "apikey": "717376BB-0133-4A66-8994-BCA8A6F039D9"
+}
+=== RAW BODY ===
+{
+  "event": "contacts.update",
+  "sender": "554191188909@s.whatsapp.net",
+  "data": {
+    "remoteJid": "554195524626-1525411348@g.us",
+    "pushName": null,
+    "profilePicUrl": "https://pps.whatsapp.net/v/t61.24694-24/173747738_289723262661065_1968163826499460377_n.jpg?ccb=11-4&oh=01_Q5Aa2wEhRRtAAeyih_v-3ivjyTQxDWpE7-sI5BanknAVLLtYBA&oe=691017E3&_nc_sid=5e03e0&_nc_cat=106",
+    "instanceId": "24e9bb18-7c4f-49b2-ba13-a9b8f0c17732"
+  },
+  "instance": "whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795",
+  "destination": "https://ardath-quaky-epiphenomenally.ngrok-free.dev/api/webhooks/evolution/whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795",
+  "date_time": "2025-10-30T04:41:57.028Z",
+  "server_url": "https://hsapi.studio",
+  "apikey": "717376BB-0133-4A66-8994-BCA8A6F039D9"
+}
+=== EXTRACTED INFO ===
+Event: contacts.update
+RemoteJid: 554195524626-1525411348@g.us
+RemoteJidAlt: N/A
+PushName: N/A
+Message: N/A
+=== END ENTRY ===
+
+
+[2025-10-30T07:44:43.215Z] INSTANCE: whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795
+=== WEBHOOK DATA ===
+{
+  "event": "contacts.update",
+  "sender": "554191188909@s.whatsapp.net",
+  "data": {
+    "remoteJid": "554195524626-1525411348@g.us",
+    "pushName": null,
+    "profilePicUrl": "https://pps.whatsapp.net/v/t61.24694-24/173747738_289723262661065_1968163826499460377_n.jpg?ccb=11-4&oh=01_Q5Aa2wEhRRtAAeyih_v-3ivjyTQxDWpE7-sI5BanknAVLLtYBA&oe=691017E3&_nc_sid=5e03e0&_nc_cat=106",
+    "instanceId": "24e9bb18-7c4f-49b2-ba13-a9b8f0c17732"
+  },
+  "instance": "whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795",
+  "destination": "https://ardath-quaky-epiphenomenally.ngrok-free.dev/api/webhooks/evolution/whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795",
+  "date_time": "2025-10-30T04:41:57.028Z",
+  "server_url": "https://hsapi.studio",
+  "apikey": "717376BB-0133-4A66-8994-BCA8A6F039D9"
+}
+=== RAW BODY ===
+{
+  "event": "contacts.update",
+  "sender": "554191188909@s.whatsapp.net",
+  "data": {
+    "remoteJid": "554195524626-1525411348@g.us",
+    "pushName": null,
+    "profilePicUrl": "https://pps.whatsapp.net/v/t61.24694-24/173747738_289723262661065_1968163826499460377_n.jpg?ccb=11-4&oh=01_Q5Aa2wEhRRtAAeyih_v-3ivjyTQxDWpE7-sI5BanknAVLLtYBA&oe=691017E3&_nc_sid=5e03e0&_nc_cat=106",
+    "instanceId": "24e9bb18-7c4f-49b2-ba13-a9b8f0c17732"
+  },
+  "instance": "whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795",
+  "destination": "https://ardath-quaky-epiphenomenally.ngrok-free.dev/api/webhooks/evolution/whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795",
+  "date_time": "2025-10-30T04:41:57.028Z",
+  "server_url": "https://hsapi.studio",
+  "apikey": "717376BB-0133-4A66-8994-BCA8A6F039D9"
+}
+=== EXTRACTED INFO ===
+Event: contacts.update
+RemoteJid: 554195524626-1525411348@g.us
+RemoteJidAlt: N/A
+PushName: N/A
+Message: N/A
+=== END ENTRY ===
+
+
+[2025-10-30T07:47:14.792Z] INSTANCE: whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795
+=== WEBHOOK DATA ===
+{
+  "event": "contacts.update",
+  "sender": "554191188909@s.whatsapp.net",
+  "data": {
+    "remoteJid": "554195524626-1525411348@g.us",
+    "pushName": null,
+    "profilePicUrl": "https://pps.whatsapp.net/v/t61.24694-24/173747738_289723262661065_1968163826499460377_n.jpg?ccb=11-4&oh=01_Q5Aa2wEhRRtAAeyih_v-3ivjyTQxDWpE7-sI5BanknAVLLtYBA&oe=691017E3&_nc_sid=5e03e0&_nc_cat=106",
+    "instanceId": "24e9bb18-7c4f-49b2-ba13-a9b8f0c17732"
+  },
+  "instance": "whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795",
+  "destination": "https://ardath-quaky-epiphenomenally.ngrok-free.dev/api/webhooks/evolution/whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795",
+  "date_time": "2025-10-30T04:41:57.028Z",
+  "server_url": "https://hsapi.studio",
+  "apikey": "717376BB-0133-4A66-8994-BCA8A6F039D9"
+}
+=== RAW BODY ===
+{
+  "event": "contacts.update",
+  "sender": "554191188909@s.whatsapp.net",
+  "data": {
+    "remoteJid": "554195524626-1525411348@g.us",
+    "pushName": null,
+    "profilePicUrl": "https://pps.whatsapp.net/v/t61.24694-24/173747738_289723262661065_1968163826499460377_n.jpg?ccb=11-4&oh=01_Q5Aa2wEhRRtAAeyih_v-3ivjyTQxDWpE7-sI5BanknAVLLtYBA&oe=691017E3&_nc_sid=5e03e0&_nc_cat=106",
+    "instanceId": "24e9bb18-7c4f-49b2-ba13-a9b8f0c17732"
+  },
+  "instance": "whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795",
+  "destination": "https://ardath-quaky-epiphenomenally.ngrok-free.dev/api/webhooks/evolution/whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795",
+  "date_time": "2025-10-30T04:41:57.028Z",
+  "server_url": "https://hsapi.studio",
+  "apikey": "717376BB-0133-4A66-8994-BCA8A6F039D9"
+}
+=== EXTRACTED INFO ===
+Event: contacts.update
+RemoteJid: 554195524626-1525411348@g.us
+RemoteJidAlt: N/A
+PushName: N/A
+Message: N/A
+=== END ENTRY ===
+
+
+[2025-10-30T07:52:06.058Z] INSTANCE: whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795
+=== WEBHOOK DATA ===
+{
+  "event": "contacts.update",
+  "sender": "554191188909@s.whatsapp.net",
+  "data": {
+    "remoteJid": "554195524626-1525411348@g.us",
+    "pushName": null,
+    "profilePicUrl": "https://pps.whatsapp.net/v/t61.24694-24/173747738_289723262661065_1968163826499460377_n.jpg?ccb=11-4&oh=01_Q5Aa2wEhRRtAAeyih_v-3ivjyTQxDWpE7-sI5BanknAVLLtYBA&oe=691017E3&_nc_sid=5e03e0&_nc_cat=106",
+    "instanceId": "24e9bb18-7c4f-49b2-ba13-a9b8f0c17732"
+  },
+  "instance": "whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795",
+  "destination": "https://ardath-quaky-epiphenomenally.ngrok-free.dev/api/webhooks/evolution/whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795",
+  "date_time": "2025-10-30T04:41:57.028Z",
+  "server_url": "https://hsapi.studio",
+  "apikey": "717376BB-0133-4A66-8994-BCA8A6F039D9"
+}
+=== RAW BODY ===
+{
+  "event": "contacts.update",
+  "sender": "554191188909@s.whatsapp.net",
+  "data": {
+    "remoteJid": "554195524626-1525411348@g.us",
+    "pushName": null,
+    "profilePicUrl": "https://pps.whatsapp.net/v/t61.24694-24/173747738_289723262661065_1968163826499460377_n.jpg?ccb=11-4&oh=01_Q5Aa2wEhRRtAAeyih_v-3ivjyTQxDWpE7-sI5BanknAVLLtYBA&oe=691017E3&_nc_sid=5e03e0&_nc_cat=106",
+    "instanceId": "24e9bb18-7c4f-49b2-ba13-a9b8f0c17732"
+  },
+  "instance": "whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795",
+  "destination": "https://ardath-quaky-epiphenomenally.ngrok-free.dev/api/webhooks/evolution/whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795",
+  "date_time": "2025-10-30T04:41:57.028Z",
+  "server_url": "https://hsapi.studio",
+  "apikey": "717376BB-0133-4A66-8994-BCA8A6F039D9"
+}
+=== EXTRACTED INFO ===
+Event: contacts.update
+RemoteJid: 554195524626-1525411348@g.us
+RemoteJidAlt: N/A
+PushName: N/A
+Message: N/A
+=== END ENTRY ===
+
+
+[2025-10-30T07:56:38.243Z] INSTANCE: whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795
+=== WEBHOOK DATA ===
+{
+  "event": "contacts.update",
+  "sender": "554191188909@s.whatsapp.net",
+  "data": {
+    "remoteJid": "554195524626-1525411348@g.us",
+    "pushName": null,
+    "profilePicUrl": "https://pps.whatsapp.net/v/t61.24694-24/173747738_289723262661065_1968163826499460377_n.jpg?ccb=11-4&oh=01_Q5Aa2wEhRRtAAeyih_v-3ivjyTQxDWpE7-sI5BanknAVLLtYBA&oe=691017E3&_nc_sid=5e03e0&_nc_cat=106",
+    "instanceId": "24e9bb18-7c4f-49b2-ba13-a9b8f0c17732"
+  },
+  "instance": "whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795",
+  "destination": "https://ardath-quaky-epiphenomenally.ngrok-free.dev/api/webhooks/evolution/whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795",
+  "date_time": "2025-10-30T04:41:57.028Z",
+  "server_url": "https://hsapi.studio",
+  "apikey": "717376BB-0133-4A66-8994-BCA8A6F039D9"
+}
+=== RAW BODY ===
+{
+  "event": "contacts.update",
+  "sender": "554191188909@s.whatsapp.net",
+  "data": {
+    "remoteJid": "554195524626-1525411348@g.us",
+    "pushName": null,
+    "profilePicUrl": "https://pps.whatsapp.net/v/t61.24694-24/173747738_289723262661065_1968163826499460377_n.jpg?ccb=11-4&oh=01_Q5Aa2wEhRRtAAeyih_v-3ivjyTQxDWpE7-sI5BanknAVLLtYBA&oe=691017E3&_nc_sid=5e03e0&_nc_cat=106",
+    "instanceId": "24e9bb18-7c4f-49b2-ba13-a9b8f0c17732"
+  },
+  "instance": "whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795",
+  "destination": "https://ardath-quaky-epiphenomenally.ngrok-free.dev/api/webhooks/evolution/whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795",
+  "date_time": "2025-10-30T04:41:57.028Z",
+  "server_url": "https://hsapi.studio",
+  "apikey": "717376BB-0133-4A66-8994-BCA8A6F039D9"
+}
+=== EXTRACTED INFO ===
+Event: contacts.update
+RemoteJid: 554195524626-1525411348@g.us
+RemoteJidAlt: N/A
+PushName: N/A
+Message: N/A
+=== END ENTRY ===
+
+
+[2025-10-30T08:01:24.663Z] INSTANCE: whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795
+=== WEBHOOK DATA ===
+{
+  "event": "contacts.update",
+  "sender": "554191188909@s.whatsapp.net",
+  "data": {
+    "remoteJid": "554195524626-1525411348@g.us",
+    "pushName": null,
+    "profilePicUrl": "https://pps.whatsapp.net/v/t61.24694-24/173747738_289723262661065_1968163826499460377_n.jpg?ccb=11-4&oh=01_Q5Aa2wEhRRtAAeyih_v-3ivjyTQxDWpE7-sI5BanknAVLLtYBA&oe=691017E3&_nc_sid=5e03e0&_nc_cat=106",
+    "instanceId": "24e9bb18-7c4f-49b2-ba13-a9b8f0c17732"
+  },
+  "instance": "whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795",
+  "destination": "https://ardath-quaky-epiphenomenally.ngrok-free.dev/api/webhooks/evolution/whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795",
+  "date_time": "2025-10-30T04:41:57.028Z",
+  "server_url": "https://hsapi.studio",
+  "apikey": "717376BB-0133-4A66-8994-BCA8A6F039D9"
+}
+=== RAW BODY ===
+{
+  "event": "contacts.update",
+  "sender": "554191188909@s.whatsapp.net",
+  "data": {
+    "remoteJid": "554195524626-1525411348@g.us",
+    "pushName": null,
+    "profilePicUrl": "https://pps.whatsapp.net/v/t61.24694-24/173747738_289723262661065_1968163826499460377_n.jpg?ccb=11-4&oh=01_Q5Aa2wEhRRtAAeyih_v-3ivjyTQxDWpE7-sI5BanknAVLLtYBA&oe=691017E3&_nc_sid=5e03e0&_nc_cat=106",
+    "instanceId": "24e9bb18-7c4f-49b2-ba13-a9b8f0c17732"
+  },
+  "instance": "whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795",
+  "destination": "https://ardath-quaky-epiphenomenally.ngrok-free.dev/api/webhooks/evolution/whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795",
+  "date_time": "2025-10-30T04:41:57.028Z",
+  "server_url": "https://hsapi.studio",
+  "apikey": "717376BB-0133-4A66-8994-BCA8A6F039D9"
+}
+=== EXTRACTED INFO ===
+Event: contacts.update
+RemoteJid: 554195524626-1525411348@g.us
+RemoteJidAlt: N/A
+PushName: N/A
+Message: N/A
+=== END ENTRY ===
+
+
+[2025-10-30T08:26:49.103Z] INSTANCE: whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795
+=== WEBHOOK DATA ===
+{
+  "event": "connection.update",
+  "sender": "554191188909@s.whatsapp.net",
+  "data": {
+    "state": "connecting",
+    "instance": "whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795",
+    "statusReason": 200
+  }
+}
+=== RAW BODY ===
+{
+  "event": "connection.update",
+  "sender": "554191188909@s.whatsapp.net",
+  "data": {
+    "state": "connecting",
+    "instance": "whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795",
+    "statusReason": 200
+  }
+}
+=== EXTRACTED INFO ===
+Event: connection.update
+RemoteJid: N/A
+RemoteJidAlt: N/A
+PushName: N/A
+Message: N/A
+=== END ENTRY ===
+
+
+[2025-10-30T08:26:49.541Z] INSTANCE: whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795
+=== WEBHOOK DATA ===
+{
+  "event": "connection.update",
+  "sender": "554191188909@s.whatsapp.net",
+  "data": {
+    "state": "open",
+    "instance": "whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795",
+    "wuid": "554191188909@s.whatsapp.net",
+    "profileName": "Rafa",
+    "profilePictureUrl": "https://pps.whatsapp.net/v/t61.24694-24/489951075_2090654101433942_1490999329557649666_n.jpg?ccb=11-4&oh=01_Q5Aa2wEtYvPmi7m5_TjyYkO_vjGGhquNPjUA-1xLo2H9Or4-3A&oe=69101A2C&_nc_sid=5e03e0&_nc_cat=108",
+    "statusReason": 200
+  }
+}
+=== RAW BODY ===
+{
+  "event": "connection.update",
+  "sender": "554191188909@s.whatsapp.net",
+  "data": {
+    "state": "open",
+    "instance": "whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795",
+    "wuid": "554191188909@s.whatsapp.net",
+    "profileName": "Rafa",
+    "profilePictureUrl": "https://pps.whatsapp.net/v/t61.24694-24/489951075_2090654101433942_1490999329557649666_n.jpg?ccb=11-4&oh=01_Q5Aa2wEtYvPmi7m5_TjyYkO_vjGGhquNPjUA-1xLo2H9Or4-3A&oe=69101A2C&_nc_sid=5e03e0&_nc_cat=108",
+    "statusReason": 200
+  }
+}
+=== EXTRACTED INFO ===
+Event: connection.update
+RemoteJid: N/A
+RemoteJidAlt: N/A
+PushName: N/A
+Message: N/A
+=== END ENTRY ===
+
+
+[2025-10-30T09:06:29.943Z] INSTANCE: whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795
+=== WEBHOOK DATA ===
+{
+  "event": "group-participants.update",
+  "sender": "554191188909@s.whatsapp.net",
+  "data": {
+    "id": "554796877228-1595165002@g.us",
+    "author": null,
+    "participants": [
+      {
+        "id": "42065060724850@lid",
+        "phoneNumber": "5521969782152@s.whatsapp.net",
+        "admin": null
+      }
+    ],
+    "action": "add"
+  },
+  "instance": "whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795",
+  "destination": "https://ardath-quaky-epiphenomenally.ngrok-free.dev/api/webhooks/evolution/whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795",
+  "date_time": "2025-10-30T06:06:29.877Z",
+  "server_url": "https://hsapi.studio",
+  "apikey": "717376BB-0133-4A66-8994-BCA8A6F039D9"
+}
+=== RAW BODY ===
+{
+  "event": "group-participants.update",
+  "sender": "554191188909@s.whatsapp.net",
+  "data": {
+    "id": "554796877228-1595165002@g.us",
+    "author": null,
+    "participants": [
+      {
+        "id": "42065060724850@lid",
+        "phoneNumber": "5521969782152@s.whatsapp.net",
+        "admin": null
+      }
+    ],
+    "action": "add"
+  },
+  "instance": "whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795",
+  "destination": "https://ardath-quaky-epiphenomenally.ngrok-free.dev/api/webhooks/evolution/whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795",
+  "date_time": "2025-10-30T06:06:29.877Z",
+  "server_url": "https://hsapi.studio",
+  "apikey": "717376BB-0133-4A66-8994-BCA8A6F039D9"
+}
+=== EXTRACTED INFO ===
+Event: group-participants.update
+RemoteJid: N/A
+RemoteJidAlt: N/A
+PushName: N/A
+Message: N/A
+=== END ENTRY ===
+
+
+[2025-10-30T09:06:35.247Z] INSTANCE: whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795
+=== WEBHOOK DATA ===
+{
+  "event": "contacts.update",
+  "sender": "554191188909@s.whatsapp.net",
+  "data": [
+    {
+      "remoteJid": "42065060724850@lid",
+      "profilePicUrl": "https://pps.whatsapp.net/v/t61.24694-24/473400948_1667994977431320_2918827262742818690_n.jpg?ccb=11-4&oh=01_Q5Aa2wEefv2DF2kE3DHPOtTztgcH-gHju-nGvwiLGqM9aLRzgw&oe=69102CBE&_nc_sid=5e03e0&_nc_cat=101",
+      "instanceId": "24e9bb18-7c4f-49b2-ba13-a9b8f0c17732"
+    }
+  ]
+}
+=== RAW BODY ===
+{
+  "event": "contacts.update",
+  "sender": "554191188909@s.whatsapp.net",
+  "data": [
+    {
+      "remoteJid": "42065060724850@lid",
+      "profilePicUrl": "https://pps.whatsapp.net/v/t61.24694-24/473400948_1667994977431320_2918827262742818690_n.jpg?ccb=11-4&oh=01_Q5Aa2wEefv2DF2kE3DHPOtTztgcH-gHju-nGvwiLGqM9aLRzgw&oe=69102CBE&_nc_sid=5e03e0&_nc_cat=101",
+      "instanceId": "24e9bb18-7c4f-49b2-ba13-a9b8f0c17732"
+    }
+  ]
+}
+=== EXTRACTED INFO ===
+Event: contacts.update
+RemoteJid: N/A
+RemoteJidAlt: N/A
+PushName: N/A
+Message: N/A
+=== END ENTRY ===
+
+
+[2025-10-30T09:06:35.533Z] INSTANCE: whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795
+=== WEBHOOK DATA ===
+{
+  "event": "messages.upsert",
+  "sender": "554191188909@s.whatsapp.net",
+  "data": {
+    "key": {
+      "remoteJid": "554796877228-1595165002@g.us",
+      "fromMe": false,
+      "id": "3AB8D2E5DD8DFC560664",
+      "participant": "42065060724850@lid"
+    },
+    "messageTimestamp": 1761815194,
+    "pushName": "Lucas Pagoti",
+    "message": {
+      "senderKeyDistributionMessage": {
+        "groupId": "554796877228-1595165002@g.us",
+        "axolotlSenderKeyDistributionMessage": {
+          "0": 51,
+          "1": 8,
+          "2": 150,
+          "3": 252,
+          "4": 201,
+          "5": 218,
+          "6": 2,
+          "7": 16,
+          "8": 0,
+          "9": 26,
+          "10": 32,
+          "11": 176,
+          "12": 82,
+          "13": 167,
+          "14": 114,
+          "15": 100,
+          "16": 215,
+          "17": 239,
+          "18": 246,
+          "19": 215,
+          "20": 173,
+          "21": 93,
+          "22": 143,
+          "23": 5,
+          "24": 192,
+          "25": 105,
+          "26": 151,
+          "27": 110,
+          "28": 7,
+          "29": 136,
+          "30": 71,
+          "31": 228,
+          "32": 176,
+          "33": 207,
+          "34": 80,
+          "35": 19,
+          "36": 251,
+          "37": 223,
+          "38": 206,
+          "39": 170,
+          "40": 98,
+          "41": 180,
+          "42": 155,
+          "43": 34,
+          "44": 33,
+          "45": 5,
+          "46": 134,
+          "47": 6,
+          "48": 126,
+          "49": 147,
+          "50": 21,
+          "51": 215,
+          "52": 155,
+          "53": 215,
+          "54": 244,
+          "55": 22,
+          "56": 180,
+          "57": 2,
+          "58": 116,
+          "59": 120,
+          "60": 81,
+          "61": 249,
+          "62": 141,
+          "63": 150,
+          "64": 101,
+          "65": 9,
+          "66": 13,
+          "67": 210,
+          "68": 166,
+          "69": 201,
+          "70": 108,
+          "71": 165,
+          "72": 186,
+          "73": 77,
+          "74": 179,
+          "75": 100,
+          "76": 26,
+          "77": 96
+        }
+      },
+      "messageContextInfo": {
+        "deviceListMetadata": {
+          "senderKeyIndexes": [],
+          "recipientKeyIndexes": [],
+          "senderKeyHash": {
+            "0": 84,
+            "1": 163,
+            "2": 56,
+            "3": 239,
+            "4": 201,
+            "5": 253,
+            "6": 38,
+            "7": 61,
+            "8": 28,
+            "9": 73
+          },
+          "senderTimestamp": {
+            "low": 1761680840,
+            "high": 0,
+            "unsigned": true
+          },
+          "recipientKeyHash": {
+            "0": 22,
+            "1": 78,
+            "2": 127,
+            "3": 17,
+            "4": 69,
+            "5": 12,
+            "6": 1,
+            "7": 213,
+            "8": 19,
+            "9": 132
+          },
+          "recipientTimestamp": {
+            "low": 1761778586,
+            "high": 0,
+            "unsigned": true
+          }
+        },
+        "deviceListMetadataVersion": 2
+      }
+    },
+    "messageType": "unknown",
+    "instanceId": "24e9bb18-7c4f-49b2-ba13-a9b8f0c17732",
+    "source": "ios",
+    "status": "DELIVERY_ACK"
+  }
+}
+=== RAW BODY ===
+{
+  "event": "messages.upsert",
+  "sender": "554191188909@s.whatsapp.net",
+  "data": {
+    "key": {
+      "remoteJid": "554796877228-1595165002@g.us",
+      "fromMe": false,
+      "id": "3AB8D2E5DD8DFC560664",
+      "participant": "42065060724850@lid"
+    },
+    "messageTimestamp": 1761815194,
+    "pushName": "Lucas Pagoti",
+    "message": {
+      "senderKeyDistributionMessage": {
+        "groupId": "554796877228-1595165002@g.us",
+        "axolotlSenderKeyDistributionMessage": {
+          "0": 51,
+          "1": 8,
+          "2": 150,
+          "3": 252,
+          "4": 201,
+          "5": 218,
+          "6": 2,
+          "7": 16,
+          "8": 0,
+          "9": 26,
+          "10": 32,
+          "11": 176,
+          "12": 82,
+          "13": 167,
+          "14": 114,
+          "15": 100,
+          "16": 215,
+          "17": 239,
+          "18": 246,
+          "19": 215,
+          "20": 173,
+          "21": 93,
+          "22": 143,
+          "23": 5,
+          "24": 192,
+          "25": 105,
+          "26": 151,
+          "27": 110,
+          "28": 7,
+          "29": 136,
+          "30": 71,
+          "31": 228,
+          "32": 176,
+          "33": 207,
+          "34": 80,
+          "35": 19,
+          "36": 251,
+          "37": 223,
+          "38": 206,
+          "39": 170,
+          "40": 98,
+          "41": 180,
+          "42": 155,
+          "43": 34,
+          "44": 33,
+          "45": 5,
+          "46": 134,
+          "47": 6,
+          "48": 126,
+          "49": 147,
+          "50": 21,
+          "51": 215,
+          "52": 155,
+          "53": 215,
+          "54": 244,
+          "55": 22,
+          "56": 180,
+          "57": 2,
+          "58": 116,
+          "59": 120,
+          "60": 81,
+          "61": 249,
+          "62": 141,
+          "63": 150,
+          "64": 101,
+          "65": 9,
+          "66": 13,
+          "67": 210,
+          "68": 166,
+          "69": 201,
+          "70": 108,
+          "71": 165,
+          "72": 186,
+          "73": 77,
+          "74": 179,
+          "75": 100,
+          "76": 26,
+          "77": 96
+        }
+      },
+      "messageContextInfo": {
+        "deviceListMetadata": {
+          "senderKeyIndexes": [],
+          "recipientKeyIndexes": [],
+          "senderKeyHash": {
+            "0": 84,
+            "1": 163,
+            "2": 56,
+            "3": 239,
+            "4": 201,
+            "5": 253,
+            "6": 38,
+            "7": 61,
+            "8": 28,
+            "9": 73
+          },
+          "senderTimestamp": {
+            "low": 1761680840,
+            "high": 0,
+            "unsigned": true
+          },
+          "recipientKeyHash": {
+            "0": 22,
+            "1": 78,
+            "2": 127,
+            "3": 17,
+            "4": 69,
+            "5": 12,
+            "6": 1,
+            "7": 213,
+            "8": 19,
+            "9": 132
+          },
+          "recipientTimestamp": {
+            "low": 1761778586,
+            "high": 0,
+            "unsigned": true
+          }
+        },
+        "deviceListMetadataVersion": 2
+      }
+    },
+    "messageType": "unknown",
+    "instanceId": "24e9bb18-7c4f-49b2-ba13-a9b8f0c17732",
+    "source": "ios",
+    "status": "DELIVERY_ACK"
+  }
+}
+=== EXTRACTED INFO ===
+Event: messages.upsert
+RemoteJid: 554796877228-1595165002@g.us
+RemoteJidAlt: N/A
+PushName: Lucas Pagoti
+Message: {"senderKeyDistributionMessage":{"groupId":"554796877228-1595165002@g.us","axolotlSenderKeyDistributionMessage":{"0":51,"1":8,"2":150,"3":252,"4":201,"5":218,"6":2,"7":16,"8":0,"9":26,"10":32,"11":176...
+=== END ENTRY ===
+
+
+[2025-10-30T09:06:35.635Z] INSTANCE: whatsai_6b7ac205_fee4_4da5_bebe_bcf0c552e795
+=== WEBHOOK DATA ===
+{
+  "event": "contacts.update",
+  "sender": "554191188909@s.whatsapp.net",
+  "data": {
+    "remoteJid": "554796877228-1595165002@g.us",
+    "pushName": "Lucas Pagoti",
+    "profilePicUrl": "https://pps.whatsapp.net/v/t61.24694-24/328786499_297708642795712_3148138077104296904_n.jpg?ccb=11-4&oh=01_Q5Aa2wHsbru9sxFIBG4xx-iVF0ZAWFD80hK_sn8FRQm-2V2TJQ&oe=691053B0&_nc_sid=5e03e0&_nc_cat=103",
+    "instanceId": "24e9bb18-7c4f-49b2-ba13-a9b8f0c17732"
+  }
+}
+=== RAW BODY ===
+{
+  "event": "contacts.update",
+  "sender": "554191188909@s.whatsapp.net",
+  "data": {
+    "remoteJid": "554796877228-1595165002@g.us",
+    "pushName": "Lucas Pagoti",
+    "profilePicUrl": "https://pps.whatsapp.net/v/t61.24694-24/328786499_297708642795712_3148138077104296904_n.jpg?ccb=11-4&oh=01_Q5Aa2wHsbru9sxFIBG4xx-iVF0ZAWFD80hK_sn8FRQm-2V2TJQ&oe=691053B0&_nc_sid=5e03e0&_nc_cat=103",
+    "instanceId": "24e9bb18-7c4f-49b2-ba13-a9b8f0c17732"
+  }
+}
+=== EXTRACTED INFO ===
+Event: contacts.update
+RemoteJid: 554796877228-1595165002@g.us
+RemoteJidAlt: N/A
+PushName: Lucas Pagoti
+Message: N/A
+=== END ENTRY ===
+

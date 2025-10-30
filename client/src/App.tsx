@@ -17,6 +17,9 @@ import { ChatLayout } from './pages/ChatLayout';
 import { useTheme } from './hooks/useTheme';
 import { socketService } from './services/socketService';
 import { DashboardPage } from './features/dashboard/pages/DashboardPage';
+import { PlansPage } from './features/plans/pages/PlansPage';
+import { TemplatesPage } from './features/templates/pages/TemplatesPage';
+import { CampaignsPage } from './features/campaigns/pages/CampaignsPage';
 
 function RegisterPage() {
   return (
@@ -134,6 +137,30 @@ export function App() {
               element={
                 <ProtectedRoute>
                   <SettingsPage />
+                </ProtectedRoute>
+              }
+              />
+            <Route
+              path="/plans"
+              element={
+                <ProtectedRoute>
+                  <PlansPage />
+                </ProtectedRoute>
+              }
+              />
+            <Route
+              path="/templates"
+              element={
+                <ProtectedRoute>
+                  <TemplatesPage />
+                </ProtectedRoute>
+              }
+              />
+            <Route
+              path="/campaigns"
+              element={
+                <ProtectedRoute>
+                  <CampaignsPage />
                 </ProtectedRoute>
               }
               />

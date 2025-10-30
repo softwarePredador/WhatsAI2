@@ -7,6 +7,7 @@ import {
   campaignActionSchema 
 } from '../../schemas/campaign-schemas';
 import { authMiddleware } from '../middlewares/auth-middleware';
+import { checkCampaignLimit } from '../../middleware/check-limits';
 import { z } from 'zod';
 
 const router = Router();
@@ -18,7 +19,7 @@ router.use(authMiddleware);
  * POST /api/campaigns
  * Create a new campaign
  */
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', checkCampaignLimit, async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
     const data = createCampaignSchema.parse(req.body);

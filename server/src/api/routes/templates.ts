@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { authMiddleware } from '../middlewares/auth-middleware';
 import { templateService } from '../../services/template-service';
+import { checkTemplateLimit } from '../../middleware/check-limits';
 import {
   createTemplateSchema,
   updateTemplateSchema,
@@ -152,7 +153,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /api/templates - Create new template
-router.post('/', async (req, res) => {
+router.post('/', checkTemplateLimit, async (req, res) => {
   try {
     const userId = req.userId;
 
