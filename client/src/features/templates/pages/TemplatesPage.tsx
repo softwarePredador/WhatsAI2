@@ -16,7 +16,7 @@ export const TemplatesPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [favoriteFilter, setFavoriteFilter] = useState<'all' | 'favorites' | 'regular'>('all');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
@@ -31,7 +31,7 @@ export const TemplatesPage: React.FC = () => {
 
   useEffect(() => {
     filterTemplates();
-  }, [templates, searchTerm, categoryFilter, statusFilter]);
+  }, [templates, searchTerm, categoryFilter, favoriteFilter]);
 
   const loadTemplates = async () => {
     if (!token) return;
@@ -82,10 +82,10 @@ export const TemplatesPage: React.FC = () => {
       filtered = filtered.filter((t) => t.category === categoryFilter);
     }
 
-    // Status filter
-    if (statusFilter !== 'all') {
+    // Favorite filter
+    if (favoriteFilter !== 'all') {
       filtered = filtered.filter((t) =>
-        statusFilter === 'active' ? t.isActive : !t.isActive
+        favoriteFilter === 'favorites' ? t.isFavorite : !t.isFavorite
       );
     }
 
@@ -142,15 +142,15 @@ export const TemplatesPage: React.FC = () => {
     }
   };
 
-  const handleToggleActive = async (id: string, isActive: boolean) => {
+  const handleToggleFavorite = async (id: string, isFavorite: boolean) => {
     if (!token) return;
 
     try {
-      await templatesService.updateTemplate(token, id, { isActive });
+      await templatesService.updateTemplate(token, id, { isFavorite });
       await loadTemplates();
     } catch (error) {
-      console.error('Error toggling template status:', error);
-      alert('Erro ao alterar status do template');
+      console.error('Error toggling favorite:', error);
+      alert('Erro ao marcar/desmarcar favorito');
     }
   };
 
@@ -230,18 +230,16 @@ export const TemplatesPage: React.FC = () => {
           <div className="flex flex-col md:flex-row gap-4">
             {/* Search */}
             <div className="form-control flex-1">
-              <div className="input-group">
-                <span>
-                  <Search className="w-5 h-5" />
-                </span>
+              <label className="input input-bordered flex items-center gap-2">
+                <Search className="w-5 h-5 opacity-70" />
                 <input
                   type="text"
                   placeholder="Buscar por nome, conteúdo ou categoria..."
-                  className="input input-bordered w-full"
+                  className="grow"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
-              </div>
+              </label>
             </div>
 
             {/* Category Filter */}
@@ -260,16 +258,16 @@ export const TemplatesPage: React.FC = () => {
               </select>
             </div>
 
-            {/* Status Filter */}
+            {/* Favorite Filter */}
             <div className="form-control w-full md:w-40">
               <select
                 className="select select-bordered"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as any)}
+                value={favoriteFilter}
+                onChange={(e) => setFavoriteFilter(e.target.value as any)}
               >
-                <option value="all">Todos Status</option>
-                <option value="active">Ativos</option>
-                <option value="inactive">Inativos</option>
+                <option value="all">Todos</option>
+                <option value="favorites">Favoritos</option>
+                <option value="regular">Regulares</option>
               </select>
             </div>
           </div>
@@ -311,7 +309,7 @@ export const TemplatesPage: React.FC = () => {
                 onEdit={handleEdit}
                 onDelete={handleDelete}
                 onDuplicate={handleDuplicate}
-                onToggleActive={handleToggleActive}
+                onToggleFavorite={handleToggleFavorite}
               />
             ))}
           </div>

@@ -9,12 +9,12 @@ class TemplatesService {
   async getTemplates(token: string, params?: {
     category?: string;
     search?: string;
-    isActive?: boolean;
+    isFavorite?: boolean;
   }): Promise<Template[]> {
     const queryParams = new URLSearchParams();
     if (params?.category) queryParams.append('category', params.category);
     if (params?.search) queryParams.append('search', params.search);
-    if (params?.isActive !== undefined) queryParams.append('isActive', String(params.isActive));
+    if (params?.isFavorite !== undefined) queryParams.append('isFavorite', String(params.isFavorite));
 
     const url = queryParams.toString() ? `${this.baseUrl}?${queryParams}` : this.baseUrl;
 
@@ -167,6 +167,44 @@ class TemplatesService {
     }
 
     return Array.from(variables);
+  }
+
+  /**
+   * Get usage statistics (top N templates by usage)
+   */
+  async getUsageStats(token: string, limit: number = 10): Promise<Template[]> {
+    const response = await fetch(`${this.baseUrl}/stats?limit=${limit}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch usage stats');
+    }
+
+    const data = await response.json();
+    return data.data;
+  }
+
+  /**
+   * Get templates grouped by category
+   */
+  async getTemplatesByCategory(token: string): Promise<Record<string, number>> {
+    const response = await fetch(`${this.baseUrl}/by-category`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch templates by category');
+    }
+
+    const data = await response.json();
+    return data.data;
   }
 }
 

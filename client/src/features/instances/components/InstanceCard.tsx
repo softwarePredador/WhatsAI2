@@ -60,8 +60,8 @@ function InstanceCard({
   // Safe status handling with fallback
   const safeStatus = (instance.status as InstanceStatus) || "pending";
   const statusInfo = statusConfig[safeStatus] || statusConfig.pending;
-  const isConnected = instance.status === "connected" && instance.connected;
-  const isConnecting = instance.status === "connecting";
+  const isConnected = instance.status.toUpperCase() === "CONNECTED" && instance.connected;
+  const isConnecting = instance.status.toUpperCase() === "CONNECTING";
   const hasQRCode = instance.qrCode && isConnecting;
 
   const handleDisconnect = () => {

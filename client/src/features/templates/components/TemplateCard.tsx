@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileText, Edit2, Trash2, Copy, Tag, BarChart3, Power, PowerOff } from 'lucide-react';
+import { FileText, Edit2, Trash2, Copy, Tag, BarChart3, Star } from 'lucide-react';
 import { Template } from '../types/templates';
 
 interface TemplateCardProps {
@@ -7,7 +7,7 @@ interface TemplateCardProps {
   onEdit: (template: Template) => void;
   onDelete: (id: string) => void;
   onDuplicate: (id: string) => void;
-  onToggleActive: (id: string, isActive: boolean) => void;
+  onToggleFavorite: (id: string, isFavorite: boolean) => void;
 }
 
 export const TemplateCard: React.FC<TemplateCardProps> = ({
@@ -15,19 +15,32 @@ export const TemplateCard: React.FC<TemplateCardProps> = ({
   onEdit,
   onDelete,
   onDuplicate,
-  onToggleActive
+  onToggleFavorite
 }) => {
   const [showFullContent, setShowFullContent] = useState(false);
 
   const getCategoryColor = (category?: string) => {
     const colors: Record<string, string> = {
-      marketing: 'badge-primary',
-      support: 'badge-info',
-      sales: 'badge-success',
-      notification: 'badge-warning',
-      other: 'badge-ghost'
+      greeting: 'badge-success',
+      farewell: 'badge-info',
+      follow_up: 'badge-warning',
+      promotional: 'badge-primary',
+      support: 'badge-secondary',
+      custom: 'badge-ghost'
     };
     return category ? colors[category] || 'badge-ghost' : 'badge-ghost';
+  };
+
+  const getCategoryLabel = (category?: string) => {
+    const labels: Record<string, string> = {
+      greeting: 'Saudação',
+      farewell: 'Despedida',
+      follow_up: 'Follow-up',
+      promotional: 'Promocional',
+      support: 'Suporte',
+      custom: 'Personalizado'
+    };
+    return category ? labels[category] || category : 'Sem categoria';
   };
 
   const truncateContent = (content: string, maxLength: number = 150) => {
@@ -38,7 +51,7 @@ export const TemplateCard: React.FC<TemplateCardProps> = ({
   return (
     <div className={`
       card bg-base-100 shadow-lg hover:shadow-xl transition-all
-      border-2 ${template.isActive ? 'border-success/30' : 'border-base-300'}
+      border-2 ${template.isFavorite ? 'border-warning/30' : 'border-base-300'}
     `}>
       <div className="card-body p-5">
         {/* Header */}
@@ -55,28 +68,28 @@ export const TemplateCard: React.FC<TemplateCardProps> = ({
                 {template.category && (
                   <span className={`badge badge-sm ${getCategoryColor(template.category)}`}>
                     <Tag className="w-3 h-3 mr-1" />
-                    {template.category}
+                    {getCategoryLabel(template.category)}
                   </span>
                 )}
                 <span className="badge badge-sm badge-ghost">
                   <BarChart3 className="w-3 h-3 mr-1" />
                   {template.usageCount} usos
                 </span>
+                {template.tags && template.tags.length > 0 && (
+                  <span className="badge badge-sm badge-outline">
+                    {template.tags.length} tag(s)
+                  </span>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Active Status Badge */}
+          {/* Favorite Badge */}
           <div className="flex-shrink-0">
-            {template.isActive ? (
-              <div className="badge badge-success gap-1">
-                <Power className="w-3 h-3" />
-                Ativo
-              </div>
-            ) : (
-              <div className="badge badge-ghost gap-1">
-                <PowerOff className="w-3 h-3" />
-                Inativo
+            {template.isFavorite && (
+              <div className="badge badge-warning gap-1">
+                <Star className="w-3 h-3 fill-current" />
+                Favorito
               </div>
             )}
           </div>
@@ -119,15 +132,11 @@ export const TemplateCard: React.FC<TemplateCardProps> = ({
           
           <div className="flex gap-2">
             <button
-              onClick={() => onToggleActive(template.id, !template.isActive)}
-              className={`btn btn-sm btn-ghost ${template.isActive ? 'text-warning' : 'text-success'}`}
-              title={template.isActive ? 'Desativar' : 'Ativar'}
+              onClick={() => onToggleFavorite(template.id, !template.isFavorite)}
+              className={`btn btn-sm btn-ghost ${template.isFavorite ? 'text-warning' : 'text-base-content/50'}`}
+              title={template.isFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
             >
-              {template.isActive ? (
-                <PowerOff className="w-4 h-4" />
-              ) : (
-                <Power className="w-4 h-4" />
-              )}
+              <Star className={`w-4 h-4 ${template.isFavorite ? 'fill-current' : ''}`} />
             </button>
             <button
               onClick={() => onDuplicate(template.id)}

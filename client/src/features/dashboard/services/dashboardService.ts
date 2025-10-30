@@ -65,6 +65,20 @@ class DashboardService {
     return data.data || data;
   }
 
+  async getInstancesList(token: string): Promise<any[]> {
+    const response = await fetch('/api/instances', {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    if (!response.ok) {
+      throw new Error('Failed to fetch instances list');
+    }
+
+    const data = await response.json();
+    return data.data || [];
+  }
+
   async getCostData(filters?: Partial<DashboardFilters>): Promise<CostData[]> {
     const params = new URLSearchParams();
 

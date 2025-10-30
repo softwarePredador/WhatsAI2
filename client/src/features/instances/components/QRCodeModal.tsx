@@ -13,7 +13,7 @@ export default function QRCodeModal({ instance, onClose, onRefresh }: QRCodeModa
 
   // Auto-close modal when instance is connected
   useEffect(() => {
-    if (instance?.status === "connected") {
+    if (instance?.status.toUpperCase() === "CONNECTED") {
       console.log("✅ Instance connected! Closing QR Code modal...");
       // Wait 1 second to show success message, then close
       setTimeout(() => {
@@ -29,7 +29,7 @@ export default function QRCodeModal({ instance, onClose, onRefresh }: QRCodeModa
       setCountdown((prev) => {
         if (prev <= 1) {
           // Refresh QR code only if instance is still connecting
-          if (instance.status === "connecting") {
+          if (instance.status.toUpperCase() === "CONNECTING") {
             onRefresh(instance.id);
           }
           return 30; // Reset countdown
@@ -50,7 +50,7 @@ export default function QRCodeModal({ instance, onClose, onRefresh }: QRCodeModa
 
   if (!instance) return null;
 
-  const hasQRCode = instance.qrCode && instance.status === "connecting";
+  const hasQRCode = instance.qrCode && instance.status.toUpperCase() === "CONNECTING";
 
   return (
     <div className="modal modal-open">
@@ -116,7 +116,7 @@ export default function QRCodeModal({ instance, onClose, onRefresh }: QRCodeModa
               Atualizar QR Code agora
             </button>
           </div>
-        ) : instance.status === "connected" ? (
+        ) : instance.status.toUpperCase() === "CONNECTED" ? (
           <div className="alert alert-success shadow-lg animate-pulse">
             <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />

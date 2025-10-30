@@ -3,10 +3,13 @@ export interface Template {
   userId: string;
   name: string;
   content: string;
-  category?: string;
+  category?: TemplateCategory;
   variables: string[];
-  isActive: boolean;
   usageCount: number;
+  mediaUrl?: string;
+  mediaType?: string;
+  tags?: string[];
+  isFavorite?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -14,15 +17,21 @@ export interface Template {
 export interface CreateTemplateRequest {
   name: string;
   content: string;
-  category?: string;
-  isActive?: boolean;
+  category?: TemplateCategory;
+  mediaUrl?: string;
+  mediaType?: string;
+  tags?: string[];
+  isFavorite?: boolean;
 }
 
 export interface UpdateTemplateRequest {
   name?: string;
   content?: string;
-  category?: string;
-  isActive?: boolean;
+  category?: TemplateCategory;
+  mediaUrl?: string;
+  mediaType?: string;
+  tags?: string[];
+  isFavorite?: boolean;
 }
 
 export interface RenderTemplateRequest {
@@ -30,16 +39,18 @@ export interface RenderTemplateRequest {
 }
 
 export type TemplateCategory = 
-  | 'marketing' 
-  | 'support' 
-  | 'sales' 
-  | 'notification' 
-  | 'other';
+  | 'greeting'
+  | 'farewell'
+  | 'follow_up'
+  | 'promotional'
+  | 'support'
+  | 'custom';
 
 export const TEMPLATE_CATEGORIES: { value: TemplateCategory; label: string }[] = [
-  { value: 'marketing', label: 'Marketing' },
+  { value: 'greeting', label: 'Saudação' },
+  { value: 'farewell', label: 'Despedida' },
+  { value: 'follow_up', label: 'Follow-up' },
+  { value: 'promotional', label: 'Promocional' },
   { value: 'support', label: 'Suporte' },
-  { value: 'sales', label: 'Vendas' },
-  { value: 'notification', label: 'Notificação' },
-  { value: 'other', label: 'Outro' }
+  { value: 'custom', label: 'Personalizado' }
 ];

@@ -202,7 +202,7 @@ export default function InstancesPage() {
               </div>
               <div className="stat-title text-base-content/60 text-sm">Conectadas</div>
               <div className="stat-value text-success text-4xl">
-                {instances.filter((i: WhatsAppInstance) => i.status === "connected" && i.connected).length}
+                {instances.filter((i: WhatsAppInstance) => i.status.toUpperCase() === "CONNECTED" && i.connected).length}
               </div>
               <div className="stat-desc text-base-content/50 text-sm">Online agora</div>
             </div>
@@ -218,7 +218,7 @@ export default function InstancesPage() {
               </div>
               <div className="stat-title text-base-content/60 text-sm">Conectando</div>
               <div className="stat-value text-warning text-4xl">
-                {instances.filter((i: WhatsAppInstance) => i.status === "connecting").length}
+                {instances.filter((i: WhatsAppInstance) => i.status.toUpperCase() === "CONNECTING").length}
               </div>
               <div className="stat-desc text-base-content/50 text-sm">Aguardando QR Code</div>
             </div>
@@ -236,7 +236,7 @@ export default function InstancesPage() {
               </div>
               <div className="stat-title text-base-content/60 text-sm">Desconectadas</div>
               <div className="stat-value text-error text-4xl">
-                {instances.filter((i: WhatsAppInstance) => i.status === "disconnected" || i.status === "error").length}
+                {instances.filter((i: WhatsAppInstance) => i.status.toUpperCase() === "DISCONNECTED" || i.status.toUpperCase() === "ERROR").length}
               </div>
               <div className="stat-desc text-base-content/50 text-sm">Offline</div>
             </div>

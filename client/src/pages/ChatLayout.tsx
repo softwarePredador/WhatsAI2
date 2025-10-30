@@ -33,7 +33,7 @@ export const ChatLayout: React.FC = () => {
         fetchInstances(token).then(() => setLoading(false));
       } else {
         setLoading(false);
-        const firstInstance = instances.find(i => i.status === 'connected') || instances[0];
+        const firstInstance = instances.find(i => i.status.toUpperCase() === 'CONNECTED') || instances[0];
         if (firstInstance) {
           console.log('📍 [ChatLayout] Redirecionando para:', `/chat/${firstInstance.id}/${conversationId}`);
           navigate(`/chat/${firstInstance.id}/${conversationId}`, { replace: true });

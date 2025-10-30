@@ -3,6 +3,7 @@ import { DashboardLayout } from '../components/DashboardLayout';
 import { MetricsCards } from '../components/MetricsCards';
 import { MessagesChart } from '../components/MessagesChart';
 import { InstancesStatusChart } from '../components/InstancesStatusChart';
+import { InstancesList } from '../components/InstancesList';
 import { dashboardService } from '../services/dashboardService';
 import { DashboardMetrics, MessageChartData, InstanceStatusData } from '../types/dashboard';
 import { userAuthStore } from '../../auth/store/authStore';
@@ -12,10 +13,13 @@ export const DashboardPage: React.FC = () => {
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [messageChartData, setMessageChartData] = useState<MessageChartData[]>([]);
   const [instanceStatusData, setInstanceStatusData] = useState<InstanceStatusData[]>([]);
+  const [instancesList, setInstancesList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [chartLoading, setChartLoading] = useState(true);
   const [statusLoading, setStatusLoading] = useState(true);
+  const [instancesLoading, setInstancesLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'chart' | 'list'>('list');
 
   useEffect(() => {
     const loadData = async () => {
@@ -25,17 +29,20 @@ export const DashboardPage: React.FC = () => {
         setLoading(true);
         setChartLoading(true);
         setStatusLoading(true);
+        setInstancesLoading(true);
 
-        // Load metrics, chart data and instance status in parallel
-        const [metricsData, chartData, statusData] = await Promise.all([
+        // Load metrics, chart data, instance status and instances list in parallel
+        const [metricsData, chartData, statusData, instances] = await Promise.all([
           dashboardService.getMetrics(token),
           dashboardService.getMessageChart(token),
-          dashboardService.getInstanceStatus(token)
+          dashboardService.getInstanceStatus(token),
+          dashboardService.getInstancesList(token)
         ]);
 
         setMetrics(metricsData);
         setMessageChartData(chartData);
         setInstanceStatusData(statusData);
+        setInstancesList(instances);
         setError(null);
       } catch (err) {
         setError('Erro ao carregar dados do dashboard');
@@ -44,6 +51,7 @@ export const DashboardPage: React.FC = () => {
         setLoading(false);
         setChartLoading(false);
         setStatusLoading(false);
+        setInstancesLoading(false);
       }
     };
 
@@ -90,8 +98,31 @@ export const DashboardPage: React.FC = () => {
           <MessagesChart data={messageChartData} loading={chartLoading} />
 
           <div className="bg-base-100 p-6 rounded-xl border border-base-300">
-            <h3 className="text-lg font-semibold mb-4 text-base-content">Status das Instâncias</h3>
-            <InstancesStatusChart data={instanceStatusData} loading={statusLoading} />
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-base-content">Status das Instâncias</h3>
+              
+              {/* View Toggle */}
+              <div className="join">
+                <button
+                  className={`join-item btn btn-sm ${viewMode === 'list' ? 'btn-primary' : 'btn-ghost'}`}
+                  onClick={() => setViewMode('list')}
+                >
+                  Lista
+                </button>
+                <button
+                  className={`join-item btn btn-sm ${viewMode === 'chart' ? 'btn-primary' : 'btn-ghost'}`}
+                  onClick={() => setViewMode('chart')}
+                >
+                  Gráfico
+                </button>
+              </div>
+            </div>
+
+            {viewMode === 'chart' ? (
+              <InstancesStatusChart data={instanceStatusData} loading={statusLoading} />
+            ) : (
+              <InstancesList instances={instancesList} loading={instancesLoading} />
+            )}
           </div>
         </div>
 
