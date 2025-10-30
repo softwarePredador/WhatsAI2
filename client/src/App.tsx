@@ -40,6 +40,7 @@ function RegisterPage() {
 const AppLayout = () => {
   const location = useLocation();
   const isHomePage = location.pathname === '/';
+  const isChatPage = location.pathname.startsWith('/chat');
 
   console.log('🌐 [AppLayout] Renderizando rota:', location.pathname);
 
@@ -57,7 +58,8 @@ const AppLayout = () => {
         {/* Use Outlet instead of nested Routes */}
         <Outlet />
       </main>
-      <Footer />
+      {/* Não renderizar Footer em páginas de chat */}
+      {!isChatPage && <Footer />}
     </div>
   );
 };

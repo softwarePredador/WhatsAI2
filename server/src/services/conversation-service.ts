@@ -1293,7 +1293,22 @@ export class ConversationService {
 
       console.log(`✅ [handleIncomingMessageAtomic] Instância: ${instance.name} (DB ID: ${instance.id})`);
 
-      // 🔄 Unified normalization
+      // �️ CAPTURE @lid MAPPING: Se vier participantAlt ou remoteJidAlt, salvar mapeamento
+      if (messageData.key.participant && messageData.key.participant.includes('@lid')) {
+        if (messageData.key.participantAlt && messageData.key.participantAlt.includes('@s.whatsapp.net')) {
+          console.log(`🗺️ [LID_MAPPING] Capturando mapeamento participant: ${messageData.key.participant} → ${messageData.key.participantAlt}`);
+          this.lidToRealNumberCache.set(messageData.key.participant, messageData.key.participantAlt);
+        }
+      }
+      
+      if (messageData.key.remoteJid.includes('@lid')) {
+        if (messageData.key.remoteJidAlt && messageData.key.remoteJidAlt.includes('@s.whatsapp.net')) {
+          console.log(`🗺️ [LID_MAPPING] Capturando mapeamento remoteJid: ${messageData.key.remoteJid} → ${messageData.key.remoteJidAlt}`);
+          this.lidToRealNumberCache.set(messageData.key.remoteJid, messageData.key.remoteJidAlt);
+        }
+      }
+
+      // �🔄 Unified normalization
       const normalizedRemoteJid = this.normalizeWhatsAppNumber(
         messageData.key.remoteJid,
         messageData.key.remoteJidAlt,

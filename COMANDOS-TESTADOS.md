@@ -5,14 +5,50 @@
 
 ## ✅ COMANDOS QUE FUNCIONARAM (USE ESTES!)
 
-### 1. Teste de Webhook com Instância Válida
+### 1. Verificar Duplicatas por Foto de Perfil
+```bash
+cd server && NODE_ENV=production npx tsx check-flavia-picture.ts
+```
+- **Resultado:** Verifica se duas conversas têm a mesma foto de perfil
+- **Quando usar:** Para confirmar que @lid e número real são a mesma pessoa
+
+### 2. Unificar Conversas Duplicadas (Manual)
+```bash
+cd server && NODE_ENV=production npx tsx merge-flavia-conversations.ts
+```
+- **Resultado:** Une conversas @lid e número real da mesma pessoa
+- **Quando usar:** Quando confirmar que são duplicatas pela foto
+
+### 3. Detectar e Unificar Todas Duplicatas (Automático)
+```bash
+cd server && NODE_ENV=production npx tsx auto-merge-duplicates.ts
+```
+- **Resultado:** Busca e unifica automaticamente todas duplicatas usando foto de perfil
+- **Quando usar:** Para limpar todas as duplicatas de uma vez
+
+### 4. Analisar Webhooks Salvos com @lid
+```bash
+cd server && npx tsx analyze-webhook-logs.ts
+```
+- **Resultado:** Mostra estatísticas e detalhes de webhooks com @lid
+- **Quando usar:** Para verificar quais webhooks foram capturados e se contêm campos Alt
+
+### 5. Testar Webhook com @lid Simulado
+```bash
+cd server && ./test-webhook-lid.sh
+```
+- **Resultado:** Envia webhook simulado com @lid e participantAlt
+- **Quando usar:** Para testar se o sistema captura corretamente os campos @lid
+- **Nota:** Edite INSTANCE_ID no script antes de executar
+
+### 6. Teste de Webhook com Instância Válida
 ```powershell
 Invoke-WebRequest -Uri "http://localhost:3000/api/webhooks/evolution/whatsai_cd62f330_1abb_47c8_a4c0_73d21b9a8fc6" -Method POST -ContentType "application/json" -InFile "c:\Users\rafae\Downloads\WhatsAI2\test-group-webhook.json"
 ```
 - **Resultado:** `{"success":true,"message":"Webhook processed successfully"}`
 - **Quando usar:** Para testar webhooks com instâncias que existem no banco
 
-### 2. Verificar Instâncias no Banco
+### 4. Verificar Instâncias no Banco
 ```bash
 cd c:\Users\rafae\Downloads\WhatsAI2\server; npx tsx scripts/check-instances.ts
 ```

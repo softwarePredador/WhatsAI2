@@ -144,6 +144,52 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
 
       // 🔍 LOG DO EVENTO PARA DEBUG
       console.log(`🔍 [WEBHOOK] Dados do webhook:`, JSON.stringify(validatedWebhookData, null, 2));
+      
+      // � SALVAR LOG DO WEBHOOK para análise posterior
+      let webhookLogData: any = {
+        instanceId: instanceId,
+        event: validatedWebhookData.event,
+        rawData: validatedWebhookData,
+        hasLid: false,
+        hasAltField: false
+      };
+      
+      // �🗺️ [DEBUG] Log específico para detectar campos @lid
+      if (validatedWebhookData.event === 'messages.upsert') {
+        const msgData = validatedWebhookData.data;
+        if (msgData?.key) {
+          console.log(`🗺️ [WEBHOOK_DEBUG] Key completa:`, JSON.stringify(msgData.key, null, 2));
+          console.log(`🗺️ [WEBHOOK_DEBUG] Campos disponíveis:`, Object.keys(msgData.key));
+          
+          // Extrair campos para o log
+          webhookLogData.remoteJid = msgData.key.remoteJid;
+          webhookLogData.remoteJidAlt = msgData.key.remoteJidAlt;
+          webhookLogData.participant = msgData.key.participant;
+          webhookLogData.participantAlt = msgData.key.participantAlt;
+          webhookLogData.messageId = msgData.key.id;
+          
+          if (msgData.key.participant?.includes('@lid')) {
+            console.log(`🚨 [WEBHOOK_DEBUG] @LID DETECTADO no participant!`);
+            console.log(`   participant: ${msgData.key.participant}`);
+            console.log(`   participantAlt: ${msgData.key.participantAlt || 'NÃO EXISTE'}`);
+            webhookLogData.hasLid = true;
+            webhookLogData.hasAltField = !!msgData.key.participantAlt;
+          }
+          
+          if (msgData.key.remoteJid?.includes('@lid')) {
+            console.log(`🚨 [WEBHOOK_DEBUG] @LID DETECTADO no remoteJid!`);
+            console.log(`   remoteJid: ${msgData.key.remoteJid}`);
+            console.log(`   remoteJidAlt: ${msgData.key.remoteJidAlt || 'NÃO EXISTE'}`);
+            webhookLogData.hasLid = true;
+            webhookLogData.hasAltField = !!msgData.key.remoteJidAlt;
+          }
+        }
+      }
+
+      // Salvar log no banco (não bloquear processamento se falhar)
+      prisma.webhookLog.create({ data: webhookLogData }).catch((err: any) => {
+        console.error(`❌ [WEBHOOK_LOG] Erro ao salvar log:`, err);
+      });
 
       // 🔍 Check if instance exists in database
       const instance = await prisma.whatsAppInstance.findUnique({
@@ -305,6 +351,53 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
                 ...(pushName && { contactName: pushName }),
                 ...(profilePicUrl && { contactPicture: profilePicUrl })
               });
+
+              // 🔍 [AUTO_DETECT] Quando foto de perfil é atualizada, verificar se há duplicata
+              if (profilePicUrl) {
+                try {
+                  const { findDuplicatesByPicture, mergeConversations } = await import('../../utils/conversation-merger');
+                  
+                  // Buscar conversa que foi atualizada
+                  const updatedConv = await prisma.conversation.findFirst({
+                    where: { remoteJid, instanceId: instance.id }
+                  });
+
+                  if (updatedConv) {
+                    // Verificar se é @lid ou número real
+                    const isLid = remoteJid.includes('@lid');
+                    const searchPattern = isLid 
+                      ? { contains: '@s.whatsapp.net', not: { contains: '@lid' } }
+                      : { contains: '@lid' };
+
+                    // Buscar conversa com mesma foto mas JID diferente
+                    const duplicate = await prisma.conversation.findFirst({
+                      where: {
+                        instanceId: instance.id,
+                        contactPicture: profilePicUrl,
+                        remoteJid: searchPattern,
+                        id: { not: updatedConv.id }
+                      }
+                    });
+
+                    if (duplicate) {
+                      console.log(`🔀 [AUTO_DETECT] Duplicata detectada por foto de perfil!`);
+                      console.log(`   Conv 1: ${updatedConv.remoteJid}`);
+                      console.log(`   Conv 2: ${duplicate.remoteJid}`);
+                      
+                      // Decidir qual é @lid e qual é número real
+                      const lidJid = isLid ? remoteJid : duplicate.remoteJid;
+                      const realJid = isLid ? duplicate.remoteJid : remoteJid;
+
+                      // Unificar automaticamente
+                      const mergeResult = await mergeConversations(lidJid, realJid);
+                      console.log(`✅ [AUTO_MERGE] Unificação automática concluída: ${mergeResult.messagesMigrated} mensagens`);
+                    }
+                  }
+                } catch (autoMergeError) {
+                  console.error(`❌ [AUTO_DETECT] Erro ao detectar/unificar duplicata:`, autoMergeError);
+                  // Não falhar o processamento do webhook
+                }
+              }
             } else {
             }
           }

@@ -531,7 +531,11 @@ export const ChatPage: React.FC = () => {
       <div className={`p-4 border-b bg-base-100 border-base-300`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <button className={`p-2 rounded-full lg:hidden hover:bg-base-200 transition-colors`}>
+            <button 
+              onClick={() => navigate(`/chat/${instanceId}`)}
+              className={`p-2 rounded-full lg:hidden hover:bg-base-200 transition-colors`}
+              title="Voltar para conversas"
+            >
               <ArrowLeft className="h-5 w-5" />
             </button>
             <div className="flex items-center space-x-3">
@@ -636,6 +640,7 @@ export const ChatPage: React.FC = () => {
                       mediaType={message.messageType?.toLowerCase() as any || 'image'}
                       fileName={message.fileName}
                       caption={message.caption}
+                      fromMe={message.fromMe}
                     />
                   </div>
                 )}
