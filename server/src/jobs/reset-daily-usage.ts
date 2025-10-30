@@ -6,7 +6,7 @@
  * Should be run as a cron job: 0 0 * * * (every day at midnight)
  */
 
-import PlansService from '../services/plans-service';
+import { PlansService } from '../services/plans-service';
 
 async function resetDailyUsage() {
   console.log('🔄 Iniciando reset de uso diário...');

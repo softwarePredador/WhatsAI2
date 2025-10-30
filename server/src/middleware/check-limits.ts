@@ -6,7 +6,7 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
-import PlansService from '../services/plans-service';
+import { PlansService } from '../services/plans-service';
 
 // Extend Express Request to include userId
 declare global {

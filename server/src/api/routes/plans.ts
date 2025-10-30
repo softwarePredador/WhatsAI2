@@ -6,15 +6,15 @@
  */
 
 import { Router, Request, Response } from 'express';
-import PlansService from '../services/plans-service';
+import { PlansService } from '../../services/plans-service';
 import {
   upgradePlanSchema,
   downgradePlanSchema,
   usageQuerySchema,
   planComparisonQuerySchema,
   checkActionSchema,
-} from '../schemas/plans-schemas';
-import { PlanType } from '../constants/plans';
+} from '../../schemas/plans-schemas';
+import { PlanType } from '../../constants/plans';
 
 const router = Router();
 
