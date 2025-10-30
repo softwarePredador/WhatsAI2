@@ -2,16 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { MetricsCards } from '../components/MetricsCards';
 import { MessagesChart } from '../components/MessagesChart';
+import { InstancesStatusChart } from '../components/InstancesStatusChart';
 import { dashboardService } from '../services/dashboardService';
-import { DashboardMetrics, MessageChartData } from '../types/dashboard';
+import { DashboardMetrics, MessageChartData, InstanceStatusData } from '../types/dashboard';
 import { userAuthStore } from '../../auth/store/authStore';
 
 export const DashboardPage: React.FC = () => {
   const { token } = userAuthStore();
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [messageChartData, setMessageChartData] = useState<MessageChartData[]>([]);
+  const [instanceStatusData, setInstanceStatusData] = useState<InstanceStatusData[]>([]);
   const [loading, setLoading] = useState(true);
   const [chartLoading, setChartLoading] = useState(true);
+  const [statusLoading, setStatusLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -21,15 +24,18 @@ export const DashboardPage: React.FC = () => {
       try {
         setLoading(true);
         setChartLoading(true);
+        setStatusLoading(true);
 
-        // Load metrics and chart data in parallel
-        const [metricsData, chartData] = await Promise.all([
+        // Load metrics, chart data and instance status in parallel
+        const [metricsData, chartData, statusData] = await Promise.all([
           dashboardService.getMetrics(token),
-          dashboardService.getMessageChart(token)
+          dashboardService.getMessageChart(token),
+          dashboardService.getInstanceStatus(token)
         ]);
 
         setMetrics(metricsData);
         setMessageChartData(chartData);
+        setInstanceStatusData(statusData);
         setError(null);
       } catch (err) {
         setError('Erro ao carregar dados do dashboard');
@@ -37,6 +43,7 @@ export const DashboardPage: React.FC = () => {
       } finally {
         setLoading(false);
         setChartLoading(false);
+        setStatusLoading(false);
       }
     };
 
@@ -84,9 +91,7 @@ export const DashboardPage: React.FC = () => {
 
           <div className="bg-base-100 p-6 rounded-xl border border-base-300">
             <h3 className="text-lg font-semibold mb-4 text-base-content">Status das Instâncias</h3>
-            <div className="h-64 flex items-center justify-center text-base-content/50">
-              <p>Gráfico será implementado na próxima etapa</p>
-            </div>
+            <InstancesStatusChart data={instanceStatusData} loading={statusLoading} />
           </div>
         </div>
 

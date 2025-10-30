@@ -159,12 +159,21 @@ export class DashboardService {
       }
     });
 
-    const totalCount = instances.reduce((sum, group) => sum + group._count.status, 0);
+    // Map and group by the mapped status
+    const statusGroups = new Map<'online' | 'offline' | 'connecting', number>();
+    
+    instances.forEach(group => {
+      const mappedStatus = this.mapInstanceStatus(group.status);
+      const currentCount = statusGroups.get(mappedStatus) || 0;
+      statusGroups.set(mappedStatus, currentCount + group._count.status);
+    });
 
-    return instances.map(group => ({
-      status: this.mapInstanceStatus(group.status),
-      count: group._count.status,
-      percentage: totalCount > 0 ? (group._count.status / totalCount) * 100 : 0
+    const totalCount = Array.from(statusGroups.values()).reduce((sum, count) => sum + count, 0);
+
+    return Array.from(statusGroups.entries()).map(([status, count]) => ({
+      status,
+      count,
+      percentage: totalCount > 0 ? (count / totalCount) * 100 : 0
     }));
   }
 

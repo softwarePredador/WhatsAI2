@@ -155,18 +155,19 @@ export const PlansPage: React.FC = () => {
                 key={plan.name}
                 className={`
                   bg-base-100 rounded-xl shadow-lg overflow-hidden
-                  border-2 transition-all
-                  ${isCurrent ? 'border-primary scale-105' : 'border-transparent'}
+                  border-2 transition-all flex flex-col
+                  ${isCurrent ? 'border-primary' : 'border-transparent'}
                   ${plan.popular ? 'ring-2 ring-warning' : ''}
+                  ${plan.name === 'ENTERPRISE' ? 'ring-4 ring-secondary shadow-2xl' : ''}
                 `}
               >
                 {/* Plan Header */}
-                <div className={`p-6 text-center ${plan.color}`}>
+                <div className={`p-6 text-center ${plan.name === 'ENTERPRISE' ? 'bg-gradient-to-br from-secondary to-accent text-secondary-content' : plan.color}`}>
                   <Icon className="w-12 h-12 mx-auto mb-3" />
                   <h3 className="text-2xl font-bold mb-2">{plan.displayName}</h3>
                   <div className="flex items-baseline justify-center gap-1">
                     <span className="text-4xl font-bold">
-                      R$ {plan.price}
+                      R$ {plan.price === 0 ? '0' : (plan.price / 100).toFixed(0)}
                     </span>
                     <span className="text-sm opacity-70">/mês</span>
                   </div>
@@ -176,10 +177,15 @@ export const PlansPage: React.FC = () => {
                       <span className="badge badge-warning">Mais Popular</span>
                     </div>
                   )}
+                  {plan.name === 'ENTERPRISE' && (
+                    <div className="mt-3">
+                      <span className="badge badge-accent">Premium ✨</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Plan Features */}
-                <div className="p-6 space-y-4">
+                <div className="p-6 space-y-4 flex-grow flex flex-col">
                   <div className="space-y-2">
                     <Feature
                       text={`${plan.limits.instances === -1 ? 'Ilimitadas' : plan.limits.instances} instância(s)`}
@@ -201,7 +207,7 @@ export const PlansPage: React.FC = () => {
 
                   <div className="divider"></div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-2 flex-grow">
                     <Feature
                       text="Envio em Massa"
                       available={plan.limits.broadcasts ?? false}
@@ -229,7 +235,7 @@ export const PlansPage: React.FC = () => {
                   </div>
 
                   {/* Action Button */}
-                  <div className="pt-4">
+                  <div className="pt-4 mt-auto">
                     {isCurrent ? (
                       <button className="btn btn-outline btn-block" disabled>
                         Plano Atual

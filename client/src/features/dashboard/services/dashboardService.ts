@@ -51,13 +51,18 @@ class DashboardService {
     return response.json();
   }
 
-  async getInstanceStatus(): Promise<InstanceStatusData[]> {
-    const response = await fetch(`${this.baseUrl}/instances/status`);
+  async getInstanceStatus(token: string): Promise<InstanceStatusData[]> {
+    const response = await fetch(`${this.baseUrl}/instances/status`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
     if (!response.ok) {
       throw new Error('Failed to fetch instance status data');
     }
 
-    return response.json();
+    const data = await response.json();
+    return data.data || data;
   }
 
   async getCostData(filters?: Partial<DashboardFilters>): Promise<CostData[]> {
