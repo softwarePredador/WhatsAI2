@@ -1520,12 +1520,15 @@ export class ConversationService {
             if (downloadedUrl) {
               processedMediaUrl = downloadedUrl;
 
+              console.log(`✅ [MEDIA_PROCESSED] ${mediaType.toUpperCase()} URL atualizada: ${downloadedUrl.substring(0, 80)}...`);
+
               // Update message with processed media URL
               await tx.message.update({
                 where: { id: message.id },
                 data: { mediaUrl: processedMediaUrl }
               });
             } else {
+              console.warn(`⚠️ [MEDIA_PROCESSED] ${mediaType.toUpperCase()} retornou URL null - usando URL original`);
             }
           } catch (mediaError) {
             console.error(`⚠️ [ATOMIC_MEDIA_ERROR] Falha no processamento de mídia:`);

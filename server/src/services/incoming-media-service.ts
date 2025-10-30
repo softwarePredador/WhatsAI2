@@ -208,7 +208,13 @@ export class IncomingMediaService {
 
       // 4. Retornar a URL CDN para armazenamento no banco
       const cdnUrl = this.mediaStorageService['spacesService'].getCdnUrl(uploadResult.key);
-      mediaLogger.log('🎉 [INCOMING_MEDIA] URL CDN gerada', { cdnUrl });
+      mediaLogger.log('🎉 [INCOMING_MEDIA] URL CDN gerada', { 
+        cdnUrl,
+        mediaType,
+        messageId
+      });
+
+      console.log(`✅ [INCOMING_MEDIA_SUCCESS] ${mediaType.toUpperCase()} processado com sucesso:`, cdnUrl);
 
       return cdnUrl;
 
