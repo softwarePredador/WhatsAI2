@@ -54,7 +54,7 @@ export const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
     try {
       const token = localStorage.getItem('token');
       if (!token) return;
-      const data = await templatesService.getTemplates(token, { isActive: true });
+      const data = await templatesService.getTemplates(token);
       setTemplates(data);
     } catch (error) {
       console.error('Error loading templates:', error);
@@ -237,24 +237,26 @@ export const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
               <div className="form-control">
                 <label className="label">
                   <span className="label-text font-semibold">Destinatários *</span>
-                  <span className="label-text-alt">
-                    Formato: 5511999999999 ou 5511999999999,Nome
-                  </span>
                 </label>
-                <div className="flex gap-2">
+                <div className="text-sm text-base-content/60 mb-2">
+                  Formato: <code className="badge badge-sm badge-outline">5511999999999</code> ou{' '}
+                  <code className="badge badge-sm badge-outline">5511999999999,Nome</code>
+                </div>
+                <div className="flex gap-2 items-start">
                   <textarea
-                    className="textarea textarea-bordered flex-1"
-                    placeholder="5511999999999,João Silva&#10;5511888888888,Maria Santos"
+                    className="textarea textarea-bordered flex-1 min-h-[100px]"
+                    placeholder="5511999999999,João Silva&#10;5511888888888,Maria Santos&#10;5511777777777,Pedro Costa"
                     value={recipientInput}
                     onChange={(e) => setRecipientInput(e.target.value)}
                     disabled={loading}
-                    rows={3}
+                    rows={4}
                   />
                   <button
                     type="button"
                     onClick={addRecipient}
-                    className="btn btn-primary"
+                    className="btn btn-primary btn-square"
                     disabled={loading}
+                    title="Adicionar destinatários"
                   >
                     <Plus className="w-5 h-5" />
                   </button>

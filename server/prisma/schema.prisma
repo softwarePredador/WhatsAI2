@@ -80,6 +80,7 @@ model Message {
   mediaUrl    String?
   fileName    String?
   caption     String?
+  senderName  String? // Nome de quem enviou (importante para grupos)
 
   // WhatsApp message data
   messageId String   @unique
@@ -309,6 +310,36 @@ model CampaignMessage {
   @@map("campaign_messages")
 }
 
+model WebhookLog {
+  id         String   @id @default(cuid())
+  instanceId String
+  event      String // messages.upsert, messages.update, etc
+  
+  // Raw webhook data (JSON completo)
+  rawData    Json
+  
+  // Campos específicos para análise @lid
+  remoteJid       String?
+  remoteJidAlt    String?
+  participant     String?
+  participantAlt  String?
+  messageId       String?
+  
+  // Flags para facilitar queries
+  hasLid          Boolean @default(false)
+  hasAltField     Boolean @default(false)
+  
+  createdAt  DateTime @default(now())
+
+  @@index([instanceId])
+  @@index([event])
+  @@index([hasLid])
+  @@index([remoteJid])
+  @@index([createdAt])
+  @@map("webhook_logs")
+}
+
 // SQLite doesn't support enums, so we use string literals
 // InstanceStatus: PENDING, DISCONNECTED, CONNECTING, CONNECTED, ERROR
 // MessageType: TEXT, IMAGE, VIDEO, AUDIO, DOCUMENT, STICKER, LOCATION, CONTACT, UNKNOWN
+

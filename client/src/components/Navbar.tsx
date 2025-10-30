@@ -15,16 +15,17 @@ function Navbar() {
   const isAuthenticated = !!token;
   const navItems = isAuthenticated 
     ? [
-        { name: "Instâncias", path: "/instances" },
         { name: "Dashboard", path: "/dashboard" },
+        { name: "Instâncias", path: "/instances" },
         { name: "Templates", path: "/templates" },
         { name: "Campanhas", path: "/campaigns" },
         { name: "Planos", path: "/plans" },
       ]
     : [
         { name: "Home", path: "/" },
+        { name: "Planos", path: "/#pricing" },
         { name: "Login", path: "/login" },
-        { name: "Register", path: "/register" },
+        { name: "Registrar", path: "/register" },
       ];
 
   useEffect(() => {

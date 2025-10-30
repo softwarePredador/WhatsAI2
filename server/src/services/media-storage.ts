@@ -149,4 +149,12 @@ export class MediaStorageService {
   getCdnUrl(fileKey: string): string {
     return this.spacesService.getCdnUrl(fileKey);
   }
+
+  /**
+   * Get direct Spaces URL (without CDN)
+   * Use this for media types that need immediate CORS compliance (e.g., audio files)
+   */
+  getDirectUrl(fileKey: string): string {
+    return this.spacesService.getDirectUrl(fileKey);
+  }
 }

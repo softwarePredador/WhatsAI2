@@ -63,6 +63,8 @@ export interface ConversationSummary {
     fromMe: boolean;
     timestamp: Date;
     messageType: string;
+    senderName?: string;
+    status?: 'PENDING' | 'SERVER_ACK' | 'DELIVERY_ACK' | 'READ' | 'PLAYED';
   } | undefined;
 }
 
@@ -257,7 +259,9 @@ export class ConversationService {
           content: lastMessage.content,
           timestamp: lastMessage.timestamp,
           fromMe: lastMessage.fromMe,
-          messageType: lastMessage.messageType
+          messageType: lastMessage.messageType,
+          senderName: (lastMessage as any).senderName,
+          status: (lastMessage as any).status
         } : undefined
       };
     });
@@ -316,7 +320,9 @@ export class ConversationService {
         content: lastMessage.content,
         timestamp: lastMessage.timestamp,
         fromMe: lastMessage.fromMe,
-        messageType: lastMessage.messageType
+        messageType: lastMessage.messageType,
+        senderName: (lastMessage as any).senderName,
+        status: (lastMessage as any).status
       } : undefined
     };
     
@@ -479,8 +485,18 @@ export class ConversationService {
 
       if (conversation) {
         const updateData: any = {};
-        if (data.contactName) updateData.contactName = data.contactName;
-        if (data.contactPicture) updateData.contactPicture = data.contactPicture;
+        
+        // ⚠️ IMPORTANTE: Para grupos, NÃO atualizar contactName com pushName do webhook!
+        // O pushName vem do remetente da mensagem, não do grupo
+        // O nome do grupo será buscado via Evolution API quando necessário
+        if (!isGroupContact && data.contactName) {
+          updateData.contactName = data.contactName;
+        }
+        
+        // Para foto de perfil, podemos atualizar normalmente (tanto individual quanto grupo)
+        if (data.contactPicture) {
+          updateData.contactPicture = data.contactPicture;
+        }
 
         if (Object.keys(updateData).length > 0) {
           await this.conversationRepository.update(conversation.id, updateData);
@@ -492,12 +508,14 @@ export class ConversationService {
               id: updated.id,
               remoteJid: updated.remoteJid,
               contactName: updated.contactName,
-              contactPicture: updated.contactPicture ? '✅ TEM FOTO' : '❌ SEM FOTO'
+              contactPicture: updated.contactPicture ? '✅ TEM FOTO' : '❌ SEM FOTO',
+              isGroup: isGroupContact ? '✅ GROUP' : '❌ INDIVIDUAL'
             });
             this.socketService.emitToInstance(instanceId, 'conversation:updated', updated);
           }
 
         } else {
+          console.log(`⏭️ [CONTACT_UPDATE] No updates needed for ${isGroupContact ? 'GROUP' : 'CONTACT'}: ${remoteJid}`);
         }
       } else {
         console.log(`❌ [CONTACT_UPDATE] Conversation not found for remoteJid: ${remoteJid} (normalized: ${normalizedJid})`);
@@ -741,7 +759,9 @@ export class ConversationService {
             content: message.content,
             timestamp: message.timestamp,
             fromMe: message.fromMe,
-            messageType: message.messageType
+            messageType: message.messageType,
+            senderName: (message as any).senderName,
+            status: (message as any).status
           } : undefined
         };
         
@@ -929,6 +949,49 @@ export class ConversationService {
     this.socketService.emitToInstance(conversation.instanceId, 'conversation:archived', {
       conversationId,
       isArchived: true
+    });
+  }
+
+  async unarchiveConversation(conversationId: string): Promise<void> {
+    const conversation = await this.conversationRepository.unarchive(conversationId);
+    
+    // Emit update to frontend
+    this.socketService.emitToInstance(conversation.instanceId, 'conversation:updated', {
+      conversationId,
+      isArchived: false
+    });
+  }
+
+  async clearConversationMessages(conversationId: string): Promise<number> {
+    // Get conversation before clearing to emit event with instanceId
+    const conversation = await this.conversationRepository.findById(conversationId);
+    if (!conversation) {
+      throw new Error('Conversa não encontrada');
+    }
+
+    const deletedCount = await this.conversationRepository.clearMessages(conversationId);
+    
+    // Emit update to frontend
+    this.socketService.emitToInstance(conversation.instanceId, 'conversation:cleared', {
+      conversationId,
+      deletedCount
+    });
+
+    return deletedCount;
+  }
+
+  async deleteConversation(conversationId: string): Promise<void> {
+    // Get conversation before deleting to emit event with instanceId
+    const conversation = await this.conversationRepository.findById(conversationId);
+    if (!conversation) {
+      throw new Error('Conversa não encontrada');
+    }
+
+    await this.conversationRepository.delete(conversationId);
+    
+    // Emit delete event to frontend
+    this.socketService.emitToInstance(conversation.instanceId, 'conversation:deleted', {
+      conversationId
     });
   }
 
@@ -1273,7 +1336,22 @@ export class ConversationService {
 
       console.log(`✅ [handleIncomingMessageAtomic] Instância: ${instance.name} (DB ID: ${instance.id})`);
 
-      // 🔄 Unified normalization
+      // �️ CAPTURE @lid MAPPING: Se vier participantAlt ou remoteJidAlt, salvar mapeamento
+      if (messageData.key.participant && messageData.key.participant.includes('@lid')) {
+        if (messageData.key.participantAlt && messageData.key.participantAlt.includes('@s.whatsapp.net')) {
+          console.log(`🗺️ [LID_MAPPING] Capturando mapeamento participant: ${messageData.key.participant} → ${messageData.key.participantAlt}`);
+          this.lidToRealNumberCache.set(messageData.key.participant, messageData.key.participantAlt);
+        }
+      }
+      
+      if (messageData.key.remoteJid.includes('@lid')) {
+        if (messageData.key.remoteJidAlt && messageData.key.remoteJidAlt.includes('@s.whatsapp.net')) {
+          console.log(`🗺️ [LID_MAPPING] Capturando mapeamento remoteJid: ${messageData.key.remoteJid} → ${messageData.key.remoteJidAlt}`);
+          this.lidToRealNumberCache.set(messageData.key.remoteJid, messageData.key.remoteJidAlt);
+        }
+      }
+
+      // �🔄 Unified normalization
       const normalizedRemoteJid = this.normalizeWhatsAppNumber(
         messageData.key.remoteJid,
         messageData.key.remoteJidAlt,
@@ -1285,14 +1363,39 @@ export class ConversationService {
       // Variable to track processed media URL across transaction boundary
       let processedMediaUrl: string | null | undefined = null;
 
-      // 🚨 ATOMIC TRANSACTION: All critical database operations in one transaction
+      // � Se for GRUPO, buscar informações do grupo na Evolution API ANTES da transação
+      const isGroupConversation = messageData.key.remoteJid.includes('@g.us');
+      let groupInfo: { subject?: string; pictureUrl?: string } | null = null;
+      
+      if (isGroupConversation && instance.evolutionInstanceName) {
+        try {
+          console.log(`👥 [GROUP_INFO] Buscando informações do grupo ${formattedRemoteJid}...`);
+          const evolutionService = new EvolutionApiService();
+          groupInfo = await evolutionService.findGroupByJid(instance.evolutionInstanceName, formattedRemoteJid);
+          if (groupInfo?.subject) {
+            console.log(`✅ [GROUP_INFO] Nome do grupo encontrado: "${groupInfo.subject}"`);
+          } else {
+            console.warn(`⚠️ [GROUP_INFO] Nome do grupo não encontrado na API`);
+          }
+        } catch (error) {
+          console.error(`❌ [GROUP_INFO] Erro ao buscar informações do grupo:`, error);
+          // Não falhar a transação se não conseguir buscar info do grupo
+        }
+      }
+
+      // �🚨 ATOMIC TRANSACTION: All critical database operations in one transaction
       const transactionResult = await prisma.$transaction(async (tx) => {
         // Prepare conversation data
         const conversationData: any = {
-          isGroup: messageData.key.remoteJid.includes('@g.us')
+          isGroup: isGroupConversation
         };
 
-        if (!messageData.key.fromMe && messageData.pushName) {
+        // ⚠️ IMPORTANTE: Usar nome do GRUPO se foi buscado da API
+        // Caso contrário, para contatos individuais, usar pushName
+        if (isGroupConversation && groupInfo?.subject) {
+          conversationData.contactName = groupInfo.subject;
+          conversationData.contactPicture = groupInfo.pictureUrl || null;
+        } else if (!messageData.key.fromMe && messageData.pushName && !isGroupConversation) {
           conversationData.contactName = messageData.pushName;
         }
 
@@ -1312,14 +1415,35 @@ export class ConversationService {
               ...conversationData
             }
           });
+          console.log(`✅ [CONVERSATION_CREATED] ${isGroupConversation ? 'Grupo' : 'Contato'}: ${conversation.remoteJid}`);
         } else {
-          conversation = await tx.conversation.update({
-            where: { id: conversation.id },
-            data: conversationData
-          });
+          // Se for grupo E já tiver nome, NÃO sobrescrever
+          const updateData = { ...conversationData };
+          if (isGroupConversation && conversation.contactName) {
+            delete updateData.contactName;
+          }
+          
+          // Só atualizar se houver dados para atualizar
+          if (Object.keys(updateData).length > 0) {
+            conversation = await tx.conversation.update({
+              where: { id: conversation.id },
+              data: updateData
+            });
+          }
         }
 
         // Prepare message data
+        // Para grupos: senderName é o pushName de quem mandou (participant)
+        // Para individuais: senderName não é necessário (já está no contactName da conversa)
+        let senderName: string | undefined = undefined;
+        if (!messageData.key.fromMe) {
+          if (isGroupConversation && messageData.pushName) {
+            // Em grupos, usar pushName do participante que mandou a mensagem
+            senderName = messageData.pushName;
+          }
+          // Para conversas individuais, não precisamos de senderName
+        }
+
         const messageCreateData = {
           instanceId: instance.id,
           remoteJid: formattedRemoteJid,
@@ -1329,9 +1453,14 @@ export class ConversationService {
           messageId: messageData.key.id,
           timestamp: new Date(messageData.messageTimestamp * 1000),
           status: messageData.key.fromMe ? 'SENT' : 'DELIVERED',
-          mediaUrl: messageData.message?.imageMessage?.url || messageData.message?.videoMessage?.url || messageData.message?.audioMessage?.url,
+          mediaUrl: messageData.message?.imageMessage?.url || 
+                   messageData.message?.videoMessage?.url || 
+                   messageData.message?.audioMessage?.url || 
+                   messageData.message?.stickerMessage?.url || 
+                   messageData.message?.documentMessage?.url,
           fileName: messageData.message?.documentMessage?.fileName,
           caption: messageData.message?.imageMessage?.caption || messageData.message?.videoMessage?.caption,
+          senderName: senderName || null,
           conversationId: conversation.id
         };
 
@@ -1391,12 +1520,15 @@ export class ConversationService {
             if (downloadedUrl) {
               processedMediaUrl = downloadedUrl;
 
+              console.log(`✅ [MEDIA_PROCESSED] ${mediaType.toUpperCase()} URL atualizada: ${downloadedUrl.substring(0, 80)}...`);
+
               // Update message with processed media URL
               await tx.message.update({
                 where: { id: message.id },
                 data: { mediaUrl: processedMediaUrl }
               });
             } else {
+              console.warn(`⚠️ [MEDIA_PROCESSED] ${mediaType.toUpperCase()} retornou URL null - usando URL original`);
             }
           } catch (mediaError) {
             console.error(`⚠️ [ATOMIC_MEDIA_ERROR] Falha no processamento de mídia:`);
@@ -1460,11 +1592,16 @@ export class ConversationService {
         }
       });
 
-      // Update conversation list
-      const allConversations = await this.conversationRepository.findAllByInstanceId(instance.id);
-      const updatedConversation = allConversations.find(c => c.remoteJid === formattedRemoteJid);
-      if (updatedConversation) {
-        this.socketService.emitToInstance(instance.id, 'conversation:updated', updatedConversation);
+      // SEMPRE emitir conversation:updated com dados atualizados
+      // Buscar a conversa atualizada com todas as relações
+      const freshConversation = await this.conversationRepository.findById(transactionResult.conversation.id);
+      if (freshConversation) {
+        console.log(`📡 [EMIT_WEBSOCKET] Emitindo conversation:updated para conversa ${freshConversation.id}`);
+        this.socketService.emitToInstance(instance.id, 'conversation:updated', freshConversation);
+      } else {
+        console.warn(`⚠️ [EMIT_WEBSOCKET] Conversa ${transactionResult.conversation.id} não encontrada após transação!`);
+        // Fallback: emitir com dados da transação
+        this.socketService.emitToInstance(instance.id, 'conversation:updated', transactionResult.conversation);
       }
 
     } catch (error) {

@@ -99,9 +99,24 @@ router.patch('/:conversationId/archive', (req, res) => {
   conversationController.archiveConversation(req, res);
 });
 
+// Unarchive conversation
+router.patch('/:conversationId/unarchive', (req, res) => {
+  conversationController.unarchiveConversation(req, res);
+});
+
 // Get archived conversations for an instance
 router.get('/instance/:instanceId/archived', (req, res) => {
   conversationController.getArchivedConversations(req, res);
+});
+
+// Clear all messages in a conversation
+router.delete('/:conversationId/messages', (req, res) => {
+  conversationController.clearConversationMessages(req, res);
+});
+
+// Delete conversation
+router.delete('/:conversationId', (req, res) => {
+  conversationController.deleteConversation(req, res);
 });
 
 export { router as conversationRoutes };

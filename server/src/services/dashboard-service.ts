@@ -432,13 +432,14 @@ export class DashboardService {
   }
 
   private mapInstanceStatus(status: string): 'online' | 'offline' | 'connecting' {
+    const normalizedStatus = status.toUpperCase();
     const statusMap: Record<string, 'online' | 'offline' | 'connecting'> = {
       'CONNECTED': 'online',
       'CONNECTING': 'connecting',
       'DISCONNECTED': 'offline',
       'QRCODE': 'connecting'
     };
-    return statusMap[status] || 'offline';
+    return statusMap[normalizedStatus] || 'offline';
   }
 }
 

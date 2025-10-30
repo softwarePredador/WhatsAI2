@@ -33,7 +33,7 @@ export const ChatLayout: React.FC = () => {
         fetchInstances(token).then(() => setLoading(false));
       } else {
         setLoading(false);
-        const firstInstance = instances.find(i => i.status === 'connected') || instances[0];
+        const firstInstance = instances.find(i => i.status.toUpperCase() === 'CONNECTED') || instances[0];
         if (firstInstance) {
           console.log('📍 [ChatLayout] Redirecionando para:', `/chat/${firstInstance.id}/${conversationId}`);
           navigate(`/chat/${firstInstance.id}/${conversationId}`, { replace: true });
@@ -73,11 +73,11 @@ export const ChatLayout: React.FC = () => {
   }
 
   return (
-    <div className={`h-screen flex bg-base-100`}>
+    <div className="h-[calc(100vh-4rem)] flex bg-base-100">
       {/* Sidebar - Lista de Conversas */}
       <div className={`w-full lg:w-80 lg:flex-shrink-0 border-r ${
         conversationId ? 'hidden lg:block' : 'block'
-      } bg-base-100 border-base-300`}>
+      } bg-base-100 border-base-300 h-full`}>
         <ConversationList />
       </div>
 

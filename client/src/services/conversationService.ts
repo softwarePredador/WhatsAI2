@@ -136,5 +136,113 @@ export const conversationService = {
       }
       throw error;
     }
+  },
+
+  /**
+   * Archive a conversation
+   */
+  async archiveConversation(conversationId: string, token: string): Promise<void> {
+    try {
+      const response = await axios.patch<ApiResponse<null>>(
+        `${API_URL}/conversations/${conversationId}/archive`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      if (!response.data.success) {
+        throw new Error("Failed to archive conversation");
+      }
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        const message = error.response?.data?.message || "Failed to archive conversation";
+        throw new Error(message);
+      }
+      throw error;
+    }
+  },
+
+  /**
+   * Unarchive a conversation
+   */
+  async unarchiveConversation(conversationId: string, token: string): Promise<void> {
+    try {
+      const response = await axios.patch<ApiResponse<null>>(
+        `${API_URL}/conversations/${conversationId}/unarchive`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      if (!response.data.success) {
+        throw new Error("Failed to unarchive conversation");
+      }
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        const message = error.response?.data?.message || "Failed to unarchive conversation";
+        throw new Error(message);
+      }
+      throw error;
+    }
+  },
+
+  /**
+   * Clear all messages from a conversation
+   */
+  async clearConversationMessages(conversationId: string, token: string): Promise<number> {
+    try {
+      const response = await axios.delete<ApiResponse<{ deletedCount: number }>>(
+        `${API_URL}/conversations/${conversationId}/messages`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      if (!response.data.success) {
+        throw new Error("Failed to clear conversation messages");
+      }
+
+      return response.data.data.deletedCount;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        const message = error.response?.data?.message || "Failed to clear conversation messages";
+        throw new Error(message);
+      }
+      throw error;
+    }
+  },
+
+  /**
+   * Delete a conversation
+   */
+  async deleteConversation(conversationId: string, token: string): Promise<void> {
+    try {
+      const response = await axios.delete<ApiResponse<null>>(
+        `${API_URL}/conversations/${conversationId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      if (!response.data.success) {
+        throw new Error("Failed to delete conversation");
+      }
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        const message = error.response?.data?.message || "Failed to delete conversation";
+        throw new Error(message);
+      }
+      throw error;
+    }
   }
 };

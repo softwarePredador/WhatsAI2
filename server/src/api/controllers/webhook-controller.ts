@@ -144,6 +144,52 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
 
       // 🔍 LOG DO EVENTO PARA DEBUG
       console.log(`🔍 [WEBHOOK] Dados do webhook:`, JSON.stringify(validatedWebhookData, null, 2));
+      
+      // � SALVAR LOG DO WEBHOOK para análise posterior
+      let webhookLogData: any = {
+        instanceId: instanceId,
+        event: validatedWebhookData.event,
+        rawData: validatedWebhookData,
+        hasLid: false,
+        hasAltField: false
+      };
+      
+      // �🗺️ [DEBUG] Log específico para detectar campos @lid
+      if (validatedWebhookData.event === 'messages.upsert') {
+        const msgData = validatedWebhookData.data;
+        if (msgData?.key) {
+          console.log(`🗺️ [WEBHOOK_DEBUG] Key completa:`, JSON.stringify(msgData.key, null, 2));
+          console.log(`🗺️ [WEBHOOK_DEBUG] Campos disponíveis:`, Object.keys(msgData.key));
+          
+          // Extrair campos para o log
+          webhookLogData.remoteJid = msgData.key.remoteJid;
+          webhookLogData.remoteJidAlt = msgData.key.remoteJidAlt;
+          webhookLogData.participant = msgData.key.participant;
+          webhookLogData.participantAlt = msgData.key.participantAlt;
+          webhookLogData.messageId = msgData.key.id;
+          
+          if (msgData.key.participant?.includes('@lid')) {
+            console.log(`🚨 [WEBHOOK_DEBUG] @LID DETECTADO no participant!`);
+            console.log(`   participant: ${msgData.key.participant}`);
+            console.log(`   participantAlt: ${msgData.key.participantAlt || 'NÃO EXISTE'}`);
+            webhookLogData.hasLid = true;
+            webhookLogData.hasAltField = !!msgData.key.participantAlt;
+          }
+          
+          if (msgData.key.remoteJid?.includes('@lid')) {
+            console.log(`🚨 [WEBHOOK_DEBUG] @LID DETECTADO no remoteJid!`);
+            console.log(`   remoteJid: ${msgData.key.remoteJid}`);
+            console.log(`   remoteJidAlt: ${msgData.key.remoteJidAlt || 'NÃO EXISTE'}`);
+            webhookLogData.hasLid = true;
+            webhookLogData.hasAltField = !!msgData.key.remoteJidAlt;
+          }
+        }
+      }
+
+      // Salvar log no banco (não bloquear processamento se falhar)
+      prisma.webhookLog.create({ data: webhookLogData }).catch((err: any) => {
+        console.error(`❌ [WEBHOOK_LOG] Erro ao salvar log:`, err);
+      });
 
       // 🔍 Check if instance exists in database
       const instance = await prisma.whatsAppInstance.findUnique({
@@ -241,71 +287,8 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
           console.log(`💬 [MESSAGES_UPSERT] Message data:`, JSON.stringify(validated.data.data, null, 2));
           await this.conversationService.handleIncomingMessageAtomic(instanceId, validated.data.data);
 
-          // 🎯 GROUP NAME AUTO-UPDATE: Se for mensagem de grupo, verificar se precisamos buscar nome
-          const remoteJid = validated.data.data.key.remoteJid;
-          if (remoteJid && remoteJid.endsWith('@g.us')) {
-
-            try {
-              // Verificar se o grupo já tem nome no banco
-              const existingConversation = await prisma.conversation.findFirst({
-                where: {
-                  remoteJid: remoteJid,
-                  instance: {
-                    evolutionInstanceName: instanceId
-                  }
-                },
-                select: {
-                  id: true,
-                  contactName: true,
-                  isGroup: true
-                }
-              });
-
-
-              // Se não tem nome ou nome é genérico (apenas números), buscar informações do grupo
-              const needsNameUpdate = !existingConversation?.contactName ||
-                existingConversation.contactName === remoteJid ||
-                /^\d+$/.test(existingConversation.contactName.replace('@g.us', ''));
-
-              console.log(`👥 [GROUP_CHECK] Needs name update: ${needsNameUpdate} (current: "${existingConversation?.contactName || 'none'}")`);
-
-              if (needsNameUpdate) {
-
-                // Buscar informações do grupo na Evolution API
-                const groupInfo = await this.evolutionApiService.findGroupByJid(instanceId, remoteJid);
-
-                if (groupInfo?.subject) {
-
-                  // Atualizar nome do grupo no banco
-                  const updateResult = await prisma.conversation.updateMany({
-                    where: {
-                      remoteJid: remoteJid,
-                      instance: {
-                        evolutionInstanceName: instanceId
-                      }
-                    },
-                    data: {
-                      contactName: groupInfo.subject,
-                      contactPicture: groupInfo.pictureUrl || null,
-                      isGroup: true
-                    }
-                  });
-
-
-                  // Notificar frontend sobre a atualização
-                  this.socketService.emitToInstance(instanceId, 'conversation:updated', {
-                    conversationId: existingConversation?.id,
-                    contactName: groupInfo.subject,
-                    contactPicture: groupInfo.pictureUrl
-                  });
-                } else {
-                }
-              } else {
-              }
-            } catch (error) {
-              console.error(`❌ [GROUP_UPDATE] Error updating group name for ${remoteJid}:`, error);
-            }
-          }
+          // ✅ Nome do grupo agora é buscado automaticamente dentro de handleIncomingMessageAtomic
+          // quando detecta @g.us no remoteJid. Não precisa mais fazer busca separada aqui.
         }
         
         // 📤 Process sent messages (SEND_MESSAGE) - MENSAGENS ENVIADAS PELO USUÁRIO!
@@ -368,6 +351,53 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
                 ...(pushName && { contactName: pushName }),
                 ...(profilePicUrl && { contactPicture: profilePicUrl })
               });
+
+              // 🔍 [AUTO_DETECT] Quando foto de perfil é atualizada, verificar se há duplicata
+              if (profilePicUrl) {
+                try {
+                  const { findDuplicatesByPicture, mergeConversations } = await import('../../utils/conversation-merger');
+                  
+                  // Buscar conversa que foi atualizada
+                  const updatedConv = await prisma.conversation.findFirst({
+                    where: { remoteJid, instanceId: instance.id }
+                  });
+
+                  if (updatedConv) {
+                    // Verificar se é @lid ou número real
+                    const isLid = remoteJid.includes('@lid');
+                    const searchPattern = isLid 
+                      ? { contains: '@s.whatsapp.net', not: { contains: '@lid' } }
+                      : { contains: '@lid' };
+
+                    // Buscar conversa com mesma foto mas JID diferente
+                    const duplicate = await prisma.conversation.findFirst({
+                      where: {
+                        instanceId: instance.id,
+                        contactPicture: profilePicUrl,
+                        remoteJid: searchPattern,
+                        id: { not: updatedConv.id }
+                      }
+                    });
+
+                    if (duplicate) {
+                      console.log(`🔀 [AUTO_DETECT] Duplicata detectada por foto de perfil!`);
+                      console.log(`   Conv 1: ${updatedConv.remoteJid}`);
+                      console.log(`   Conv 2: ${duplicate.remoteJid}`);
+                      
+                      // Decidir qual é @lid e qual é número real
+                      const lidJid = isLid ? remoteJid : duplicate.remoteJid;
+                      const realJid = isLid ? duplicate.remoteJid : remoteJid;
+
+                      // Unificar automaticamente
+                      const mergeResult = await mergeConversations(lidJid, realJid);
+                      console.log(`✅ [AUTO_MERGE] Unificação automática concluída: ${mergeResult.messagesMigrated} mensagens`);
+                    }
+                  }
+                } catch (autoMergeError) {
+                  console.error(`❌ [AUTO_DETECT] Erro ao detectar/unificar duplicata:`, autoMergeError);
+                  // Não falhar o processamento do webhook
+                }
+              }
             } else {
             }
           }

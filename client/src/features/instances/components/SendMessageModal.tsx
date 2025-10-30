@@ -28,7 +28,7 @@ function SendMessageModal({ isOpen, onClose, instance }: SendMessageModalProps) 
       return;
     }
 
-    if (instance.status !== 'connected') {
+    if (instance.status.toUpperCase() !== 'CONNECTED') {
       toast.error('Instância não está conectada');
       return;
     }
@@ -114,8 +114,8 @@ function SendMessageModal({ isOpen, onClose, instance }: SendMessageModalProps) 
           {/* Instance Status */}
           <div className="mt-3 flex items-center gap-2">
             <div className={`w-2 h-2 rounded-full ${
-              instance.status === 'connected' ? 'bg-success' : 
-              instance.status === 'connecting' ? 'bg-warning' : 'bg-error'
+              instance.status.toUpperCase() === 'CONNECTED' ? 'bg-success' : 
+              instance.status.toUpperCase() === 'CONNECTING' ? 'bg-warning' : 'bg-error'
             }`}></div>
             <span className="text-sm capitalize">{instance.status}</span>
           </div>
@@ -174,7 +174,7 @@ function SendMessageModal({ isOpen, onClose, instance }: SendMessageModalProps) 
             </button>
             <button
               type="submit"
-              disabled={isLoading || instance.status !== 'connected'}
+              disabled={isLoading || instance.status.toUpperCase() !== 'CONNECTED'}
               className="flex-1 btn btn-primary border-0"
             >
               {isLoading ? (

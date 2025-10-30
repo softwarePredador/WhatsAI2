@@ -1,29 +1,29 @@
-import React, { useState } from 'react';
-import { Play, Pause, Download, Image as ImageIcon, File, Music, AlertCircle, Loader } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Download, Image as ImageIcon, File, AlertCircle, Loader } from 'lucide-react';
+import { AudioPlayer } from './AudioPlayer';
 
 interface MediaMessageProps {
   mediaUrl: string;
   mediaType: 'image' | 'video' | 'audio' | 'document' | 'sticker';
   fileName?: string;
   caption?: string;
+  fromMe?: boolean;
 }
 
 export const MediaMessage: React.FC<MediaMessageProps> = ({
   mediaUrl,
   mediaType,
   fileName,
-  caption
+  caption,
+  fromMe = false
 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
-
-  const handlePlayPause = () => {
-    setIsPlaying(!isPlaying);
-    // TODO: Implementar controle de áudio/vídeo
-  };
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   const handleDownload = async () => {
     if (isDownloading) return;
@@ -89,9 +89,13 @@ export const MediaMessage: React.FC<MediaMessageProps> = ({
         return (
           <div className="relative">
             <video
+              ref={videoRef}
               src={mediaUrl}
               controls
               className="max-w-full max-h-64 rounded-lg"
+              onPlay={() => setIsPlaying(true)}
+              onPause={() => setIsPlaying(false)}
+              onEnded={() => setIsPlaying(false)}
               onError={() => {
                 console.error('Erro ao carregar vídeo:', mediaUrl);
                 setHasError(true);
@@ -106,32 +110,7 @@ export const MediaMessage: React.FC<MediaMessageProps> = ({
         );
 
       case 'audio':
-        return (
-          <div className="flex items-center space-x-3 p-3 rounded-lg max-w-xs bg-base-200">
-            <button
-              onClick={handlePlayPause}
-              className="p-2 bg-primary text-primary-content rounded-full hover:bg-primary-focus transition-colors"
-            >
-              {isPlaying ? <Pause size={16} /> : <Play size={16} />}
-            </button>
-            <div className="flex-1">
-              <div className="flex items-center space-x-2">
-                <Music size={16} className="text-base-content/60" />
-                <span className="text-sm font-medium text-base-content">
-                  Áudio
-                </span>
-              </div>
-              <audio
-                src={mediaUrl}
-                onPlay={() => setIsPlaying(true)}
-                onPause={() => setIsPlaying(false)}
-                onEnded={() => setIsPlaying(false)}
-                className="w-full mt-2"
-                controls
-              />
-            </div>
-          </div>
-        );
+        return <AudioPlayer mediaUrl={mediaUrl} fromMe={fromMe} />;
 
       case 'document':
         return (
@@ -160,16 +139,34 @@ export const MediaMessage: React.FC<MediaMessageProps> = ({
 
       case 'sticker':
         return (
-          <div className="relative">
-            <img
-              src={mediaUrl}
-              alt="Sticker"
-              className="w-24 h-24 object-contain"
-              onError={(e) => {
-                console.error('Erro ao carregar sticker:', mediaUrl);
-                e.currentTarget.style.display = 'none';
-              }}
-            />
+          <div className="relative inline-block">
+            {isLoading && (
+              <div className="flex items-center justify-center w-32 h-32">
+                <Loader className="animate-spin text-base-content/60" size={24} />
+              </div>
+            )}
+            {hasError ? (
+              <div className="flex flex-col items-center justify-center w-32 h-32 rounded-lg bg-base-200">
+                <AlertCircle className="text-error mb-2" size={24} />
+                <p className="text-xs text-base-content/60">Erro ao carregar</p>
+              </div>
+            ) : (
+              <img
+                src={mediaUrl}
+                alt="Sticker"
+                className={`w-32 h-32 object-contain cursor-pointer hover:scale-105 transition-transform ${isLoading ? 'hidden' : ''}`}
+                onError={() => {
+                  console.error('Erro ao carregar sticker:', mediaUrl);
+                  setHasError(true);
+                  setIsLoading(false);
+                }}
+                onLoad={() => {
+                  setIsLoading(false);
+                  setHasError(false);
+                }}
+                onClick={() => setShowImageModal(true)}
+              />
+            )}
           </div>
         );
 

@@ -715,4 +715,88 @@ export class ConversationController {
       });
     }
   }
+
+  async unarchiveConversation(req: Request, res: Response): Promise<void> {
+    try {
+      const { conversationId } = req.params;
+
+      if (!conversationId) {
+        res.status(400).json({
+          success: false,
+          error: 'ID da conversa é obrigatório'
+        });
+        return;
+      }
+
+      await this.conversationService.unarchiveConversation(conversationId);
+
+      res.json({
+        success: true,
+        message: 'Conversa desarquivada'
+      });
+    } catch (error) {
+      console.error('Error unarchiving conversation:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Erro interno do servidor'
+      });
+    }
+  }
+
+  async clearConversationMessages(req: Request, res: Response): Promise<void> {
+    try {
+      const { conversationId } = req.params;
+
+      if (!conversationId) {
+        res.status(400).json({
+          success: false,
+          error: 'ID da conversa é obrigatório'
+        });
+        return;
+      }
+
+      const deletedCount = await this.conversationService.clearConversationMessages(conversationId);
+
+      res.json({
+        success: true,
+        message: `${deletedCount} mensagens foram removidas`,
+        data: {
+          deletedCount
+        }
+      });
+    } catch (error) {
+      console.error('Error clearing conversation messages:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Erro interno do servidor'
+      });
+    }
+  }
+
+  async deleteConversation(req: Request, res: Response): Promise<void> {
+    try {
+      const { conversationId } = req.params;
+
+      if (!conversationId) {
+        res.status(400).json({
+          success: false,
+          error: 'ID da conversa é obrigatório'
+        });
+        return;
+      }
+
+      await this.conversationService.deleteConversation(conversationId);
+
+      res.json({
+        success: true,
+        message: 'Conversa excluída com sucesso'
+      });
+    } catch (error) {
+      console.error('Error deleting conversation:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Erro interno do servidor'
+      });
+    }
+  }
 }

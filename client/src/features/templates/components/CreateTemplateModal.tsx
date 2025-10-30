@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Info, Sparkles } from 'lucide-react';
+import { X, Info, Sparkles, Star, Tag as TagIcon, Image } from 'lucide-react';
 import { Template, CreateTemplateRequest, TEMPLATE_CATEGORIES } from '../types/templates';
 import { templatesService } from '../services/templatesService';
 
@@ -19,7 +19,11 @@ export const CreateTemplateModal: React.FC<CreateTemplateModalProps> = ({
   const [name, setName] = useState('');
   const [content, setContent] = useState('');
   const [category, setCategory] = useState<string>('');
-  const [isActive, setIsActive] = useState(true);
+  const [mediaUrl, setMediaUrl] = useState('');
+  const [mediaType, setMediaType] = useState('');
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState('');
+  const [isFavorite, setIsFavorite] = useState(false);
   const [detectedVariables, setDetectedVariables] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,7 +36,10 @@ export const CreateTemplateModal: React.FC<CreateTemplateModalProps> = ({
       setName(editTemplate.name);
       setContent(editTemplate.content);
       setCategory(editTemplate.category || '');
-      setIsActive(editTemplate.isActive);
+      setMediaUrl(editTemplate.mediaUrl || '');
+      setMediaType(editTemplate.mediaType || '');
+      setTags(editTemplate.tags || []);
+      setIsFavorite(editTemplate.isFavorite || false);
       setDetectedVariables(editTemplate.variables);
     } else {
       resetForm();
@@ -49,9 +56,24 @@ export const CreateTemplateModal: React.FC<CreateTemplateModalProps> = ({
     setName('');
     setContent('');
     setCategory('');
-    setIsActive(true);
+    setMediaUrl('');
+    setMediaType('');
+    setTags([]);
+    setTagInput('');
+    setIsFavorite(false);
     setDetectedVariables([]);
     setError(null);
+  };
+
+  const handleAddTag = () => {
+    if (tagInput.trim() && !tags.includes(tagInput.trim())) {
+      setTags([...tags, tagInput.trim()]);
+      setTagInput('');
+    }
+  };
+
+  const handleRemoveTag = (tagToRemove: string) => {
+    setTags(tags.filter(tag => tag !== tagToRemove));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -72,8 +94,11 @@ export const CreateTemplateModal: React.FC<CreateTemplateModalProps> = ({
       const templateData: CreateTemplateRequest = {
         name: name.trim(),
         content: content.trim(),
-        category: category || undefined,
-        isActive
+        category: category as any || undefined,
+        mediaUrl: mediaUrl.trim() || undefined,
+        mediaType: mediaType.trim() || undefined,
+        tags: tags.length > 0 ? tags : undefined,
+        isFavorite
       };
 
       let result: Template;
@@ -236,23 +261,114 @@ export const CreateTemplateModal: React.FC<CreateTemplateModalProps> = ({
               </div>
             )}
 
-            {/* Active Toggle */}
+            {/* Media URL */}
+            <div className="form-control">
+              <label className="label">
+                <span className="label-text font-semibold">URL de Mídia (Opcional)</span>
+                <span className="label-text-alt text-info flex items-center gap-1">
+                  <Image className="w-3 h-3" />
+                  Imagem, vídeo ou documento
+                </span>
+              </label>
+              <input
+                type="url"
+                className="input input-bordered w-full"
+                placeholder="https://exemplo.com/imagem.jpg"
+                value={mediaUrl}
+                onChange={(e) => setMediaUrl(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+
+            {/* Media Type */}
+            {mediaUrl && (
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text font-semibold">Tipo de Mídia</span>
+                </label>
+                <select
+                  className="select select-bordered w-full"
+                  value={mediaType}
+                  onChange={(e) => setMediaType(e.target.value)}
+                  disabled={loading}
+                >
+                  <option value="">Selecione o tipo</option>
+                  <option value="image">Imagem</option>
+                  <option value="video">Vídeo</option>
+                  <option value="audio">Áudio</option>
+                  <option value="document">Documento</option>
+                </select>
+              </div>
+            )}
+
+            {/* Tags */}
+            <div className="form-control">
+              <label className="label">
+                <span className="label-text font-semibold flex items-center gap-1">
+                  <TagIcon className="w-4 h-4" />
+                  Tags (Opcional)
+                </span>
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  className="input input-bordered flex-1"
+                  placeholder="Digite uma tag e pressione Enter"
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddTag();
+                    }
+                  }}
+                  disabled={loading}
+                />
+                <button
+                  type="button"
+                  onClick={handleAddTag}
+                  className="btn btn-outline"
+                  disabled={loading}
+                >
+                  Adicionar
+                </button>
+              </div>
+              {tags.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {tags.map((tag) => (
+                    <div key={tag} className="badge badge-outline gap-2">
+                      {tag}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveTag(tag)}
+                        className="btn btn-xs btn-ghost btn-circle"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Favorite Toggle */}
             <div className="form-control">
               <label className="label cursor-pointer justify-start gap-3">
                 <input
                   type="checkbox"
-                  className="toggle toggle-success"
-                  checked={isActive}
-                  onChange={(e) => setIsActive(e.target.checked)}
+                  className="toggle toggle-warning"
+                  checked={isFavorite}
+                  onChange={(e) => setIsFavorite(e.target.checked)}
                   disabled={loading}
                 />
-                <span className="label-text font-semibold">
-                  {isActive ? 'Template Ativo' : 'Template Inativo'}
+                <span className="label-text font-semibold flex items-center gap-2">
+                  <Star className={`w-4 h-4 ${isFavorite ? 'fill-current text-warning' : ''}`} />
+                  {isFavorite ? 'Template Favorito' : 'Marcar como Favorito'}
                 </span>
               </label>
               <label className="label">
                 <span className="label-text-alt text-base-content/60">
-                  Templates inativos não aparecem na lista de campanhas
+                  Templates favoritos aparecem no topo da lista
                 </span>
               </label>
             </div>

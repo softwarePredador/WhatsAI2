@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import { Search, MessageSquare, Archive, Pin, MoreVertical, Check, Mail } from 'lucide-react';
+import { Search, MessageSquare, Archive, Pin, MoreVertical, Check, Mail, CheckCheck, Image, Music, Video, FileText, MapPin, User, Smile, Trash2, Eraser } from 'lucide-react';
 import { userAuthStore } from '../features/auth/store/authStore';
 import { conversationService } from '../services/conversationService';
 import { socketService } from '../services/socketService';
@@ -23,6 +23,8 @@ interface ConversationSummary {
     fromMe: boolean;
     timestamp: Date;
     messageType: string;
+    senderName?: string;
+    status?: 'PENDING' | 'SERVER_ACK' | 'DELIVERY_ACK' | 'READ' | 'PLAYED';
   };
 }
 
@@ -34,6 +36,7 @@ export const ConversationList: React.FC = () => {
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   
   // Usar o store de autenticação global
   const token = userAuthStore((state) => state.token);
@@ -240,6 +243,37 @@ export const ConversationList: React.FC = () => {
     return message.substring(0, maxLength) + '...';
   };
 
+  // Helper para ícone de tipo de mensagem
+  const getMessageTypeIcon = (messageType: string) => {
+    switch (messageType.toUpperCase()) {
+      case 'IMAGE':
+        return <Image className="h-4 w-4 inline mr-1" />;
+      case 'AUDIO':
+      case 'PTT':
+        return <Music className="h-4 w-4 inline mr-1" />;
+      case 'VIDEO':
+        return <Video className="h-4 w-4 inline mr-1" />;
+      case 'DOCUMENT':
+        return <FileText className="h-4 w-4 inline mr-1" />;
+      case 'STICKER':
+        return <Smile className="h-4 w-4 inline mr-1" />;
+      case 'LOCATION':
+        return <MapPin className="h-4 w-4 inline mr-1" />;
+      case 'CONTACT':
+        return <User className="h-4 w-4 inline mr-1" />;
+      default:
+        return null;
+    }
+  };
+
+  // Helper para ícone de status de leitura
+  const getStatusIcon = (status?: string) => {
+    if (!status || status === 'PENDING') return <Check className="h-3 w-3 inline" />;
+    if (status === 'SERVER_ACK' || status === 'DELIVERY_ACK') return <CheckCheck className="h-3 w-3 inline" />;
+    if (status === 'READ' || status === 'PLAYED') return <CheckCheck className="h-3 w-3 inline text-blue-500" />;
+    return <Check className="h-3 w-3 inline" />;
+  };
+
   const handleMarkAsRead = async (e: React.MouseEvent, conversationId: string) => {
     e.preventDefault();
     e.stopPropagation();
@@ -279,6 +313,76 @@ export const ConversationList: React.FC = () => {
       );
     } catch (error) {
       console.error('Erro ao marcar como não lida:', error);
+    }
+  };
+
+  const handleArchiveConversation = async (e: React.MouseEvent, conversationId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setOpenMenuId(null);
+    
+    if (!token) return;
+    
+    try {
+      await conversationService.archiveConversation(conversationId, token);
+      // Remover a conversa da lista
+      setConversations(prev => prev.filter(conv => conv.id !== conversationId));
+    } catch (error) {
+      console.error('Erro ao arquivar conversa:', error);
+      alert('Erro ao arquivar conversa');
+    }
+  };
+
+  const handleClearMessages = async (e: React.MouseEvent, conversationId: string, contactName: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setOpenMenuId(null);
+    
+    if (!token) return;
+    
+    const confirmClear = window.confirm(
+      `Deseja limpar todas as mensagens da conversa com ${contactName}?\n\nIsso não pode ser desfeito.`
+    );
+    
+    if (!confirmClear) return;
+    
+    try {
+      const deletedCount = await conversationService.clearConversationMessages(conversationId, token);
+      // Atualizar a conversa localmente
+      setConversations(prev => 
+        prev.map(conv => 
+          conv.id === conversationId 
+            ? { ...conv, lastMessage: undefined, lastMessageAt: undefined, unreadCount: 0 }
+            : conv
+        )
+      );
+      alert(`${deletedCount} mensagens foram removidas`);
+    } catch (error) {
+      console.error('Erro ao limpar mensagens:', error);
+      alert('Erro ao limpar mensagens');
+    }
+  };
+
+  const handleDeleteConversation = async (e: React.MouseEvent, conversationId: string, contactName: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setOpenMenuId(null);
+    
+    if (!token) return;
+    
+    const confirmDelete = window.confirm(
+      `Deseja excluir permanentemente a conversa com ${contactName}?\n\nTodas as mensagens serão removidas. Isso não pode ser desfeito.`
+    );
+    
+    if (!confirmDelete) return;
+    
+    try {
+      await conversationService.deleteConversation(conversationId, token);
+      // Remover a conversa da lista
+      setConversations(prev => prev.filter(conv => conv.id !== conversationId));
+    } catch (error) {
+      console.error('Erro ao excluir conversa:', error);
+      alert('Erro ao excluir conversa');
     }
   };
 
@@ -409,6 +513,68 @@ export const ConversationList: React.FC = () => {
                                 <Mail className="h-4 w-4 text-primary" />
                               </button>
                             )}
+                            
+                            {/* More Options Menu */}
+                            <div className="relative">
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setOpenMenuId(openMenuId === conversation.id ? null : conversation.id);
+                                }}
+                                className={`p-1 rounded hover:bg-base-300`}
+                                title="Mais opções"
+                              >
+                                <MoreVertical className="h-4 w-4 text-base-content/60" />
+                              </button>
+                              
+                              {/* Dropdown Menu */}
+                              {openMenuId === conversation.id && (
+                                <>
+                                  <div 
+                                    className="fixed inset-0 z-10"
+                                    onClick={() => setOpenMenuId(null)}
+                                  />
+                                  <div className={`absolute right-0 mt-1 w-48 rounded-md shadow-lg z-20 border ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                                    <div className="py-1">
+                                      <button
+                                        onClick={(e) => handleArchiveConversation(e, conversation.id)}
+                                        className={`w-full text-left px-4 py-2 text-sm flex items-center space-x-2 ${isDark ? 'hover:bg-gray-700 text-gray-200' : 'hover:bg-gray-100 text-gray-700'}`}
+                                      >
+                                        <Archive className="h-4 w-4" />
+                                        <span>Arquivar conversa</span>
+                                      </button>
+                                      
+                                      <button
+                                        onClick={(e) => handleClearMessages(e, conversation.id, getDisplayName({
+                                          nickname: (conversation as any).nickname,
+                                          contactName: conversation.contactName,
+                                          remoteJid: conversation.remoteJid
+                                        }))}
+                                        className={`w-full text-left px-4 py-2 text-sm flex items-center space-x-2 ${isDark ? 'hover:bg-gray-700 text-yellow-400' : 'hover:bg-gray-100 text-yellow-600'}`}
+                                      >
+                                        <Eraser className="h-4 w-4" />
+                                        <span>Limpar mensagens</span>
+                                      </button>
+                                      
+                                      <div className={`border-t ${isDark ? 'border-gray-700' : 'border-gray-200'} my-1`} />
+                                      
+                                      <button
+                                        onClick={(e) => handleDeleteConversation(e, conversation.id, getDisplayName({
+                                          nickname: (conversation as any).nickname,
+                                          contactName: conversation.contactName,
+                                          remoteJid: conversation.remoteJid
+                                        }))}
+                                        className={`w-full text-left px-4 py-2 text-sm flex items-center space-x-2 ${isDark ? 'hover:bg-red-900/20 text-red-400' : 'hover:bg-red-50 text-red-600'}`}
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                        <span>Excluir conversa</span>
+                                      </button>
+                                    </div>
+                                  </div>
+                                </>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -417,12 +583,31 @@ export const ConversationList: React.FC = () => {
                         {(() => {
                           // Priorizar lastMessagePreview (mais completo)
                           if (conversation.lastMessagePreview?.content) {
+                            const preview = conversation.lastMessagePreview;
+                            const messageTypeIcon = getMessageTypeIcon(preview.messageType);
+                            
                             return (
-                              <p className={`text-sm truncate text-base-content/70`}>
-                                {conversation.lastMessagePreview.fromMe && (
-                                  <span className="text-primary">Você: </span>
+                              <p className={`text-sm truncate text-base-content/70 flex items-center`}>
+                                {/* Status de leitura (só para mensagens enviadas) */}
+                                {preview.fromMe && (
+                                  <span className="mr-1">{getStatusIcon(preview.status)}</span>
                                 )}
-                                {truncateMessage(conversation.lastMessagePreview.content)}
+                                
+                                {/* Nome do remetente em grupos (só para mensagens recebidas) - BOLD como WhatsApp */}
+                                {!preview.fromMe && conversation.isGroup && preview.senderName && (
+                                  <span className="font-semibold">{preview.senderName}:&nbsp;</span>
+                                )}
+                                
+                                {/* "Você:" para mensagens enviadas */}
+                                {preview.fromMe && (
+                                  <span className="text-primary">Você:&nbsp;</span>
+                                )}
+                                
+                                {/* Ícone de tipo de mensagem */}
+                                {messageTypeIcon && <span className="mr-1">{messageTypeIcon}</span>}
+                                
+                                {/* Conteúdo da mensagem */}
+                                <span className="truncate">{truncateMessage(preview.content)}</span>
                               </p>
                             );
                           }

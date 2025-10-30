@@ -79,7 +79,13 @@ export const messageKeySchema = z.object({
   id: z.string().min(1),
   
   /** JID do participante em grupos (opcional) */
-  participant: z.string().optional()
+  participant: z.string().optional(),
+  
+  /** JID alternativo para resolver @lid → número real (Baileys v7+) */
+  participantAlt: z.string().optional(),
+  
+  /** JID remoto alternativo para resolver @lid → número real (Baileys v7+) */
+  remoteJidAlt: z.string().optional()
 });
 
 /**
