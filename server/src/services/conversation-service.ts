@@ -1375,6 +1375,17 @@ export class ConversationService {
         }
 
         // Prepare message data
+        // Para grupos: senderName é o pushName de quem mandou (participant)
+        // Para individuais: senderName não é necessário (já está no contactName da conversa)
+        let senderName: string | undefined = undefined;
+        if (!messageData.key.fromMe) {
+          if (isGroupConversation && messageData.pushName) {
+            // Em grupos, usar pushName do participante que mandou a mensagem
+            senderName = messageData.pushName;
+          }
+          // Para conversas individuais, não precisamos de senderName
+        }
+
         const messageCreateData = {
           instanceId: instance.id,
           remoteJid: formattedRemoteJid,
@@ -1387,7 +1398,7 @@ export class ConversationService {
           mediaUrl: messageData.message?.imageMessage?.url || messageData.message?.videoMessage?.url || messageData.message?.audioMessage?.url,
           fileName: messageData.message?.documentMessage?.fileName,
           caption: messageData.message?.imageMessage?.caption || messageData.message?.videoMessage?.caption,
-          senderName: !messageData.key.fromMe && messageData.pushName ? messageData.pushName : undefined,
+          senderName: senderName,
           conversationId: conversation.id
         };
 
