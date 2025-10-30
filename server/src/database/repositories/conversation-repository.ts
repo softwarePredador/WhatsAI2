@@ -317,6 +317,22 @@ export class ConversationRepository {
     return conversation;
   }
 
+  async unarchive(id: string): Promise<Conversation> {
+    const conversation = await (this.prisma as any).conversation.update({
+      where: { id },
+      data: {
+        isArchived: false,
+        updatedAt: new Date()
+      }
+    });
+    
+    // Invalidar cache
+    await cacheService.invalidateConversationCaches(id, conversation.instanceId);
+    logger.debug(LogContext.CACHE, `Cache invalidated after unarchive: conversation ${id}`);
+    
+    return conversation;
+  }
+
   async pin(id: string): Promise<Conversation> {
     const conversation = await (this.prisma as any).conversation.update({
       where: { id },
@@ -347,6 +363,38 @@ export class ConversationRepository {
     logger.debug(LogContext.CACHE, `Cache invalidated after unpin: conversation ${id}`);
     
     return conversation;
+  }
+
+  async clearMessages(id: string): Promise<number> {
+    // Delete all messages from this conversation
+    const result = await (this.prisma as any).message.deleteMany({
+      where: { conversationId: id }
+    });
+    
+    // Update conversation to reset lastMessage
+    await (this.prisma as any).conversation.update({
+      where: { id },
+      data: {
+        lastMessage: null,
+        lastMessageAt: null,
+        unreadCount: 0,
+        updatedAt: new Date()
+      }
+    });
+    
+    // Get instanceId for cache invalidation
+    const conversation = await (this.prisma as any).conversation.findUnique({
+      where: { id },
+      select: { instanceId: true }
+    });
+    
+    if (conversation) {
+      // Invalidar cache
+      await cacheService.invalidateConversationCaches(id, conversation.instanceId);
+      logger.debug(LogContext.CACHE, `Cache invalidated after clear messages: conversation ${id}`);
+    }
+    
+    return result.count;
   }
 
   async delete(id: string): Promise<void> {

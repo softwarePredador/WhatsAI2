@@ -952,6 +952,49 @@ export class ConversationService {
     });
   }
 
+  async unarchiveConversation(conversationId: string): Promise<void> {
+    const conversation = await this.conversationRepository.unarchive(conversationId);
+    
+    // Emit update to frontend
+    this.socketService.emitToInstance(conversation.instanceId, 'conversation:updated', {
+      conversationId,
+      isArchived: false
+    });
+  }
+
+  async clearConversationMessages(conversationId: string): Promise<number> {
+    // Get conversation before clearing to emit event with instanceId
+    const conversation = await this.conversationRepository.findById(conversationId);
+    if (!conversation) {
+      throw new Error('Conversa não encontrada');
+    }
+
+    const deletedCount = await this.conversationRepository.clearMessages(conversationId);
+    
+    // Emit update to frontend
+    this.socketService.emitToInstance(conversation.instanceId, 'conversation:cleared', {
+      conversationId,
+      deletedCount
+    });
+
+    return deletedCount;
+  }
+
+  async deleteConversation(conversationId: string): Promise<void> {
+    // Get conversation before deleting to emit event with instanceId
+    const conversation = await this.conversationRepository.findById(conversationId);
+    if (!conversation) {
+      throw new Error('Conversa não encontrada');
+    }
+
+    await this.conversationRepository.delete(conversationId);
+    
+    // Emit delete event to frontend
+    this.socketService.emitToInstance(conversation.instanceId, 'conversation:deleted', {
+      conversationId
+    });
+  }
+
   async getArchivedConversations(instanceId: string): Promise<ConversationSummary[]> {
     const conversations = await this.conversationRepository.getArchivedConversations(instanceId);
     

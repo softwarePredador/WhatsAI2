@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import { Search, MessageSquare, Archive, Pin, MoreVertical, Check, Mail, CheckCheck, Image, Music, Video, FileText, MapPin, User, Smile } from 'lucide-react';
+import { Search, MessageSquare, Archive, Pin, MoreVertical, Check, Mail, CheckCheck, Image, Music, Video, FileText, MapPin, User, Smile, ArchiveRestore, Trash2, Eraser } from 'lucide-react';
 import { userAuthStore } from '../features/auth/store/authStore';
 import { conversationService } from '../services/conversationService';
 import { socketService } from '../services/socketService';
@@ -36,6 +36,7 @@ export const ConversationList: React.FC = () => {
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   
   // Usar o store de autenticação global
   const token = userAuthStore((state) => state.token);
@@ -315,6 +316,76 @@ export const ConversationList: React.FC = () => {
     }
   };
 
+  const handleArchiveConversation = async (e: React.MouseEvent, conversationId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setOpenMenuId(null);
+    
+    if (!token) return;
+    
+    try {
+      await conversationService.archiveConversation(conversationId, token);
+      // Remover a conversa da lista
+      setConversations(prev => prev.filter(conv => conv.id !== conversationId));
+    } catch (error) {
+      console.error('Erro ao arquivar conversa:', error);
+      alert('Erro ao arquivar conversa');
+    }
+  };
+
+  const handleClearMessages = async (e: React.MouseEvent, conversationId: string, contactName: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setOpenMenuId(null);
+    
+    if (!token) return;
+    
+    const confirmClear = window.confirm(
+      `Deseja limpar todas as mensagens da conversa com ${contactName}?\n\nIsso não pode ser desfeito.`
+    );
+    
+    if (!confirmClear) return;
+    
+    try {
+      const deletedCount = await conversationService.clearConversationMessages(conversationId, token);
+      // Atualizar a conversa localmente
+      setConversations(prev => 
+        prev.map(conv => 
+          conv.id === conversationId 
+            ? { ...conv, lastMessage: null, lastMessageAt: null, unreadCount: 0 }
+            : conv
+        )
+      );
+      alert(`${deletedCount} mensagens foram removidas`);
+    } catch (error) {
+      console.error('Erro ao limpar mensagens:', error);
+      alert('Erro ao limpar mensagens');
+    }
+  };
+
+  const handleDeleteConversation = async (e: React.MouseEvent, conversationId: string, contactName: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setOpenMenuId(null);
+    
+    if (!token) return;
+    
+    const confirmDelete = window.confirm(
+      `Deseja excluir permanentemente a conversa com ${contactName}?\n\nTodas as mensagens serão removidas. Isso não pode ser desfeito.`
+    );
+    
+    if (!confirmDelete) return;
+    
+    try {
+      await conversationService.deleteConversation(conversationId, token);
+      // Remover a conversa da lista
+      setConversations(prev => prev.filter(conv => conv.id !== conversationId));
+    } catch (error) {
+      console.error('Erro ao excluir conversa:', error);
+      alert('Erro ao excluir conversa');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -442,6 +513,68 @@ export const ConversationList: React.FC = () => {
                                 <Mail className="h-4 w-4 text-primary" />
                               </button>
                             )}
+                            
+                            {/* More Options Menu */}
+                            <div className="relative">
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setOpenMenuId(openMenuId === conversation.id ? null : conversation.id);
+                                }}
+                                className={`p-1 rounded hover:bg-base-300`}
+                                title="Mais opções"
+                              >
+                                <MoreVertical className="h-4 w-4 text-base-content/60" />
+                              </button>
+                              
+                              {/* Dropdown Menu */}
+                              {openMenuId === conversation.id && (
+                                <>
+                                  <div 
+                                    className="fixed inset-0 z-10"
+                                    onClick={() => setOpenMenuId(null)}
+                                  />
+                                  <div className={`absolute right-0 mt-1 w-48 rounded-md shadow-lg z-20 border ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                                    <div className="py-1">
+                                      <button
+                                        onClick={(e) => handleArchiveConversation(e, conversation.id)}
+                                        className={`w-full text-left px-4 py-2 text-sm flex items-center space-x-2 ${isDark ? 'hover:bg-gray-700 text-gray-200' : 'hover:bg-gray-100 text-gray-700'}`}
+                                      >
+                                        <Archive className="h-4 w-4" />
+                                        <span>Arquivar conversa</span>
+                                      </button>
+                                      
+                                      <button
+                                        onClick={(e) => handleClearMessages(e, conversation.id, getDisplayName({
+                                          nickname: (conversation as any).nickname,
+                                          contactName: conversation.contactName,
+                                          remoteJid: conversation.remoteJid
+                                        }))}
+                                        className={`w-full text-left px-4 py-2 text-sm flex items-center space-x-2 ${isDark ? 'hover:bg-gray-700 text-yellow-400' : 'hover:bg-gray-100 text-yellow-600'}`}
+                                      >
+                                        <Eraser className="h-4 w-4" />
+                                        <span>Limpar mensagens</span>
+                                      </button>
+                                      
+                                      <div className={`border-t ${isDark ? 'border-gray-700' : 'border-gray-200'} my-1`} />
+                                      
+                                      <button
+                                        onClick={(e) => handleDeleteConversation(e, conversation.id, getDisplayName({
+                                          nickname: (conversation as any).nickname,
+                                          contactName: conversation.contactName,
+                                          remoteJid: conversation.remoteJid
+                                        }))}
+                                        className={`w-full text-left px-4 py-2 text-sm flex items-center space-x-2 ${isDark ? 'hover:bg-red-900/20 text-red-400' : 'hover:bg-red-50 text-red-600'}`}
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                        <span>Excluir conversa</span>
+                                      </button>
+                                    </div>
+                                  </div>
+                                </>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
