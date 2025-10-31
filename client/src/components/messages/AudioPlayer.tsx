@@ -52,15 +52,22 @@ const requestQueue = new RequestQueue();
 
 export const AudioPlayer: React.FC<AudioPlayerProps> = ({ mediaUrl, fromMe }) => {
   const waveformRef = useRef<HTMLDivElement>(null);
-  const wavesurferRef = useRef<WaveSurfer | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioIdRef = useRef<string>(`audio-${Math.random().toString(36).substr(2, 9)}`);
   const isMountedRef = useRef<boolean>(true);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState('0:00');
   const [duration, setDuration] = useState('0:00');
+  const [progress, setProgress] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
-  const [isDestroyed, setIsDestroyed] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Generate static waveform bars (visual only)
+  const waveformBars = Array.from({ length: 40 }, (_, i) => {
+    // Create varied heights for visual effect
+    const baseHeight = 20 + Math.sin(i / 3) * 10 + Math.random() * 15;
+    return Math.max(10, Math.min(40, baseHeight));
+  });
 
   // Transform Spaces URL to proxy URL
   const getProxyUrl = (url: string): string => {
@@ -94,7 +101,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ mediaUrl, fromMe }) =>
     if (wavesurferRef.current) return;
 
     initStartedRef.current = true;
-    let cancelled = false;
+    isMountedRef.current = true;
 
     // Pré-fetch do áudio antes de criar o WaveSurfer
     setIsLoading(true);
@@ -154,15 +161,28 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ mediaUrl, fromMe }) =>
           throw new Error(`HTTP ${res.status}: ${res.statusText}`);
         }
         console.log('[AudioPlayer] HEAD request successful, proceeding with WaveSurfer initialization');
-        if (cancelled) return;
+        console.log(`[AudioPlayer] Checking conditions - isMounted: ${isMountedRef.current}, waveformRef exists: ${!!waveformRef.current}`);
 
-        // Criar WaveSurfer instance
+        if (!isMountedRef.current) {
+          console.log('[AudioPlayer] Component unmounted, aborting WaveSurfer creation');
+          return;
+        }        // Criar WaveSurfer instance
         const containerEl = waveformRef.current;
         if (!containerEl) {
+          console.error('[AudioPlayer] Container element not found! waveformRef.current is null');
           setLoadError('Erro interno: container não encontrado.');
           setIsLoading(false);
           return;
         }
+        
+        console.log('[AudioPlayer] Creating WaveSurfer instance...');
+        console.log('[AudioPlayer] Container element:', containerEl);
+        console.log('[AudioPlayer] Container dimensions:', {
+          width: containerEl.offsetWidth,
+          height: containerEl.offsetHeight,
+          clientWidth: containerEl.clientWidth
+        });
+        
         const wavesurfer = WaveSurfer.create({
           container: containerEl,
           waveColor: fromMe ? '#ffffff80' : '#00000040',
@@ -173,27 +193,43 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ mediaUrl, fromMe }) =>
           barGap: 2,
           height: 32,
           normalize: true,
-          backend: 'MediaElement',
           mediaControls: false,
-          minPxPerSec: 1,
+          hideScrollbar: true,
+          autoScroll: false,
+          dragToSeek: true,
         });
 
+        console.log('[AudioPlayer] WaveSurfer instance created:', wavesurfer);
         wavesurferRef.current = wavesurfer;
 
-        // Carregar áudio only if component is still mounted and not cancelled
-        if (isMountedRef.current && !cancelled) {
+        // Carregar áudio only if component is still mounted
+        if (isMountedRef.current) {
           wavesurfer.load(proxyUrl);
+          console.log('[AudioPlayer] Loading audio into WaveSurfer');
+        } else {
+          console.log(`[AudioPlayer] Skipping load - mounted: ${isMountedRef.current}`);
         }
 
         // Eventos
         wavesurfer.on('ready', () => {
+          console.log(`[AudioPlayer] WaveSurfer 'ready' event fired for: ${proxyUrl}`);
+          console.log('[AudioPlayer] WaveSurfer container after ready:', {
+            innerHTML: waveformRef.current?.innerHTML.substring(0, 200),
+            childrenCount: waveformRef.current?.children.length,
+            firstChildTagName: waveformRef.current?.children[0]?.tagName,
+            hasCanvas: !!waveformRef.current?.querySelector('canvas'),
+            hasSVG: !!waveformRef.current?.querySelector('svg')
+          });
+          console.log('[AudioPlayer] WaveSurfer wrapper:', wavesurfer.getWrapper());
           if (!isMountedRef.current || isDestroyed) return;
           setIsLoading(false);
           const durationSeconds = wavesurfer.getDuration();
           setDuration(formatTime(durationSeconds));
+          console.log(`[AudioPlayer] Audio ready - duration: ${durationSeconds}s`);
         });
 
         wavesurfer.on('play', () => {
+          console.log(`[AudioPlayer] WaveSurfer 'play' event`);
           if (!isMountedRef.current || isDestroyed) return;
           setIsPlaying(true);
           audioManager.play(audioIdRef.current, () => {
@@ -202,12 +238,14 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ mediaUrl, fromMe }) =>
         });
 
         wavesurfer.on('pause', () => {
+          console.log(`[AudioPlayer] WaveSurfer 'pause' event`);
           if (!isMountedRef.current || isDestroyed) return;
           setIsPlaying(false);
           audioManager.pause(audioIdRef.current);
         });
 
         wavesurfer.on('finish', () => {
+          console.log(`[AudioPlayer] WaveSurfer 'finish' event`);
           if (!isMountedRef.current || isDestroyed) return;
           setIsPlaying(false);
           audioManager.pause(audioIdRef.current);
@@ -220,12 +258,17 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ mediaUrl, fromMe }) =>
         });
 
         wavesurfer.on('error', (error) => {
+          console.error(`[AudioPlayer] WaveSurfer 'error' event for ${proxyUrl}:`, error);
           if (!isMountedRef.current || isDestroyed) return;
           if (error.name === 'AbortError') {
             console.debug('WaveSurfer fetch aborted (expected during cleanup)');
             return;
           }
-          console.error('WaveSurfer error:', error);
+          console.error('WaveSurfer error details:', {
+            name: error.name,
+            message: error.message,
+            stack: error.stack
+          });
           setIsLoading(false);
           setLoadError('Erro ao carregar áudio.');
         });
@@ -242,7 +285,6 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ mediaUrl, fromMe }) =>
       });
 
     return () => {
-      cancelled = true;
       isMountedRef.current = false;
       setIsDestroyed(true);
 

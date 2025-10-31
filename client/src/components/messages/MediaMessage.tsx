@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Download, Image as ImageIcon, File, AlertCircle, Loader } from 'lucide-react';
-import { AudioPlayer } from './AudioPlayer';
+import { AudioPlayerSimple } from './AudioPlayerSimple';
 
 interface MediaMessageProps {
   mediaUrl: string;
@@ -105,7 +105,7 @@ export const MediaMessage: React.FC<MediaMessageProps> = ({
         );
 
       case 'audio':
-        return <AudioPlayer mediaUrl={mediaUrl} fromMe={fromMe} />;
+        return <AudioPlayerSimple mediaUrl={mediaUrl} fromMe={fromMe} />;
 
       case 'document':
         return (
