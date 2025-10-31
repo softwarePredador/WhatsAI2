@@ -21,7 +21,15 @@ router.use(authMiddleware);
  */
 router.post('/', checkCampaignLimit, async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id;
+    const userId = req.userId;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'User not authenticated'
+      });
+    }
+    
+    console.log('[CAMPAIGN] Creating campaign with data:', JSON.stringify(req.body, null, 2));
     const data = createCampaignSchema.parse(req.body);
     
     const campaign = await campaignService.createCampaign(userId, data);
@@ -32,17 +40,20 @@ router.post('/', checkCampaignLimit, async (req: Request, res: Response) => {
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
+      console.error('[CAMPAIGN] Validation error:', JSON.stringify(error.errors, null, 2));
       res.status(400).json({
         success: false,
         error: 'Validation error',
         details: error.errors
       });
     } else if (error instanceof Error) {
+      console.error('[CAMPAIGN] Error:', error.message);
       res.status(400).json({
         success: false,
         error: error.message
       });
     } else {
+      console.error('[CAMPAIGN] Unknown error:', error);
       res.status(500).json({
         success: false,
         error: 'Internal server error'
@@ -57,7 +68,7 @@ router.post('/', checkCampaignLimit, async (req: Request, res: Response) => {
  */
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id;
+    const userId = req.userId!;
     const query = listCampaignsQuerySchema.parse(req.query);
     
     const result = await campaignService.listCampaigns(userId, query);
@@ -93,7 +104,7 @@ router.get('/', async (req: Request, res: Response) => {
  */
 router.get('/stats', async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id;
+    const userId = req.userId!;
     const stats = await campaignService.getCampaignStats(userId);
     
     res.json({
@@ -114,7 +125,7 @@ router.get('/stats', async (req: Request, res: Response) => {
  */
 router.get('/:id', async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id;
+    const userId = req.userId!;
     const campaignId = req.params.id;
     
     const campaign = await campaignService.getCampaignById(campaignId, userId);
@@ -145,7 +156,7 @@ router.get('/:id', async (req: Request, res: Response) => {
  */
 router.put('/:id', async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id;
+    const userId = req.userId!;
     const campaignId = req.params.id;
     const data = updateCampaignSchema.parse(req.body);
     
@@ -190,7 +201,7 @@ router.put('/:id', async (req: Request, res: Response) => {
  */
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id;
+    const userId = req.userId!;
     const campaignId = req.params.id;
     
     const deleted = await campaignService.deleteCampaign(campaignId, userId);
@@ -228,7 +239,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
  */
 router.post('/:id/actions', async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id;
+    const userId = req.userId!;
     const campaignId = req.params.id;
     const { action } = campaignActionSchema.parse(req.body);
     
@@ -287,7 +298,7 @@ router.post('/:id/actions', async (req: Request, res: Response) => {
  */
 router.get('/:id/progress', async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id;
+    const userId = req.userId!;
     const campaignId = req.params.id;
     
     const progress = await campaignService.getCampaignProgress(campaignId, userId);

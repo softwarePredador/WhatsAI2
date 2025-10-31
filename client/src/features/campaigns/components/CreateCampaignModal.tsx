@@ -22,6 +22,7 @@ export const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
 }) => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [message, setMessage] = useState('');
   const [templateId, setTemplateId] = useState('');
   const [instanceId, setInstanceId] = useState('');
   const [recipients, setRecipients] = useState<Array<{ phoneNumber: string; name?: string }>>([]);
@@ -64,11 +65,28 @@ export const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
   const resetForm = () => {
     setName('');
     setDescription('');
+    setMessage('');
     setTemplateId('');
     setInstanceId('');
     setRecipients([]);
     setRecipientInput('');
     setError(null);
+  };
+
+  // Preencher mensagem automaticamente quando selecionar template
+  const handleTemplateChange = (newTemplateId: string) => {
+    setTemplateId(newTemplateId);
+    
+    if (newTemplateId) {
+      const selectedTemplate = templates.find(t => t.id === newTemplateId);
+      if (selectedTemplate) {
+        // Preenche o campo mensagem com o conteúdo do template
+        setMessage(selectedTemplate.content);
+      }
+    } else {
+      // Se desselecionar template, limpa a mensagem
+      setMessage('');
+    }
   };
 
   const addRecipient = () => {
@@ -106,12 +124,13 @@ export const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
 
       const campaignData: CreateCampaignRequest = {
         name: name.trim(),
+        message: message.trim(),
         description: description.trim() || undefined,
-        templateId,
+        templateId: templateId || undefined,
         instanceId,
         recipients: recipients.map(r => ({
-          phoneNumber: r.phoneNumber,
-          name: r.name || undefined
+          phone: r.phoneNumber,
+          variables: r.name ? { name: r.name } : undefined
         }))
       };
 
@@ -190,25 +209,54 @@ export const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
               />
             </div>
 
-            {/* Template */}
+            {/* Template - PRIMEIRO para preencher a mensagem */}
             <div className="form-control">
               <label className="label">
-                <span className="label-text font-semibold">Template *</span>
+                <span className="label-text font-semibold">Template (Opcional)</span>
               </label>
               <select
                 className="select select-bordered"
                 value={templateId}
-                onChange={(e) => setTemplateId(e.target.value)}
-                required
+                onChange={(e) => handleTemplateChange(e.target.value)}
                 disabled={loading || isEditMode}
               >
-                <option value="">Selecione um template</option>
+                <option value="">Nenhum - Digite mensagem manualmente</option>
                 {templates.map((template) => (
                   <option key={template.id} value={template.id}>
                     {template.name}
                   </option>
                 ))}
               </select>
+              {templateId && (
+                <label className="label">
+                  <span className="label-text-alt text-success">✓ Mensagem carregada do template</span>
+                </label>
+              )}
+            </div>
+
+            {/* Message - Preenchida automaticamente pelo template */}
+            <div className="form-control">
+              <label className="label">
+                <span className="label-text font-semibold">Mensagem *</span>
+                <span className="label-text-alt">{message.length}/4096</span>
+              </label>
+              <textarea
+                className="textarea textarea-bordered"
+                placeholder={templateId 
+                  ? "Mensagem carregada do template (editável)" 
+                  : "Digite a mensagem que será enviada"}
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                required
+                disabled={loading}
+                rows={4}
+                maxLength={4096}
+              />
+              {templateId && message.includes('{{') && (
+                <label className="label">
+                  <span className="label-text-alt text-info">💡 Use variáveis como {`{{nome}}`} para personalizar</span>
+                </label>
+              )}
             </div>
 
             {/* Instance */}

@@ -462,6 +462,8 @@ export class CampaignService extends EventEmitter {
 
     if (!message) return;
 
+    console.log(`[CAMPAIGN] 📤 Enviando mensagem ${messageId} para ${message.recipient}`);
+
     try {
       // Render message with variables
       let finalMessage = message.message;
@@ -470,8 +472,11 @@ export class CampaignService extends EventEmitter {
         finalMessage = templateService.renderTemplate(message.message, vars);
       }
 
+      console.log(`[CAMPAIGN] 📝 Mensagem renderizada:`, finalMessage);
+
       // TODO: Send via Evolution API
       // For now, just simulate success
+      console.warn(`[CAMPAIGN] ⚠️  SIMULANDO ENVIO - Evolution API não implementada ainda`);
       await new Promise(resolve => setTimeout(resolve, 100));
 
       // Update message status

@@ -24,7 +24,14 @@ export const CampaignCard: React.FC<CampaignCardProps> = ({
   onResume,
   onCancel
 }) => {
-  const stats = campaign.stats;
+  const stats = campaign.stats || {
+    totalRecipients: 0,
+    sent: 0,
+    delivered: 0,
+    read: 0,
+    failed: 0,
+    pending: 0
+  };
   const progress = stats.totalRecipients > 0 
     ? ((stats.sent + stats.failed) / stats.totalRecipients) * 100 
     : 0;
