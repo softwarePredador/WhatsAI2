@@ -20,6 +20,10 @@ import { DashboardPage } from './features/dashboard/pages/DashboardPage';
 import { PlansPage } from './features/plans/pages/PlansPage';
 import { TemplatesPage } from './features/templates/pages/TemplatesPage';
 import { CampaignsPage } from './features/campaigns/pages/CampaignsPage';
+import Pricing from './pages/Pricing';
+import Success from './pages/Success';
+import Cancel from './pages/Cancel';
+import Subscription from './pages/Subscription';
 
 function RegisterPage() {
   return (
@@ -166,6 +170,17 @@ export function App() {
                 </ProtectedRoute>
               }
               />
+            <Route path="/pricing" element={<Pricing />} />
+            <Route
+              path="/subscription"
+              element={
+                <ProtectedRoute>
+                  <Subscription />
+                </ProtectedRoute>
+              }
+              />
+            <Route path="/success" element={<Success />} />
+            <Route path="/cancel" element={<Cancel />} />
             <Route
               path="/chat/:instanceId"
               element={

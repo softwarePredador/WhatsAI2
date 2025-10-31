@@ -19,11 +19,11 @@ function Navbar() {
         { name: "Instâncias", path: "/instances" },
         { name: "Templates", path: "/templates" },
         { name: "Campanhas", path: "/campaigns" },
-        { name: "Planos", path: "/plans" },
+        { name: "Planos", path: "/pricing" },
       ]
     : [
         { name: "Home", path: "/" },
-        { name: "Planos", path: "/#pricing" },
+        { name: "Planos", path: "/pricing" },
         { name: "Login", path: "/login" },
         { name: "Registrar", path: "/register" },
       ];
