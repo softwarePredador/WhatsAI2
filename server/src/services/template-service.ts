@@ -244,13 +244,23 @@ export class TemplateService {
       }
     });
 
-    return templates.map((t): TemplateUsageStats => ({
-      templateId: t.id,
-      name: t.name,
-      usageCount: t.usageCount,
-      lastUsed: t.usageCount > 0 ? t.updatedAt : undefined,
-      category: t.category || undefined
-    }));
+    return templates.map((t): TemplateUsageStats => {
+      const stats: TemplateUsageStats = {
+        templateId: t.id,
+        name: t.name,
+        usageCount: t.usageCount
+      };
+      
+      if (t.usageCount > 0) {
+        stats.lastUsed = t.updatedAt;
+      }
+      
+      if (t.category) {
+        stats.category = t.category;
+      }
+      
+      return stats;
+    });
   }
 
   /**

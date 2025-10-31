@@ -72,6 +72,10 @@ export class App {
       }
     }));
 
+    // Stripe webhook needs RAW body for signature verification
+    // This MUST come BEFORE express.json() middleware
+    this.app.use('/api/webhooks/stripe', express.raw({ type: 'application/json' }));
+
     // Body parsing - Increased limits for webhooks with large media
     this.app.use(express.json({ limit: '100mb' }));
     this.app.use(express.urlencoded({ extended: true, limit: '100mb' }));
