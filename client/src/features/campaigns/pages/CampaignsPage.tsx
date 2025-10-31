@@ -8,6 +8,7 @@ import { CreateCampaignModal } from '../components/CreateCampaignModal';
 import { UpgradeModal } from '../../plans/components/UpgradeModal';
 import { plansService } from '../../plans/services/plansService';
 import { PlanType } from '../../plans/types/plans';
+import { socketService } from '../../../services/socketService';
 
 export const CampaignsPage: React.FC = () => {
   const { token } = userAuthStore();
@@ -29,6 +30,70 @@ export const CampaignsPage: React.FC = () => {
     loadInstances();
   }, [token]);
 
+  // Setup WebSocket listeners for campaign progress
+  useEffect(() => {
+    console.log('[CAMPAIGNS] 📡 Configurando listeners WebSocket para progresso de campanhas');
+    
+    const handleCampaignProgress = (progress: any) => {
+      console.log('[CAMPAIGNS] 📊 Progress update received:', progress);
+      console.log('[CAMPAIGNS] 📊 Current campaigns:', campaigns.map(c => ({ id: c.id, status: c.status })));
+      
+      // Update campaign in the list with new progress
+      setCampaigns(prevCampaigns => {
+        const updated = prevCampaigns.map(campaign => 
+          campaign.id === progress.campaignId 
+            ? { 
+                ...campaign, 
+                status: progress.status,
+                stats: {
+                  ...(campaign.stats || { totalRecipients: 0, sent: 0, delivered: 0, read: 0, failed: 0, pending: 0 }),
+                  sent: progress.sentCount || 0,
+                  delivered: progress.deliveredCount || 0,
+                  failed: progress.failedCount || 0,
+                  pending: progress.pendingCount || 0
+                }
+              }
+            : campaign
+        );
+        console.log('[CAMPAIGNS] 📊 Updated campaigns:', updated.map(c => ({ id: c.id, status: c.status, stats: c.stats })));
+        return updated;
+      });
+    };
+
+    const handleCampaignCompleted = (progress: any) => {
+      console.log('[CAMPAIGNS] ✅ Campaign completed:', progress);
+      
+      // Update campaign status to completed
+      setCampaigns(prevCampaigns => {
+        const updated = prevCampaigns.map(campaign => 
+          campaign.id === progress.campaignId 
+            ? { 
+                ...campaign, 
+                status: 'COMPLETED' as CampaignStatus,
+                stats: {
+                  ...(campaign.stats || { totalRecipients: 0, sent: 0, delivered: 0, read: 0, failed: 0, pending: 0 }),
+                  sent: progress.sentCount || 0,
+                  delivered: progress.deliveredCount || 0,
+                  failed: progress.failedCount || 0,
+                  pending: 0
+                }
+              }
+            : campaign
+        );
+        console.log('[CAMPAIGNS] ✅ Updated to completed:', updated.find(c => c.id === progress.campaignId));
+        return updated;
+      });
+    };
+
+    socketService.on('campaign:progress', handleCampaignProgress);
+    socketService.on('campaign:completed', handleCampaignCompleted);
+
+    return () => {
+      // Note: socketService doesn't have an 'off' method, so we can't clean up
+      // This is okay as the listeners are stored in a Map and reused
+    };
+  }, []);
+
   useEffect(() => {
     filterCampaigns();
   }, [campaigns, statusFilter]);
@@ -40,6 +105,13 @@ export const CampaignsPage: React.FC = () => {
       setLoading(true);
       const data = await campaignsService.getCampaigns(token);
       setCampaigns(data);
+      
+      // Join instance rooms for running campaigns to receive WebSocket updates
+      const runningCampaigns = data.filter(c => c.status === 'RUNNING');
+      runningCampaigns.forEach(campaign => {
+        console.log('[CAMPAIGNS] 📡 Joining instance room for running campaign:', campaign.instanceId);
+        socketService.joinInstance(campaign.instanceId);
+      });
     } catch (error) {
       console.error('Error loading campaigns:', error);
     } finally {
@@ -125,6 +197,13 @@ export const CampaignsPage: React.FC = () => {
     try {
       await campaignsService.performAction(token, id, 'start');
       await loadCampaigns();
+      
+      // Join instance room when starting campaign to receive real-time updates
+      const campaign = campaigns.find(c => c.id === id);
+      if (campaign) {
+        console.log('[CAMPAIGNS] 🚀 Starting campaign, joining instance room:', campaign.instanceId);
+        socketService.joinInstance(campaign.instanceId);
+      }
     } catch (error: any) {
       console.error('Error starting campaign:', error);
       alert(error.message || 'Erro ao iniciar campanha');
@@ -170,6 +249,12 @@ export const CampaignsPage: React.FC = () => {
   const handleModalSuccess = async () => {
     await loadCampaigns();
     await loadPlanInfo();
+    
+    // If a campaign was just created and started, join its instance room
+    const runningCampaigns = campaigns.filter(c => c.status === 'RUNNING');
+    runningCampaigns.forEach(campaign => {
+      socketService.joinInstance(campaign.instanceId);
+    });
   };
 
   const handleUpgrade = async (plan: PlanType) => {

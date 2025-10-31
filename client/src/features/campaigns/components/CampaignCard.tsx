@@ -36,6 +36,17 @@ export const CampaignCard: React.FC<CampaignCardProps> = ({
     ? ((stats.sent + stats.failed) / stats.totalRecipients) * 100 
     : 0;
 
+  // Debug: Log when campaign stats change
+  React.useEffect(() => {
+    if (campaign.status === 'RUNNING' || campaign.status === 'COMPLETED') {
+      console.log(`[CARD] 🔄 Campaign ${campaign.id} stats updated:`, {
+        status: campaign.status,
+        stats,
+        progress: Math.round(progress)
+      });
+    }
+  }, [campaign.status, stats.sent, stats.delivered, stats.failed, stats.pending]);
+
   const canStart = campaign.status === 'DRAFT' || campaign.status === 'SCHEDULED';
   const canPause = campaign.status === 'RUNNING';
   const canResume = campaign.status === 'PAUSED';

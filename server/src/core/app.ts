@@ -9,6 +9,9 @@ import { apiRoutes } from '../api/routes';
 import { SocketService } from '../services/socket-service';
 import { cacheService } from '../services/cache-service';
 import { logger, LogContext } from '../services/logger-service';
+import { campaignService } from '../services/campaign-service';
+import { campaignLogger } from '../utils/campaign-logger';
+import { prisma } from '../database/prisma';
 
 export class App {
   private app: express.Application;
@@ -23,6 +26,7 @@ export class App {
     this.setupMiddleware();
     this.setupRoutes();
     this.setupWebSocket();
+    this.setupCampaignEvents();
     this.setupErrorHandling();
   }
 
@@ -118,6 +122,82 @@ export class App {
 
   private setupWebSocket(): void {
     this.socketService.initialize(this.server);
+  }
+
+  private setupCampaignEvents(): void {
+    campaignLogger.log('🎯 [APP] Configurando listeners de eventos de campanha...');
+    
+    // Listen to campaign events and emit via WebSocket
+    campaignService.on('message:sent', async ({ messageId, campaignId }: any) => {
+      campaignLogger.log(`📨 [APP] Evento message:sent recebido`, { messageId, campaignId });
+      try {
+        // Get updated progress
+        const message = await prisma.campaignMessage.findUnique({
+          where: { id: messageId },
+          include: { campaign: { include: { instance: true } } }
+        });
+
+        if (message?.campaign) {
+          const userId = message.campaign.userId;
+          const progress = await campaignService.getCampaignProgress(campaignId, userId);
+          
+          campaignLogger.log(`📊 [APP] Emitindo progresso via WebSocket`, { 
+            instanceId: message.campaign.instanceId,
+            progress 
+          });
+          
+          // Emit to user's instance room
+          this.socketService.emitToInstance(message.campaign.instanceId, 'campaign:progress', progress);
+        }
+      } catch (error) {
+        campaignLogger.error('[APP] Erro ao emitir progresso', error);
+      }
+    });
+
+    campaignService.on('message:failed', async ({ messageId, campaignId }: any) => {
+      campaignLogger.log(`❌ [APP] Evento message:failed recebido`, { messageId, campaignId });
+      try {
+        // Get updated progress
+        const message = await prisma.campaignMessage.findUnique({
+          where: { id: messageId },
+          include: { campaign: { include: { instance: true } } }
+        });
+
+        if (message?.campaign) {
+          const userId = message.campaign.userId;
+          const progress = await campaignService.getCampaignProgress(campaignId, userId);
+          
+          // Emit to user's instance room
+          this.socketService.emitToInstance(message.campaign.instanceId, 'campaign:progress', progress);
+        }
+      } catch (error) {
+        campaignLogger.error('[APP] Erro ao emitir progresso (falha)', error);
+      }
+    });
+
+    campaignService.on('campaign:completed', async ({ campaignId }: any) => {
+      campaignLogger.log(`✅ [APP] Evento campaign:completed recebido`, { campaignId });
+      try {
+        const campaign = await prisma.campaign.findUnique({
+          where: { id: campaignId },
+          include: { instance: true }
+        });
+
+        if (campaign) {
+          const progress = await campaignService.getCampaignProgress(campaignId, campaign.userId);
+          
+          campaignLogger.log(`🎉 [APP] Campanha concluída - emitindo evento final`, {
+            campaignId,
+            instanceId: campaign.instanceId
+          });
+          
+          // Emit to user's instance room
+          this.socketService.emitToInstance(campaign.instanceId, 'campaign:completed', progress);
+        }
+      } catch (error) {
+        campaignLogger.error('[APP] Erro ao emitir conclusão', error);
+      }
+    });
   }
 
   private setupErrorHandling(): void {

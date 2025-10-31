@@ -24,12 +24,13 @@ export const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
   const [message, setMessage] = useState('');
   const [templateId, setTemplateId] = useState('');
   const [instanceId, setInstanceId] = useState('');
-  const [recipients, setRecipients] = useState<Array<{ phoneNumber: string; name?: string }>>([]);
+  const [recipients, setRecipients] = useState<Array<{ phoneNumber: string; variables: Record<string, string> }>>([]);
   const [recipientInput, setRecipientInput] = useState('');
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState(1);
+  const [templateVariables, setTemplateVariables] = useState<string[]>([]);
 
   const isEditMode = !!editCampaign;
 
@@ -44,7 +45,10 @@ export const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
       setName(editCampaign.name);
       setTemplateId(editCampaign.templateId);
       setInstanceId(editCampaign.instanceId);
-      setRecipients(editCampaign.recipients.map(r => ({ phoneNumber: r.phoneNumber, name: r.name })));
+      setRecipients(editCampaign.recipients.map(r => ({ 
+        phoneNumber: r.phoneNumber, 
+        variables: r.variables || {}
+      })));
     } else {
       resetForm();
     }
@@ -78,9 +82,13 @@ export const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
       const selectedTemplate = templates.find(t => t.id === newTemplateId);
       if (selectedTemplate) {
         setMessage(selectedTemplate.content);
+        // Extract variables from template
+        const variables = templatesService.extractVariables(selectedTemplate.content);
+        setTemplateVariables(variables);
       }
     } else {
       setMessage('');
+      setTemplateVariables([]);
     }
   };
 
@@ -93,17 +101,31 @@ export const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
     if (!recipientInput.trim()) return;
 
     const lines = recipientInput.split('\n').filter(line => line.trim());
-    const newRecipients: Array<{ phoneNumber: string; name?: string }> = [];
+    const newRecipients: Array<{ phoneNumber: string; variables: Record<string, string> }> = [];
     const errors: string[] = [];
 
+    // Detecta variáveis da mensagem atual
+    const messageVars = templatesService.extractVariables(message);
+
     lines.forEach((line, index) => {
-      const [phoneNumber, name] = line.split(',').map(s => s.trim());
+      const parts = line.split(',').map(s => s.trim());
+      const phoneNumber = parts[0];
       const cleanPhone = phoneNumber.replace(/\D/g, '');
 
       if (!validatePhone(cleanPhone)) {
         errors.push(`Linha ${index + 1}: número inválido`);
       } else {
-        newRecipients.push({ phoneNumber: cleanPhone, name: name || undefined });
+        // Mapeia as partes para as variáveis
+        const variables: Record<string, string> = {};
+        
+        // Se tiver variáveis no template, mapeia em ordem
+        messageVars.forEach((varName, idx) => {
+          if (parts[idx + 1]) {
+            variables[varName] = parts[idx + 1];
+          }
+        });
+
+        newRecipients.push({ phoneNumber: cleanPhone, variables });
       }
     });
 
@@ -147,7 +169,7 @@ export const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
         instanceId,
         recipients: recipients.map(r => ({
           phone: r.phoneNumber,
-          variables: r.name ? { name: r.name } : undefined
+          variables: Object.keys(r.variables).length > 0 ? r.variables : undefined
         }))
       };
 
@@ -263,10 +285,25 @@ export const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
               ))}
             </select>
 
+            {/* Info sobre variáveis */}
+            {templateVariables.length > 0 && (
+              <div className="text-xs bg-info/10 p-2 rounded">
+                <strong>Variáveis detectadas:</strong> {templateVariables.join(', ')}
+                <br />
+                <strong>Formato:</strong> telefone,{templateVariables.join(',')}
+                <br />
+                <strong>Exemplo:</strong> 5511999999999,{templateVariables.map(v => `valor_${v}`).join(',')}
+              </div>
+            )}
+
             <div className="flex gap-2">
               <textarea
                 className="textarea textarea-bordered flex-1 h-24"
-                placeholder="5511999999999 ou 5511999999999,Nome"
+                placeholder={
+                  templateVariables.length > 0
+                    ? `5511999999999,${templateVariables.join(',')}`
+                    : "5511999999999"
+                }
                 value={recipientInput}
                 onChange={(e) => setRecipientInput(e.target.value)}
                 disabled={loading}
@@ -289,7 +326,11 @@ export const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
                     <div key={index} className="flex items-center justify-between bg-base-100 rounded px-2 py-1 text-sm">
                       <span>
                         {recipient.phoneNumber}
-                        {recipient.name && <span className="text-xs text-base-content/60 ml-2">({recipient.name})</span>}
+                        {Object.keys(recipient.variables).length > 0 && (
+                          <span className="text-xs text-base-content/60 ml-2">
+                            ({Object.values(recipient.variables).join(', ')})
+                          </span>
+                        )}
                       </span>
                       <button
                         type="button"

@@ -12,7 +12,9 @@ import {
   ListCampaignsQuery 
 } from '../schemas/campaign-schemas';
 import { templateService } from './template-service';
+import { EvolutionApiService } from './evolution-api';
 import { EventEmitter } from 'events';
+import { campaignLogger } from '../utils/campaign-logger';
 
 export class CampaignService extends EventEmitter {
   private runningCampaigns: Map<string, NodeJS.Timeout> = new Map();
@@ -47,7 +49,7 @@ export class CampaignService extends EventEmitter {
         userId,
         name: data.name,
         instanceId: data.instanceId,
-        templateId: data.templateId,
+        templateId: data.templateId || null,
         message: data.message,
         mediaUrl: data.mediaUrl || null,
         mediaType: data.mediaType || null,
@@ -339,8 +341,8 @@ export class CampaignService extends EventEmitter {
       deliveredCount: campaign.deliveredCount,
       failedCount: campaign.failedCount,
       pendingCount: campaign.pendingCount,
-      estimatedTimeRemaining,
-      currentRate
+      estimatedTimeRemaining: estimatedTimeRemaining || 0,
+      currentRate: currentRate || 0
     };
   }
 
@@ -413,6 +415,12 @@ export class CampaignService extends EventEmitter {
     const messagesPerMinute = campaign.rateLimit;
     const intervalMs = (60 * 1000) / messagesPerMinute; // milliseconds between messages
 
+    campaignLogger.log(`🚀 [CAMPAIGN] Iniciando processamento da campanha ${campaign.name}`, {
+      campaignId,
+      messagesPerMinute,
+      intervalMs
+    });
+
     const timer = setInterval(async () => {
       try {
         // Get next pending message
@@ -437,6 +445,7 @@ export class CampaignService extends EventEmitter {
             }
           });
 
+          campaignLogger.log(`✅ [CAMPAIGN] Campanha concluída: ${campaign.name}`, { campaignId });
           this.emit('campaign:completed', { campaignId });
           return;
         }
@@ -445,7 +454,7 @@ export class CampaignService extends EventEmitter {
         await this.sendCampaignMessage(message.id, campaign);
 
       } catch (error) {
-        console.error(`Error processing campaign ${campaignId}:`, error);
+        campaignLogger.error(`Erro processando campanha ${campaignId}`, error);
       }
     }, intervalMs);
 
@@ -462,7 +471,7 @@ export class CampaignService extends EventEmitter {
 
     if (!message) return;
 
-    console.log(`[CAMPAIGN] 📤 Enviando mensagem ${messageId} para ${message.recipient}`);
+    campaignLogger.log(`📤 [CAMPAIGN] Enviando mensagem para ${message.recipient}`, { messageId });
 
     try {
       // Render message with variables
@@ -470,14 +479,35 @@ export class CampaignService extends EventEmitter {
       if (message.variables) {
         const vars = JSON.parse(message.variables);
         finalMessage = templateService.renderTemplate(message.message, vars);
+        campaignLogger.log(`📝 [CAMPAIGN] Variáveis aplicadas`, { 
+          recipient: message.recipient,
+          variables: vars 
+        });
+      } else {
+        // Se não tem variáveis, renderiza com objeto vazio para remover placeholders
+        finalMessage = templateService.renderTemplate(message.message, {});
       }
 
-      console.log(`[CAMPAIGN] 📝 Mensagem renderizada:`, finalMessage);
+      // Send via Evolution API
+      const evolutionService = new EvolutionApiService(
+        campaign.instance.evolutionApiUrl,
+        campaign.instance.evolutionApiKey
+      );
 
-      // TODO: Send via Evolution API
-      // For now, just simulate success
-      console.warn(`[CAMPAIGN] ⚠️  SIMULANDO ENVIO - Evolution API não implementada ainda`);
-      await new Promise(resolve => setTimeout(resolve, 100));
+      const whatsappNumber = message.recipient.includes('@') 
+        ? message.recipient 
+        : `${message.recipient}@s.whatsapp.net`;
+
+      await evolutionService.sendTextMessage(
+        campaign.instance.evolutionInstanceName,
+        whatsappNumber,
+        finalMessage
+      );
+
+      campaignLogger.log(`✅ [CAMPAIGN] Mensagem enviada com sucesso`, { 
+        recipient: message.recipient,
+        messageId 
+      });
 
       // Update message status
       await prisma.campaignMessage.update({
@@ -500,7 +530,7 @@ export class CampaignService extends EventEmitter {
       this.emit('message:sent', { messageId, campaignId: campaign.id });
 
     } catch (error) {
-      console.error(`Error sending message ${messageId}:`, error);
+      campaignLogger.error(`Erro ao enviar mensagem ${messageId}`, error);
 
       // Update message status
       await prisma.campaignMessage.update({
@@ -550,6 +580,15 @@ export class CampaignService extends EventEmitter {
       pendingCount: campaign.pendingCount,
       rateLimit: campaign.rateLimit,
       recipientsData: campaign.recipientsData ? JSON.parse(campaign.recipientsData) : undefined,
+      // Add stats object for frontend compatibility
+      stats: {
+        totalRecipients: campaign.totalRecipients || 0,
+        sent: campaign.sentCount || 0,
+        delivered: campaign.deliveredCount || 0,
+        read: 0, // Not tracked yet
+        failed: campaign.failedCount || 0,
+        pending: campaign.pendingCount || 0
+      },
       createdAt: campaign.createdAt,
       updatedAt: campaign.updatedAt
     };

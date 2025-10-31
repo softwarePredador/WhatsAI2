@@ -34,6 +34,10 @@ export class TemplateService {
       rendered = rendered.replace(regex, value);
     });
 
+    // Remove any remaining unreplaced variables (keep as is or remove)
+    // For now, we'll remove them to avoid sending {{varname}} in messages
+    rendered = rendered.replace(/\{\{[^}]+\}\}/g, '');
+
     return rendered;
   }
 
