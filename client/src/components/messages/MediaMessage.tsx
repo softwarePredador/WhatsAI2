@@ -17,12 +17,10 @@ export const MediaMessage: React.FC<MediaMessageProps> = ({
   caption,
   fromMe = false
 }) => {
-  const [isPlaying, setIsPlaying] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
-  const audioRef = useRef<HTMLAudioElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const handleDownload = async () => {
@@ -93,9 +91,6 @@ export const MediaMessage: React.FC<MediaMessageProps> = ({
               src={mediaUrl}
               controls
               className="max-w-full max-h-64 rounded-lg"
-              onPlay={() => setIsPlaying(true)}
-              onPause={() => setIsPlaying(false)}
-              onEnded={() => setIsPlaying(false)}
               onError={() => {
                 console.error('Erro ao carregar vídeo:', mediaUrl);
                 setHasError(true);

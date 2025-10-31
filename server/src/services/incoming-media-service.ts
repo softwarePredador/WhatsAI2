@@ -10,7 +10,16 @@ import { mediaLogger } from '../utils/media-logger';
 import sharp from 'sharp';
 import { downloadMediaMessage } from '@whiskeysockets/baileys';
 import { imageOptimizer } from './image-optimizer';
+import ffmpeg from 'fluent-ffmpeg';
+import ffmpegStatic from 'ffmpeg-static';
 // file-type é ESM puro, importado dinamicamente quando necessário
+
+// Configure ffmpeg path
+if (ffmpegStatic) {
+  ffmpeg.setFfmpegPath(ffmpegStatic);
+} else {
+  console.warn('ffmpeg-static not found, audio conversion may not work');
+}
 
 export interface IncomingMediaOptions {
   messageId: string;
@@ -53,8 +62,11 @@ export class IncomingMediaService {
    * Processa mídia recebida via webhook
    */
   async processIncomingMedia(options: IncomingMediaOptions): Promise<string | null> {
-    const { messageId, mediaUrl, mediaType, fileName, caption, mimeType, instanceName, messageData } = options;
+    const { messageId, mediaUrl, mediaType, fileName, caption, mimeType: originalMimeType, instanceName, messageData } = options;
 
+    let mimeType = originalMimeType; // Make it mutable
+
+    
 
     mediaLogger.log('🚀 [INCOMING_MEDIA_START] Iniciando processamento de mídia:', {
       messageId,
@@ -193,6 +205,33 @@ export class IncomingMediaService {
             bufferStart: downloadedBuffer.subarray(0, 16).toString('hex')
           });
           throw new Error(`Imagem corrompida detectada: ${sharpError.message}`);
+        }
+      }
+
+      // Processar áudio - converter OGG Opus para MP3 para melhor compatibilidade
+      if (mediaType === 'audio' && processedBuffer.length > 0) {
+        try {
+          console.log('🎵 [AUDIO_CONVERSION] Iniciando conversão de áudio OGG → MP3');
+          const convertedBuffer = await this.convertAudioToMp3(processedBuffer);
+          if (convertedBuffer) {
+            processedBuffer = convertedBuffer;
+            // Atualizar mimeType para MP3
+            mimeType = 'audio/mpeg';
+            console.log('✅ [AUDIO_CONVERSION] Áudio convertido com sucesso');
+            mediaLogger.log('🎵 [AUDIO_CONVERSION] Conversão OGG→MP3 bem-sucedida', {
+              originalSize: downloadedBuffer.length,
+              convertedSize: convertedBuffer.length
+            });
+          } else {
+            console.warn('⚠️ [AUDIO_CONVERSION] Conversão falhou, mantendo formato original');
+          }
+        } catch (audioError: any) {
+          console.error('❌ [AUDIO_CONVERSION] Erro na conversão:', audioError.message);
+          mediaLogger.error('❌ [AUDIO_CONVERSION] Falha na conversão de áudio', {
+            error: audioError.message,
+            originalSize: downloadedBuffer.length
+          });
+          // Continuar com o buffer original se a conversão falhar
         }
       }
 
@@ -634,5 +673,56 @@ export class IncomingMediaService {
     }
 
     return null;
+  }
+
+  /**
+   * Converte áudio OGG Opus para MP3 para melhor compatibilidade com navegadores
+   */
+  private async convertAudioToMp3(inputBuffer: Buffer): Promise<Buffer | null> {
+    return new Promise((resolve, reject) => {
+      try {
+        // Criar arquivos temporários
+        const inputFile = path.join(process.cwd(), 'temp_audio_input.ogg');
+        const outputFile = path.join(process.cwd(), 'temp_audio_output.mp3');
+
+        // Escrever buffer de entrada para arquivo temporário
+        fs.writeFileSync(inputFile, inputBuffer);
+
+        // Converter usando ffmpeg
+        ffmpeg(inputFile)
+          .toFormat('mp3')
+          .audioCodec('libmp3lame')
+          .audioBitrate(128) // 128kbps para boa qualidade e tamanho razoável
+          .audioFrequency(44100) // 44.1kHz
+          .audioChannels(1) // Mono para mensagens de voz
+          .on('end', () => {
+            try {
+              // Ler arquivo convertido
+              const outputBuffer = fs.readFileSync(outputFile);
+              
+              // Limpar arquivos temporários
+              try { fs.unlinkSync(inputFile); } catch {}
+              try { fs.unlinkSync(outputFile); } catch {}
+              
+              console.log(`🎵 [AUDIO_CONVERSION] Conversão concluída: ${inputBuffer.length} → ${outputBuffer.length} bytes`);
+              resolve(outputBuffer);
+            } catch (readError) {
+              reject(readError);
+            }
+          })
+          .on('error', (err) => {
+            // Limpar arquivos temporários em caso de erro
+            try { fs.unlinkSync(inputFile); } catch {}
+            try { fs.unlinkSync(outputFile); } catch {}
+            
+            console.error('❌ [AUDIO_CONVERSION] Erro no ffmpeg:', err.message);
+            reject(err);
+          })
+          .save(outputFile);
+
+      } catch (error) {
+        reject(error);
+      }
+    });
   }
 }

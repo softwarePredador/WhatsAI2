@@ -1,0 +1,8 @@
+[2025-10-31T00:17:37.251Z] [INFO] === AUDIO DEBUG LOGS STARTED ===
+[2025-10-31T00:17:37.257Z] [INFO] Testing HEAD request to: http://localhost:3000/api/media/audio/1761864661730_g0fd7dfbf_audio_AC3C95447585C5CD844AC0CA5FC028BA_q60saanej_1761864661730.ogg
+[2025-10-31T00:17:37.302Z] [ERROR] HEAD request failed with error: fetch failed
+[2025-10-31T00:17:37.302Z] [ERROR] Error name: TypeError
+[2025-10-31T00:17:37.303Z] [ERROR] Error stack: TypeError: fetch failed
+    at node:internal/deps/undici/undici:13502:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+[2025-10-31T00:17:37.304Z] [INFO] === AUDIO DEBUG LOGS COMPLETED ===
