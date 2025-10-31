@@ -253,14 +253,18 @@ export class App {
 
   public async start(): Promise<void> {
     try {
+      console.log('🚀 [APP] Iniciando cache service...');
       // Initialize cache service
       await cacheService.initialize();
       logger.info(LogContext.CACHE, 'Cache service initialized successfully');
+      console.log('✅ [APP] Cache inicializado');
 
       const port = env.PORT;
+      console.log(`🚀 [APP] Iniciando servidor na porta ${port}...`);
 
       return new Promise((resolve) => {
-        this.server.listen(port, () => {
+        this.server.listen(port, '127.0.0.1', () => {
+          console.log(`✅ [APP] Servidor rodando em http://127.0.0.1:${port}`);
           resolve();
         });
       });

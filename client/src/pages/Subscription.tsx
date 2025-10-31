@@ -46,10 +46,11 @@ export default function Subscription() {
       ]);
 
       setSubscription(subData);
-      setInvoices(invoiceData);
+      setInvoices(invoiceData || []);
     } catch (err) {
       console.error('Erro ao carregar dados:', err);
       setError('Não foi possível carregar os dados da assinatura');
+      setInvoices([]); // Garante que sempre seja array
     } finally {
       setLoading(false);
     }
@@ -413,7 +414,7 @@ export default function Subscription() {
           <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
             Histórico de Faturas
           </h2>
-          {invoices.length === 0 ? (
+          {!invoices || invoices.length === 0 ? (
             <p className="text-gray-600 dark:text-gray-300 text-center py-8">
               Nenhuma fatura encontrada
             </p>

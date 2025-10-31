@@ -6,24 +6,56 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle, Loader2, ArrowRight } from 'lucide-react';
+import { userAuthStore } from '../features/auth/store/authStore';
 
 export default function Success() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const sessionId = searchParams.get('session_id');
+  const checkAuth = userAuthStore((state) => state.checkAuth);
 
   useEffect(() => {
-    // Aguardar processamento do webhook
-    const timer = setTimeout(() => {
-      setLoading(false);
-      
-      // Recarregar dados do usuário para atualizar o plano
-      window.location.reload();
-    }, 3000);
+    let attempts = 0;
+    const maxAttempts = 5;
+
+    const updateUserData = async () => {
+      try {
+        console.log(`🔄 [Success] Tentativa ${attempts + 1}/${maxAttempts} - Atualizando dados do usuário...`);
+        await checkAuth();
+        
+        const currentUser = userAuthStore.getState().user;
+        console.log('✅ [Success] Dados do usuário atualizados:', {
+          name: currentUser?.name,
+          plan: currentUser?.plan
+        });
+        
+        attempts++;
+        
+        // Se ainda não atualizou e não atingiu max tentativas, tentar novamente
+        if ((!currentUser?.plan || currentUser.plan === 'free') && attempts < maxAttempts) {
+          console.log('⏳ [Success] Plano ainda não atualizado, tentando novamente em 2s...');
+          setTimeout(updateUserData, 2000);
+        } else {
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error('❌ [Success] Erro ao atualizar dados:', error);
+        attempts++;
+        
+        if (attempts < maxAttempts) {
+          setTimeout(updateUserData, 2000);
+        } else {
+          setLoading(false);
+        }
+      }
+    };
+
+    // Aguardar 3 segundos antes da primeira tentativa (tempo para webhook processar)
+    const timer = setTimeout(updateUserData, 3000);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [checkAuth]);
 
   if (loading) {
     return (

@@ -286,7 +286,7 @@ export class StripeService {
         stripePriceId: price.id,
         plan,
         status: subscription.status,
-        amount: price.unit_amount || 0,
+        amount: (price.unit_amount || 0) / 100, // Convert from cents to currency units
         currency: price.currency,
         interval: price.recurring?.interval || 'month',
         currentPeriodStart: new Date((subscription as any).current_period_start * 1000),
@@ -362,22 +362,30 @@ export class StripeService {
         userId: userId!,
         stripeInvoiceId: invoice.id,
         stripeCustomerId: invoice.customer as string,
-        amount: invoice.amount_paid,
+        amount: invoice.amount_paid / 100, // Convert from cents to currency units
         currency: invoice.currency,
         status: invoice.status || 'paid',
         paid: true,
-        paidAt: new Date(invoice.status_transitions.paid_at! * 1000),
+        paidAt: invoice.status_transitions.paid_at 
+          ? new Date(invoice.status_transitions.paid_at * 1000)
+          : new Date(),
         invoiceNumber: invoice.number || undefined,
         invoicePdfUrl: invoice.invoice_pdf || undefined,
         hostedInvoiceUrl: invoice.hosted_invoice_url || undefined,
-        periodStart: new Date(invoice.period_start * 1000),
-        periodEnd: new Date(invoice.period_end * 1000),
+        periodStart: invoice.period_start 
+          ? new Date(invoice.period_start * 1000)
+          : new Date(),
+        periodEnd: invoice.period_end 
+          ? new Date(invoice.period_end * 1000)
+          : new Date(),
         dueDate: invoice.due_date ? new Date(invoice.due_date * 1000) : null
       },
       update: {
         status: invoice.status || 'paid',
         paid: true,
-        paidAt: new Date(invoice.status_transitions.paid_at! * 1000),
+        paidAt: invoice.status_transitions.paid_at 
+          ? new Date(invoice.status_transitions.paid_at * 1000)
+          : new Date(),
         invoicePdfUrl: invoice.invoice_pdf || undefined,
         hostedInvoiceUrl: invoice.hosted_invoice_url || undefined
       }

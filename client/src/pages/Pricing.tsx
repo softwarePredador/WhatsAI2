@@ -3,37 +3,149 @@
  * Página de planos e preços com integração Stripe
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Check, Loader2, Zap } from 'lucide-react';
 import { billingService, PLANS, Plan } from '../services/billing';
-import { useAuth } from '../hooks/useAuth';
+import { userAuthStore } from '../features/auth/store/authStore';
 import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 
 export default function Pricing() {
   const [loading, setLoading] = useState<string | null>(null);
-  const { user } = useAuth();
+  const user = userAuthStore((state) => state.user);
+  const authLoading = userAuthStore((state) => state.loading);
   const navigate = useNavigate();
 
+  // Obter plano atual do usuário (normalizado para minúsculo)
+  const currentPlanId = user?.plan?.toLowerCase() || 'free';
+
+  console.log('📊 [Pricing] Current state:', {
+    user: user?.name,
+    userPlan: user?.plan,
+    currentPlanId,
+    isLoggedIn: !!user,
+    authLoading
+  });
+
+  // Verificar se há plano selecionado após login
+  useEffect(() => {
+    // Só processar após carregar autenticação
+    if (authLoading) {
+      console.log('⏳ [Pricing] Aguardando autenticação carregar...');
+      return;
+    }
+
+    const selectedPlanId = localStorage.getItem('selectedPlan');
+    console.log('🔍 [Pricing] Verificando plano selecionado:', {
+      selectedPlanId,
+      hasUser: !!user,
+      authLoading
+    });
+
+    if (selectedPlanId && user) {
+      const plan = PLANS.find(p => p.id === selectedPlanId);
+      if (plan) {
+        console.log('✅ [Pricing] Plano encontrado, processando:', plan.name);
+        localStorage.removeItem('selectedPlan');
+        handleSubscribe(plan);
+      }
+    }
+  }, [user, authLoading]);
+
   const handleSubscribe = async (plan: Plan) => {
+    console.log('🛒 [Pricing] handleSubscribe called:', {
+      planId: plan.id,
+      planName: plan.name,
+      planPrice: plan.price,
+      planPriceId: plan.priceId,
+      userLoggedIn: !!user,
+      userPlan: user?.plan,
+      currentPlanId,
+      isCurrentPlan: plan.id === currentPlanId,
+      isFree: plan.id === 'free'
+    });
+
+    // Validação de segurança
+    if (!plan || !plan.id) {
+      console.error('❌ [Pricing] Plano inválido!', plan);
+      return;
+    }
+
+    // Se não estiver logado, salva o plano e redireciona para login
     if (!user) {
-      navigate('/login');
+      console.log('👤 [Pricing] Usuário não logado, redirecionando para login');
+      localStorage.setItem('selectedPlan', plan.id);
+      navigate('/login', { state: { from: '/pricing' } });
       return;
     }
 
+    // Se já está no plano, vai para subscription
+    if (plan.id === currentPlanId) {
+      console.log('✅ [Pricing] Já está no plano atual, indo para /subscription');
+      navigate('/subscription');
+      return;
+    }
+
+    // Se plano FREE, vai para dashboard (sem checkout)
     if (plan.id === 'free') {
-      // Plano Free não precisa de pagamento
+      console.log('🆓 [Pricing] Plano FREE selecionado, indo para dashboard');
+      navigate('/dashboard');
       return;
     }
 
+    // Planos pagos - vai para Stripe
+    console.log('💳 [Pricing] Iniciando checkout Stripe para plano pago');
+    console.log('💳 [Pricing] PriceId:', plan.priceId);
+    
+    if (!plan.priceId) {
+      console.error('❌ [Pricing] PriceId inválido para plano:', plan.name);
+      return;
+    }
+    
     try {
       setLoading(plan.id);
       await billingService.redirectToCheckout(plan.priceId);
     } catch (error: any) {
-      console.error('Erro ao criar checkout:', error);
-      alert(error.response?.data?.message || 'Erro ao processar pagamento');
+      console.error('❌ [Pricing] Erro ao criar checkout:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Erro ao processar pagamento. Tente novamente.';
+      toast.error(errorMessage);
     } finally {
       setLoading(null);
     }
+  };
+
+  const getButtonText = (plan: Plan): string => {
+    if (!user) {
+      return plan.id === 'free' ? 'Começar Grátis' : 'Assinar Agora';
+    }
+
+    if (plan.id === currentPlanId) {
+      return 'Plano Atual';
+    }
+
+    if (plan.id === 'free') {
+      return 'Downgrade';
+    }
+
+    const planOrder = { free: 0, starter: 1, pro: 2, business: 3 };
+    const currentOrder = planOrder[currentPlanId as keyof typeof planOrder] || 0;
+    const targetOrder = planOrder[plan.id as keyof typeof planOrder] || 0;
+
+    return targetOrder > currentOrder ? 'Fazer Upgrade' : 'Fazer Downgrade';
+  };
+
+  const getButtonStyle = (plan: Plan): string => {
+    if (plan.id === currentPlanId) {
+      return 'bg-gray-400 cursor-not-allowed';
+    }
+    
+    if (plan.id === 'free') {
+      return 'bg-gray-600 hover:bg-gray-700';
+    }
+
+    return plan.popular
+      ? 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700'
+      : 'bg-blue-600 hover:bg-blue-700';
   };
 
   return (
@@ -47,6 +159,17 @@ export default function Pricing() {
           <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
             Comece grátis e escale conforme seu negócio cresce
           </p>
+          
+          {/* User Status */}
+          {user && (
+            <div className="mt-4 inline-flex items-center px-4 py-2 bg-blue-100 dark:bg-blue-900 rounded-full">
+              <Check className="w-4 h-4 text-blue-600 dark:text-blue-400 mr-2" />
+              <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                Logado como {user.name} • Plano atual: {PLANS.find(p => p.id === currentPlanId)?.name || 'Free'}
+              </span>
+            </div>
+          )}
+
           <div className="mt-6 inline-flex items-center px-4 py-2 bg-green-100 dark:bg-green-900 rounded-full">
             <Zap className="w-4 h-4 text-green-600 dark:text-green-400 mr-2" />
             <span className="text-sm font-medium text-green-800 dark:text-green-200">
@@ -68,6 +191,13 @@ export default function Pricing() {
               {plan.popular && (
                 <div className="absolute top-0 right-0 bg-blue-500 text-white px-4 py-1 text-xs font-bold rounded-bl-lg">
                   MAIS POPULAR
+                </div>
+              )}
+
+              {/* Current Plan Badge */}
+              {plan.id === currentPlanId && user && (
+                <div className="absolute top-0 left-0 bg-green-500 text-white px-4 py-1 text-xs font-bold rounded-br-lg">
+                  SEU PLANO
                 </div>
               )}
 
@@ -97,13 +227,11 @@ export default function Pricing() {
                 {/* CTA Button */}
                 <button
                   onClick={() => handleSubscribe(plan)}
-                  disabled={loading === plan.id || (user?.plan === plan.id.toUpperCase())}
-                  className={`w-full py-3 px-6 rounded-lg font-semibold transition-all ${
-                    plan.popular
-                      ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                      : 'bg-gray-900 hover:bg-gray-800 dark:bg-gray-700 dark:hover:bg-gray-600 text-white'
+                  disabled={loading === plan.id || plan.id === currentPlanId}
+                  className={`w-full py-3 px-6 rounded-lg font-semibold transition-all text-white ${
+                    getButtonStyle(plan)
                   } ${
-                    loading === plan.id || user?.plan === plan.id.toUpperCase()
+                    loading === plan.id || plan.id === currentPlanId
                       ? 'opacity-50 cursor-not-allowed'
                       : ''
                   }`}
@@ -113,12 +241,8 @@ export default function Pricing() {
                       <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                       Processando...
                     </span>
-                  ) : user?.plan === plan.id.toUpperCase() ? (
-                    'Plano Atual'
-                  ) : plan.id === 'free' ? (
-                    'Começar Grátis'
                   ) : (
-                    'Assinar Agora'
+                    getButtonText(plan)
                   )}
                 </button>
 

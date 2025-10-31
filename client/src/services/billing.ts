@@ -60,12 +60,25 @@ class BillingService {
     successUrl?: string,
     cancelUrl?: string
   ): Promise<CheckoutResponse> {
-    const response = await api.post<CheckoutResponse>('/billing/checkout', {
+    console.log('💳 [BillingService] createCheckout chamado:', {
       priceId,
       successUrl: successUrl || `${window.location.origin}/success`,
       cancelUrl: cancelUrl || `${window.location.origin}/pricing`,
     });
-    return response.data;
+
+    const response = await api.post<{ success: boolean; data: CheckoutResponse }>('/billing/checkout', {
+      priceId,
+      successUrl: successUrl || `${window.location.origin}/success`,
+      cancelUrl: cancelUrl || `${window.location.origin}/pricing`,
+    });
+
+    console.log('💳 [BillingService] Resposta do checkout:', response.data);
+
+    if (!response.data.data?.url) {
+      throw new Error('Checkout URL não retornada pela API');
+    }
+
+    return response.data.data;
   }
 
   /**
@@ -73,13 +86,14 @@ class BillingService {
    */
   async getSubscription(): Promise<Subscription | null> {
     try {
-      const response = await api.get<{ subscription: Subscription }>('/billing/subscription');
-      return response.data.subscription;
+      const response = await api.get<{ success: boolean; data: Subscription | null }>('/billing/subscription');
+      return response.data.data || null;
     } catch (error: any) {
       if (error.response?.status === 404) {
         return null;
       }
-      throw error;
+      console.error('Error fetching subscription:', error);
+      return null;
     }
   }
 
@@ -87,10 +101,15 @@ class BillingService {
    * Listar faturas do usuário
    */
   async getInvoices(limit = 10): Promise<Invoice[]> {
-    const response = await api.get<{ invoices: Invoice[] }>('/billing/invoices', {
-      params: { limit },
-    });
-    return response.data.invoices;
+    try {
+      const response = await api.get<{ success: boolean; data: Invoice[] }>('/billing/invoices', {
+        params: { limit },
+      });
+      return response.data.data || [];
+    } catch (error) {
+      console.error('Error fetching invoices:', error);
+      return [];
+    }
   }
 
   /**
@@ -143,7 +162,14 @@ class BillingService {
    * Redirecionar para checkout
    */
   async redirectToCheckout(priceId: string): Promise<void> {
+    console.log('🚀 [BillingService] Redirecionando para checkout:', priceId);
     const { url } = await this.createCheckout(priceId);
+    
+    if (!url) {
+      throw new Error('URL de checkout não encontrada');
+    }
+    
+    console.log('🚀 [BillingService] Redirecionando para:', url);
     window.location.href = url;
   }
 
