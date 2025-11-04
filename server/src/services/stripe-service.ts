@@ -157,15 +157,53 @@ export class StripeService {
       throw new Error('Subscription has no items');
     }
 
-    return await stripe.subscriptions.update(subscriptionId, {
-      items: [
-        {
-          id: firstItem.id,
-          price: newPriceId
-        }
-      ],
-      proration_behavior: 'create_prorations' // Charge/credit for the difference
+    // Get current and new price to determine if upgrade or downgrade
+    const currentPrice = await stripe.prices.retrieve(firstItem.price.id);
+    const newPrice = await stripe.prices.retrieve(newPriceId);
+    
+    const currentAmount = currentPrice.unit_amount || 0;
+    const newAmount = newPrice.unit_amount || 0;
+    
+    const isUpgrade = newAmount > currentAmount;
+    const isDowngrade = newAmount < currentAmount;
+
+    console.log('🔄 [UPDATE_SUBSCRIPTION]', {
+      subscriptionId,
+      currentPriceId: currentPrice.id,
+      newPriceId,
+      currentAmount,
+      newAmount,
+      isUpgrade,
+      isDowngrade
     });
+
+    if (isDowngrade) {
+      // Downgrade: Apply at period end, don't charge anything now
+      // User keeps current plan until period ends, then switches to lower plan
+      return await stripe.subscriptions.update(subscriptionId, {
+        items: [
+          {
+            id: firstItem.id,
+            price: newPriceId
+          }
+        ],
+        proration_behavior: 'none', // No immediate charge
+        billing_cycle_anchor: 'unchanged' // Keep current billing cycle
+      });
+    } else {
+      // Upgrade or same price: Apply immediately with prorations
+      // Charge the difference for remaining period
+      return await stripe.subscriptions.update(subscriptionId, {
+        items: [
+          {
+            id: firstItem.id,
+            price: newPriceId
+          }
+        ],
+        proration_behavior: 'create_prorations', // Charge/credit difference
+        billing_cycle_anchor: 'unchanged'
+      });
+    }
   }
 
   /**
