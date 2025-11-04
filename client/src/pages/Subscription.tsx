@@ -99,22 +99,71 @@ export default function Subscription() {
     }
   };
 
-  const handleChangePlan = async (newPlanId: string) => {
-    if (!confirm('Deseja mudar de plano? A mudança será aplicada imediatamente.')) {
+  const handleChangePlan = async (newPriceId: string) => {
+    // Detectar se é upgrade ou downgrade
+    const newPlan = PLANS.find(p => p.priceId === newPriceId);
+    if (!newPlan) return;
+    
+    const isUpgrade = newPlan.price > currentPlan.price;
+    const message = isUpgrade
+      ? `Deseja fazer upgrade para ${newPlan.name}? Você será cobrado R$ ${calculateProration(newPlan.price, currentPlan.price)} proporcionalmente ao período restante.`
+      : `Deseja fazer downgrade para ${newPlan.name}? A mudança será aplicada no próximo ciclo de cobrança. Você continuará com o plano ${currentPlan.name} até ${subscription ? formatDate(subscription.currentPeriodEnd) : 'o fim do período'}.`;
+    
+    if (!confirm(message)) {
       return;
     }
 
     try {
       setActionLoading(true);
-      await billingService.changePlan(newPlanId);
-      await loadSubscriptionData();
-      alert('Plano alterado com sucesso!');
-    } catch (err) {
+      await billingService.changePlan(newPriceId);
+      
+      // Aguardar processamento do Stripe (webhooks)
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Recarregar TODOS os dados
+      await checkAuth(); // Atualiza plano do usuário
+      await loadSubscriptionData(); // Atualiza subscription e invoices
+      
+      const successMessage = isUpgrade
+        ? `Upgrade realizado com sucesso! Você foi cobrado proporcionalmente.`
+        : `Downgrade agendado! Você continuará com ${currentPlan.name} até o fim do período atual.`;
+      
+      alert(successMessage);
+    } catch (err: any) {
       console.error('Erro ao mudar plano:', err);
-      alert('Erro ao mudar de plano. Tente novamente.');
+      
+      // Mensagens de erro específicas
+      const errorMessage = err.response?.data?.error || err.message;
+      const statusCode = err.response?.status;
+      
+      if (statusCode === 402) {
+        // Erro de pagamento
+        alert('❌ Pagamento recusado!\n\nSeu cartão foi recusado ao tentar cobrar o upgrade. Possíveis motivos:\n• Saldo insuficiente\n• Cartão expirado\n• Limite excedido\n\nPor favor, atualize seu método de pagamento e tente novamente.');
+      } else if (errorMessage?.includes('Pagamento recusado')) {
+        alert(`❌ ${errorMessage}\n\nAtualize seu cartão no portal de pagamentos e tente novamente.`);
+      } else {
+        alert(`Erro ao mudar de plano:\n${errorMessage || 'Tente novamente mais tarde.'}`);
+      }
     } finally {
       setActionLoading(false);
     }
+  };
+
+  // Calcular valor proporcional (estimativa simples)
+  const calculateProration = (newPrice: number, currentPrice: number): string => {
+    if (!subscription) return '0.00';
+    
+    const now = new Date();
+    const periodEnd = new Date(subscription.currentPeriodEnd);
+    const periodStart = new Date(subscription.currentPeriodStart);
+    
+    const totalDays = Math.ceil((periodEnd.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24));
+    const remainingDays = Math.ceil((periodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    
+    const priceDiff = newPrice - currentPrice;
+    const prorationAmount = (priceDiff * remainingDays) / totalDays;
+    
+    return prorationAmount.toFixed(2);
   };
 
   const handleManageBilling = async () => {
@@ -365,51 +414,54 @@ export default function Subscription() {
               Mudar de Plano
             </h2>
             <div className="grid md:grid-cols-3 gap-4">
-              {PLANS.filter(p => p.id !== 'FREE').map((plan) => (
-                <div
-                  key={plan.id}
-                  className={`border rounded-lg p-4 ${
-                    plan.id === currentPlan.id
-                      ? 'border-blue-600 bg-blue-50 dark:bg-blue-900'
-                      : 'border-gray-200 dark:border-gray-700'
-                  }`}
-                >
-                  <h3 className="font-bold text-gray-900 dark:text-white mb-2">
-                    {plan.name}
-                  </h3>
-                  <p className="text-2xl font-bold text-blue-600 mb-3">
-                    {plan.price}
-                    <span className="text-sm text-gray-600 dark:text-gray-400">/mês</span>
-                  </p>
-                  {plan.id === currentPlan.id ? (
-                    <div className="text-center py-2 text-sm font-medium text-blue-600">
-                      Plano Atual
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => handleChangePlan(plan.priceId)}
-                      disabled={actionLoading}
-                      className={`w-full py-2 rounded-lg font-medium transition-colors ${
-                        plan.id > currentPlan.id
-                          ? 'bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center'
-                          : 'bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white flex items-center justify-center'
-                      }`}
-                    >
-                      {plan.id > currentPlan.id ? (
-                        <>
-                          <ArrowUpCircle className="w-4 h-4 mr-1" />
-                          Upgrade
-                        </>
-                      ) : (
-                        <>
-                          <ArrowDownCircle className="w-4 h-4 mr-1" />
-                          Downgrade
-                        </>
-                      )}
-                    </button>
-                  )}
-                </div>
-              ))}
+              {PLANS.filter(p => p.id !== 'free').map((plan) => {
+                const isUpgrade = plan.price > currentPlan.price;
+                return (
+                  <div
+                    key={plan.id}
+                    className={`border rounded-lg p-4 ${
+                      plan.id === currentPlan.id
+                        ? 'border-blue-600 bg-blue-50 dark:bg-blue-900'
+                        : 'border-gray-200 dark:border-gray-700'
+                    }`}
+                  >
+                    <h3 className="font-bold text-gray-900 dark:text-white mb-2">
+                      {plan.name}
+                    </h3>
+                    <p className="text-2xl font-bold text-blue-600 mb-3">
+                      R$ {plan.price}
+                      <span className="text-sm text-gray-600 dark:text-gray-400">/mês</span>
+                    </p>
+                    {plan.id === currentPlan.id ? (
+                      <div className="text-center py-2 text-sm font-medium text-blue-600">
+                        Plano Atual
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => handleChangePlan(plan.priceId)}
+                        disabled={actionLoading}
+                        className={`w-full py-2 rounded-lg font-medium transition-colors ${
+                          isUpgrade
+                            ? 'bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center'
+                            : 'bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white flex items-center justify-center'
+                        }`}
+                      >
+                        {isUpgrade ? (
+                          <>
+                            <ArrowUpCircle className="w-4 h-4 mr-1" />
+                            Upgrade
+                          </>
+                        ) : (
+                          <>
+                            <ArrowDownCircle className="w-4 h-4 mr-1" />
+                            Downgrade
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}

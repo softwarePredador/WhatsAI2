@@ -286,9 +286,30 @@ router.post('/change-plan', async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('[BILLING] Change plan error:', error);
+    
+    // Tratamento específico para erros do Stripe
+    if (error && typeof error === 'object' && 'type' in error) {
+      const stripeError = error as any;
+      
+      if (stripeError.type === 'StripeCardError') {
+        return res.status(402).json({
+          success: false,
+          error: 'Pagamento recusado. Verifique seu cartão e tente novamente.',
+          details: stripeError.message
+        });
+      }
+      
+      if (stripeError.code === 'resource_missing') {
+        return res.status(404).json({
+          success: false,
+          error: 'Assinatura não encontrada no Stripe.'
+        });
+      }
+    }
+    
     return res.status(500).json({
       success: false,
-      error: error instanceof Error ? error.message : 'Internal server error'
+      error: error instanceof Error ? error.message : 'Erro ao alterar plano. Tente novamente.'
     });
   }
 });

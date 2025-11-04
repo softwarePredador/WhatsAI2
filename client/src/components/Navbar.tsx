@@ -19,7 +19,7 @@ function Navbar() {
         { name: "Instâncias", path: "/instances" },
         { name: "Templates", path: "/templates" },
         { name: "Campanhas", path: "/campaigns" },
-        { name: "Planos", path: "/pricing" },
+        { name: "Assinatura", path: "/subscription" },
       ]
     : [
         { name: "Home", path: "/" },

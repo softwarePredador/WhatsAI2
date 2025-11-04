@@ -86,28 +86,49 @@ export default function Pricing() {
       return;
     }
 
-    // Se plano FREE, vai para dashboard (sem checkout)
+    // Se plano FREE, não pode "downgrade" para free - precisa cancelar
     if (plan.id === 'free') {
-      console.log('🆓 [Pricing] Plano FREE selecionado, indo para dashboard');
-      navigate('/dashboard');
+      console.log('🆓 [Pricing] Downgrade para FREE - redirecionar para cancelar assinatura');
+      toast.error('Para voltar ao plano Free, cancele sua assinatura na página de gerenciamento.');
+      navigate('/subscription');
       return;
     }
 
-    // Planos pagos - vai para Stripe
-    console.log('💳 [Pricing] Iniciando checkout Stripe para plano pago');
-    console.log('💳 [Pricing] PriceId:', plan.priceId);
-    
     if (!plan.priceId) {
       console.error('❌ [Pricing] PriceId inválido para plano:', plan.name);
       return;
     }
-    
+
     try {
       setLoading(plan.id);
-      await billingService.redirectToCheckout(plan.priceId);
+
+      // Verificar se usuário já tem assinatura ativa
+      const hasActiveSubscription = currentPlanId !== 'free';
+
+      if (hasActiveSubscription) {
+        // Usuário já tem plano pago - trocar plano existente
+        console.log('� [Pricing] Trocando plano existente');
+        await billingService.changePlan(plan.priceId);
+        
+        toast.success(
+          `Plano alterado com sucesso! ${
+            plan.price > (PLANS.find(p => p.id === currentPlanId)?.price || 0)
+              ? 'Upgrade aplicado imediatamente.'
+              : 'Downgrade será aplicado no próximo ciclo.'
+          }`
+        );
+        
+        // Recarregar dados do usuário
+        await userAuthStore.getState().checkAuth();
+        navigate('/subscription');
+      } else {
+        // Usuário está no FREE - criar nova assinatura
+        console.log('💳 [Pricing] Criando nova assinatura via Stripe Checkout');
+        await billingService.redirectToCheckout(plan.priceId);
+      }
     } catch (error: any) {
-      console.error('❌ [Pricing] Erro ao criar checkout:', error);
-      const errorMessage = error.response?.data?.message || error.message || 'Erro ao processar pagamento. Tente novamente.';
+      console.error('❌ [Pricing] Erro ao processar:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Erro ao processar. Tente novamente.';
       toast.error(errorMessage);
     } finally {
       setLoading(null);
@@ -124,14 +145,14 @@ export default function Pricing() {
     }
 
     if (plan.id === 'free') {
-      return 'Downgrade';
+      return 'Cancelar Assinatura';
     }
 
-    const planOrder = { free: 0, starter: 1, pro: 2, business: 3 };
-    const currentOrder = planOrder[currentPlanId as keyof typeof planOrder] || 0;
-    const targetOrder = planOrder[plan.id as keyof typeof planOrder] || 0;
+    // Comparar preços diretamente ao invés de usar ordem
+    const currentPlan = PLANS.find(p => p.id === currentPlanId);
+    const currentPrice = currentPlan?.price || 0;
 
-    return targetOrder > currentOrder ? 'Fazer Upgrade' : 'Fazer Downgrade';
+    return plan.price > currentPrice ? 'Fazer Upgrade' : 'Fazer Downgrade';
   };
 
   const getButtonStyle = (plan: Plan): string => {
@@ -159,16 +180,6 @@ export default function Pricing() {
           <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
             Comece grátis e escale conforme seu negócio cresce
           </p>
-          
-          {/* User Status */}
-          {user && (
-            <div className="mt-4 inline-flex items-center px-4 py-2 bg-blue-100 dark:bg-blue-900 rounded-full">
-              <Check className="w-4 h-4 text-blue-600 dark:text-blue-400 mr-2" />
-              <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                Logado como {user.name} • Plano atual: {PLANS.find(p => p.id === currentPlanId)?.name || 'Free'}
-              </span>
-            </div>
-          )}
 
           <div className="mt-6 inline-flex items-center px-4 py-2 bg-green-100 dark:bg-green-900 rounded-full">
             <Zap className="w-4 h-4 text-green-600 dark:text-green-400 mr-2" />
