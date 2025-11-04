@@ -31,7 +31,7 @@ describe('TemplateService', () => {
       const mockTemplateData = {
         name: 'Welcome Message',
         content: 'Hello {{name}}, welcome to {{company}}!',
-        category: 'greeting',
+        category: 'greeting' as const,
         tags: ['welcome', 'onboarding']
       };
 
@@ -71,7 +71,7 @@ describe('TemplateService', () => {
       const mockTemplateData = {
         name: 'Simple Message',
         content: 'This is a simple message without variables.',
-        category: 'general'
+        category: 'custom' as const
       };
 
       const mockCreatedTemplate = {
@@ -372,10 +372,12 @@ describe('TemplateService', () => {
       const result = await templateService.getUsageStats(mockUserId, 10);
 
       expect(result).toHaveLength(2);
-      expect(result[0]).toHaveProperty('templateId');
-      expect(result[0]).toHaveProperty('name');
-      expect(result[0]).toHaveProperty('usageCount');
-      expect(result[0].usageCount).toBe(10);
+      if (result[0]) {
+        expect(result[0]).toHaveProperty('templateId');
+        expect(result[0]).toHaveProperty('name');
+        expect(result[0]).toHaveProperty('usageCount');
+        expect(result[0].usageCount).toBe(10);
+      }
     });
   });
 

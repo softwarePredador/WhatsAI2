@@ -1384,7 +1384,7 @@ export class ConversationService {
       }
 
       // �🚨 ATOMIC TRANSACTION: All critical database operations in one transaction
-      const transactionResult = await prisma.$transaction(async (tx) => {
+      const transactionResult = await prisma.$transaction(async (tx: any) => {
         // Prepare conversation data
         const conversationData: any = {
           isGroup: isGroupConversation
@@ -1650,7 +1650,7 @@ export class ConversationService {
 
 
       // 🚨 ATOMIC TRANSACTION: All database operations in one transaction
-      const transactionResult = await prisma.$transaction(async (tx) => {
+      const transactionResult = await prisma.$transaction(async (tx: any) => {
         // 1. Create or update conversation within transaction
         // PROACTIVE DUPLICATE DETECTION: Always check for existing conversations with either Brazilian format
         let conversation = null;
@@ -1849,7 +1849,7 @@ export class ConversationService {
 
 
       // 🚨 ATOMIC TRANSACTION: Update conversation in transaction
-      const transactionResult = await prisma.$transaction(async (tx) => {
+      const transactionResult = await prisma.$transaction(async (tx: any) => {
         // 1. Create or update conversation within transaction
         // PROACTIVE DUPLICATE DETECTION: Always check for existing conversations with either Brazilian format
         let conversation = null;
