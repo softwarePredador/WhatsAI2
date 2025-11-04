@@ -77,9 +77,14 @@ router.get('/subscription', async (req: Request, res: Response) => {
   try {
     const userId = req.userId!;
 
+    // Buscar por updatedAt para pegar a subscription mais recentemente modificada
+    // Isso garante que se o usuário cancelou e criou outra, pegamos a atual
     const subscription = await prisma.subscription.findFirst({
-      where: { userId },
-      orderBy: { createdAt: 'desc' }
+      where: { 
+        userId,
+        status: { in: ['active', 'trialing'] }
+      },
+      orderBy: { updatedAt: 'desc' }
     });
 
     return res.json({
@@ -150,11 +155,15 @@ router.post('/cancel', async (req: Request, res: Response) => {
   try {
     const userId = req.userId!;
     
+    console.log('🚫 [CANCEL] Iniciando cancelamento para userId:', userId);
+    
     const schema = z.object({
       immediately: z.boolean().optional().default(false)
     });
 
     const { immediately } = schema.parse(req.body);
+    
+    console.log('🚫 [CANCEL] Immediately:', immediately);
 
     // Get user's active subscription
     const subscription = await prisma.subscription.findFirst({
@@ -165,16 +174,27 @@ router.post('/cancel', async (req: Request, res: Response) => {
     });
 
     if (!subscription) {
+      console.log('❌ [CANCEL] Nenhuma assinatura ativa encontrada');
       return res.status(404).json({
         success: false,
         error: 'No active subscription found'
       });
     }
 
+    console.log('🚫 [CANCEL] Subscription encontrada:', subscription.stripeSubscriptionId);
+    console.log('🚫 [CANCEL] Chamando Stripe para cancelar...');
+
     const canceledSubscription = await stripeService.cancelSubscription(
       subscription.stripeSubscriptionId,
       !immediately
     );
+
+    console.log('✅ [CANCEL] Stripe respondeu:', {
+      id: canceledSubscription.id,
+      status: canceledSubscription.status,
+      cancelAtPeriodEnd: canceledSubscription.cancel_at_period_end,
+      cancelAt: canceledSubscription.cancel_at
+    });
 
     return res.json({
       success: true,

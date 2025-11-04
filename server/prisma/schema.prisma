@@ -370,6 +370,7 @@ model Subscription {
   currentPeriodEnd   DateTime
   cancelAt           DateTime?
   canceledAt         DateTime?
+  cancelAtPeriodEnd  Boolean   @default(false)
   trialStart         DateTime?
   trialEnd           DateTime?
   

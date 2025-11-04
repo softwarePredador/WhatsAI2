@@ -137,7 +137,16 @@ class BillingService {
    * Cancelar assinatura
    */
   async cancelSubscription(immediately = false): Promise<void> {
-    await api.post('/billing/cancel', { immediately });
+    console.log('📡 [BILLING SERVICE] Chamando POST /billing/cancel', { immediately });
+    try {
+      const response = await api.post('/billing/cancel', { immediately });
+      console.log('✅ [BILLING SERVICE] Resposta do cancelamento:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ [BILLING SERVICE] Erro ao cancelar:', error);
+      console.error('❌ [BILLING SERVICE] Error response:', error.response?.data);
+      throw error;
+    }
   }
 
   /**

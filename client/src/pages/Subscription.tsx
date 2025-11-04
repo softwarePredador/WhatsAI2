@@ -52,6 +52,12 @@ export default function Subscription() {
         billingService.getInvoices(),
       ]);
 
+      console.log('🔍 [SUBSCRIPTION PAGE] Dados recebidos:', {
+        subscription: subData,
+        cancelAtPeriodEnd: subData?.cancelAtPeriodEnd,
+        status: subData?.status
+      });
+
       setSubscription(subData);
       setInvoices(invoiceData || []);
     } catch (err) {
@@ -70,11 +76,18 @@ export default function Subscription() {
 
     try {
       setActionLoading(true);
-      await billingService.cancelSubscription();
-      await loadSubscriptionData();
       
-      // Atualizar plano do usuário via API
+      console.log('🚫 [CANCEL] Cancelando assinatura...');
+      await billingService.cancelSubscription();
+      
+      console.log('⏳ [CANCEL] Aguardando webhook processar (2s)...');
+      // Aguardar webhook processar
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      console.log('🔄 [CANCEL] Recarregando dados...');
+      // Recarregar dados
       await checkAuth();
+      await loadSubscriptionData();
       
       alert('Assinatura cancelada com sucesso. Você terá acesso até o final do período pago.');
     } catch (err) {
@@ -89,7 +102,14 @@ export default function Subscription() {
     try {
       setActionLoading(true);
       await billingService.reactivateSubscription();
+      
+      // Aguardar webhook processar
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Recarregar dados
+      await checkAuth();
       await loadSubscriptionData();
+      
       alert('Assinatura reativada com sucesso!');
     } catch (err) {
       console.error('Erro ao reativar:', err);

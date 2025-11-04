@@ -60,6 +60,33 @@ export class StripeService {
   }): Promise<Stripe.Checkout.Session> {
     const customerId = await this.createOrGetCustomer(params.userId);
 
+    // IMPORTANTE: Cancelar todas as subscriptions ativas antes de criar uma nova
+    const activeSubscriptions = await prisma.subscription.findMany({
+      where: {
+        userId: params.userId,
+        status: { in: ['active', 'trialing'] }
+      }
+    });
+
+    // Cancelar todas as subscriptions ativas no Stripe
+    for (const sub of activeSubscriptions) {
+      try {
+        console.log(`🗑️ Cancelando subscription antiga: ${sub.stripeSubscriptionId}`);
+        await stripe.subscriptions.cancel(sub.stripeSubscriptionId);
+        
+        // Atualizar no banco
+        await prisma.subscription.update({
+          where: { id: sub.id },
+          data: { 
+            status: 'canceled',
+            canceledAt: new Date()
+          }
+        });
+      } catch (error) {
+        console.error(`Erro ao cancelar subscription ${sub.stripeSubscriptionId}:`, error);
+      }
+    }
+
     const sessionParams: Stripe.Checkout.SessionCreateParams = {
       customer: customerId,
       mode: 'subscription',
@@ -314,6 +341,7 @@ export class StripeService {
       id: subscription.id,
       customer: subscription.customer,
       status: subscription.status,
+      cancelAtPeriodEnd: subscription.cancel_at_period_end,
       metadata: subscription.metadata,
       items: subscription.items.data.length
     });
@@ -381,6 +409,7 @@ export class StripeService {
         currentPeriodEnd: new Date(periodEnd * 1000),
         cancelAt: subscription.cancel_at ? new Date(subscription.cancel_at * 1000) : null,
         canceledAt: subscription.canceled_at ? new Date(subscription.canceled_at * 1000) : null,
+        cancelAtPeriodEnd: subscription.cancel_at_period_end || false,
         trialStart: subscription.trial_start ? new Date(subscription.trial_start * 1000) : null,
         trialEnd: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null
       },
@@ -389,7 +418,8 @@ export class StripeService {
         currentPeriodStart: new Date(periodStart * 1000),
         currentPeriodEnd: new Date(periodEnd * 1000),
         cancelAt: subscription.cancel_at ? new Date(subscription.cancel_at * 1000) : null,
-        canceledAt: subscription.canceled_at ? new Date(subscription.canceled_at * 1000) : null
+        canceledAt: subscription.canceled_at ? new Date(subscription.canceled_at * 1000) : null,
+        cancelAtPeriodEnd: subscription.cancel_at_period_end || false
       }
     });
 
