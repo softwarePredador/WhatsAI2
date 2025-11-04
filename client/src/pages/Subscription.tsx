@@ -19,21 +19,28 @@ import {
   ArrowDownCircle,
 } from 'lucide-react';
 import { billingService, Subscription as SubscriptionType, Invoice, PLANS } from '../services/billing';
-import { useAuth } from '../hooks/useAuth';
+import { userAuthStore } from '../features/auth/store/authStore';
 
 export default function Subscription() {
   const navigate = useNavigate();
-  const { user, updateUser } = useAuth();
+  const user = userAuthStore((state) => state.user);
+  const checkAuth = userAuthStore((state) => state.checkAuth);
   const [subscription, setSubscription] = useState<SubscriptionType | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Carregar dados da assinatura
+  // Carregar dados da assinatura e atualizar usuário
   useEffect(() => {
-    loadSubscriptionData();
-  }, []);
+    const initData = async () => {
+      // Atualizar dados do usuário primeiro
+      await checkAuth();
+      // Depois carregar dados da assinatura
+      await loadSubscriptionData();
+    };
+    initData();
+  }, [checkAuth]);
 
   const loadSubscriptionData = async () => {
     try {
@@ -66,10 +73,8 @@ export default function Subscription() {
       await billingService.cancelSubscription();
       await loadSubscriptionData();
       
-      // Atualizar plano do usuário
-      if (user) {
-        updateUser({ ...user, plan: 'FREE' });
-      }
+      // Atualizar plano do usuário via API
+      await checkAuth();
       
       alert('Assinatura cancelada com sucesso. Você terá acesso até o final do período pago.');
     } catch (err) {
@@ -447,21 +452,21 @@ export default function Subscription() {
                       className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
                     >
                       <td className="py-3 px-4 text-gray-900 dark:text-white">
-                        {formatDate(invoice.created)}
+                        {formatDate(invoice.paidAt || invoice.createdAt)}
                       </td>
                       <td className="py-3 px-4 text-gray-600 dark:text-gray-300">
-                        {invoice.number || '-'}
+                        {invoice.invoiceNumber || invoice.number || '-'}
                       </td>
                       <td className="py-3 px-4 text-gray-900 dark:text-white font-medium">
-                        {formatCurrency(invoice.amount)}
+                        R$ {invoice.amount.toFixed(2)}
                       </td>
                       <td className="py-3 px-4">
                         {getInvoiceStatusBadge(invoice.status)}
                       </td>
                       <td className="py-3 px-4">
-                        {invoice.invoicePdf && (
+                        {(invoice.invoicePdfUrl || invoice.invoicePdf) && (
                           <a
-                            href={invoice.invoicePdf}
+                            href={invoice.invoicePdfUrl || invoice.invoicePdf}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 flex items-center"

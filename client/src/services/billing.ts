@@ -32,15 +32,21 @@ export interface Subscription {
 
 export interface Invoice {
   id: string;
+  invoiceNumber?: string;
   number?: string;
   amount: number;
   currency: string;
   status: string;
   paid: boolean;
+  paidAt?: string;
+  invoicePdfUrl?: string;
   invoicePdf?: string;
+  hostedInvoiceUrl?: string;
   hostedUrl?: string;
-  created: string;
+  periodStart?: string;
+  periodEnd?: string;
   createdAt: string;
+  created?: string;
 }
 
 export interface CheckoutResponse {

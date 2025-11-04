@@ -11,7 +11,7 @@ const router = Router();
  * IMPORTANT: This endpoint must use raw body (not JSON parsed)
  * Configure in app.ts to skip body parser for this route
  */
-router.post('/stripe', async (req: Request, res: Response) => {
+router.post('/', async (req: Request, res: Response) => {
   const signature = req.headers['stripe-signature'];
 
   if (!signature || typeof signature !== 'string') {

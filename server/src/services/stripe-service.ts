@@ -74,14 +74,17 @@ export class StripeService {
       cancel_url: params.cancelUrl,
       metadata: {
         userId: params.userId
+      },
+      subscription_data: {
+        metadata: {
+          userId: params.userId
+        }
       }
     };
 
     // Add trial period if specified
     if (params.trialDays && params.trialDays > 0) {
-      sessionParams.subscription_data = {
-        trial_period_days: params.trialDays
-      };
+      sessionParams.subscription_data!.trial_period_days = params.trialDays;
     }
 
     return await stripe.checkout.sessions.create(sessionParams);
@@ -180,15 +183,22 @@ export class StripeService {
   /**
    * List all invoices for a customer
    */
-  async listInvoices(userId: string, limit: number = 10): Promise<Stripe.Invoice[]> {
-    const customerId = await this.createOrGetCustomer(userId);
-
-    const invoices = await stripe.invoices.list({
-      customer: customerId,
-      limit
+  async listInvoices(userId: string, limit: number = 10): Promise<any[]> {
+    // Buscar invoices do banco de dados (já com valores convertidos)
+    const invoices = await prisma.invoice.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      take: limit
     });
 
-    return invoices.data;
+    console.log('📋 [LIST_INVOICES] Invoices from database:', invoices.map(inv => ({
+      id: inv.id,
+      amount: inv.amount,
+      paidAt: inv.paidAt,
+      periodStart: inv.periodStart
+    })));
+
+    return invoices;
   }
 
   /**
@@ -213,6 +223,8 @@ export class StripeService {
    * Process webhook event
    */
   async processWebhook(event: Stripe.Event): Promise<void> {
+    console.log('🎯 [WEBHOOK] Processing event:', event.type, 'ID:', event.id);
+    
     switch (event.type) {
       case 'checkout.session.completed':
         await this.handleCheckoutSessionCompleted(event.data.object as Stripe.Checkout.Session);
@@ -236,8 +248,10 @@ export class StripeService {
         break;
 
       default:
-        console.log(`Unhandled event type: ${event.type}`);
+        console.log(`⚠️ [WEBHOOK] Unhandled event type: ${event.type}`);
     }
+    
+    console.log('✅ [WEBHOOK] Event processed successfully:', event.type);
   }
 
   /**
@@ -258,26 +272,62 @@ export class StripeService {
    * Handle subscription created/updated
    */
   private async handleSubscriptionChanged(subscription: Stripe.Subscription): Promise<void> {
+    console.log('🔍 [SUBSCRIPTION_CHANGED] Subscription data:', {
+      id: subscription.id,
+      customer: subscription.customer,
+      status: subscription.status,
+      metadata: subscription.metadata,
+      items: subscription.items.data.length
+    });
+
     const userId = subscription.metadata?.['userId'];
     if (!userId) {
-      console.error('No userId in subscription metadata');
+      console.error('❌ [SUBSCRIPTION_CHANGED] No userId in subscription metadata');
       return;
     }
 
     const price = subscription.items.data[0]?.price;
     if (!price) {
-      console.error('No price in subscription');
+      console.error('❌ [SUBSCRIPTION_CHANGED] No price in subscription');
       return;
     }
 
-    // Determine plan based on price ID
+    console.log('💰 [SUBSCRIPTION_CHANGED] Price data:', {
+      id: price.id,
+      unit_amount: price.unit_amount,
+      currency: price.currency,
+      recurring: price.recurring
+    });
+
+    // Determine plan based on exact price ID from environment
     let plan = 'FREE';
-    if (price.id.includes('starter')) plan = 'STARTER';
-    else if (price.id.includes('pro')) plan = 'PRO';
-    else if (price.id.includes('business')) plan = 'BUSINESS';
+    if (price.id === process.env['STRIPE_PRICE_STARTER']) {
+      plan = 'STARTER';
+    } else if (price.id === process.env['STRIPE_PRICE_PRO']) {
+      plan = 'PRO';
+    } else if (price.id === process.env['STRIPE_PRICE_BUSINESS']) {
+      plan = 'BUSINESS';
+    }
+
+    console.log('📋 [SUBSCRIPTION_CHANGED] Determined plan:', plan, '(from price:', price.id, ')');
+
+    // Get period dates from subscription item
+    const subscriptionItem = subscription.items.data[0];
+    if (!subscriptionItem) {
+      console.error('❌ [SUBSCRIPTION_CHANGED] No subscription item found');
+      return;
+    }
+
+    const periodStart = subscriptionItem.current_period_start;
+    const periodEnd = subscriptionItem.current_period_end;
+
+    console.log('📅 [SUBSCRIPTION_CHANGED] Period dates:', {
+      start: new Date(periodStart * 1000).toISOString(),
+      end: new Date(periodEnd * 1000).toISOString()
+    });
 
     // Upsert subscription in database
-    await prisma.subscription.upsert({
+    const savedSubscription = await prisma.subscription.upsert({
       where: { stripeSubscriptionId: subscription.id },
       create: {
         userId,
@@ -289,8 +339,8 @@ export class StripeService {
         amount: (price.unit_amount || 0) / 100, // Convert from cents to currency units
         currency: price.currency,
         interval: price.recurring?.interval || 'month',
-        currentPeriodStart: new Date((subscription as any).current_period_start * 1000),
-        currentPeriodEnd: new Date((subscription as any).current_period_end * 1000),
+        currentPeriodStart: new Date(periodStart * 1000),
+        currentPeriodEnd: new Date(periodEnd * 1000),
         cancelAt: subscription.cancel_at ? new Date(subscription.cancel_at * 1000) : null,
         canceledAt: subscription.canceled_at ? new Date(subscription.canceled_at * 1000) : null,
         trialStart: subscription.trial_start ? new Date(subscription.trial_start * 1000) : null,
@@ -298,15 +348,22 @@ export class StripeService {
       },
       update: {
         status: subscription.status,
-        currentPeriodStart: new Date((subscription as any).current_period_start * 1000),
-        currentPeriodEnd: new Date((subscription as any).current_period_end * 1000),
+        currentPeriodStart: new Date(periodStart * 1000),
+        currentPeriodEnd: new Date(periodEnd * 1000),
         cancelAt: subscription.cancel_at ? new Date(subscription.cancel_at * 1000) : null,
         canceledAt: subscription.canceled_at ? new Date(subscription.canceled_at * 1000) : null
       }
     });
 
+    console.log('✅ [SUBSCRIPTION_CHANGED] Subscription saved:', {
+      id: savedSubscription.id,
+      plan: savedSubscription.plan,
+      amount: savedSubscription.amount,
+      status: savedSubscription.status
+    });
+
     // Update user plan
-    await prisma.user.update({
+    const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: { plan }
     });
@@ -346,52 +403,82 @@ export class StripeService {
    * Handle invoice paid
    */
   private async handleInvoicePaid(invoice: Stripe.Invoice): Promise<void> {
+    console.log('🔍 [INVOICE_PAID] Invoice data:', {
+      id: invoice.id,
+      amount_paid: invoice.amount_paid,
+      amount_due: invoice.amount_due,
+      total: invoice.total,
+      period_start: invoice.period_start,
+      period_end: invoice.period_end,
+      status_transitions: invoice.status_transitions,
+      customer: invoice.customer
+    });
+
     // Try to get userId from customer metadata
     const customer = await stripe.customers.retrieve(invoice.customer as string);
     if (customer.deleted || !customer.metadata?.['userId']) {
-      console.error('No userId found for invoice');
+      console.error('❌ [INVOICE_PAID] No userId found for invoice');
       return;
     }
     
     const userId = customer.metadata['userId'];
+    console.log('✅ [INVOICE_PAID] UserId found:', userId);
+
+    // Convert amounts
+    const amount = invoice.amount_paid || invoice.total || invoice.amount_due || 0;
+    const amountInCurrency = amount / 100;
+
+    console.log('💰 [INVOICE_PAID] Amount conversion:', {
+      raw: amount,
+      converted: amountInCurrency
+    });
+
+    // Convert dates
+    const paidAt = invoice.status_transitions?.paid_at 
+      ? new Date(invoice.status_transitions.paid_at * 1000)
+      : new Date();
+    const periodStart = invoice.period_start 
+      ? new Date(invoice.period_start * 1000)
+      : new Date();
+    const periodEnd = invoice.period_end 
+      ? new Date(invoice.period_end * 1000)
+      : new Date();
+
+    console.log('📅 [INVOICE_PAID] Dates:', {
+      paidAt,
+      periodStart,
+      periodEnd
+    });
 
     // Store invoice in database
-    await prisma.invoice.upsert({
+    const savedInvoice = await prisma.invoice.upsert({
       where: { stripeInvoiceId: invoice.id },
       create: {
         userId: userId!,
         stripeInvoiceId: invoice.id,
         stripeCustomerId: invoice.customer as string,
-        amount: invoice.amount_paid / 100, // Convert from cents to currency units
+        amount: amountInCurrency,
         currency: invoice.currency,
         status: invoice.status || 'paid',
         paid: true,
-        paidAt: invoice.status_transitions.paid_at 
-          ? new Date(invoice.status_transitions.paid_at * 1000)
-          : new Date(),
-        invoiceNumber: invoice.number || undefined,
-        invoicePdfUrl: invoice.invoice_pdf || undefined,
-        hostedInvoiceUrl: invoice.hosted_invoice_url || undefined,
-        periodStart: invoice.period_start 
-          ? new Date(invoice.period_start * 1000)
-          : new Date(),
-        periodEnd: invoice.period_end 
-          ? new Date(invoice.period_end * 1000)
-          : new Date(),
+        paidAt,
+        invoiceNumber: invoice.number || null,
+        invoicePdfUrl: invoice.invoice_pdf || null,
+        hostedInvoiceUrl: invoice.hosted_invoice_url || null,
+        periodStart,
+        periodEnd,
         dueDate: invoice.due_date ? new Date(invoice.due_date * 1000) : null
       },
       update: {
         status: invoice.status || 'paid',
         paid: true,
-        paidAt: invoice.status_transitions.paid_at 
-          ? new Date(invoice.status_transitions.paid_at * 1000)
-          : new Date(),
-        invoicePdfUrl: invoice.invoice_pdf || undefined,
-        hostedInvoiceUrl: invoice.hosted_invoice_url || undefined
+        paidAt,
+        invoicePdfUrl: invoice.invoice_pdf || null,
+        hostedInvoiceUrl: invoice.hosted_invoice_url || null
       }
     });
 
-    console.log(`Invoice paid: ${invoice.id}`);
+    console.log('✅ [INVOICE_PAID] Invoice saved:', savedInvoice);
   }
 
   /**
