@@ -11,6 +11,7 @@ import { cacheService } from '../services/cache-service';
 import { logger, LogContext } from '../services/logger-service';
 import { campaignService } from '../services/campaign-service';
 import { campaignLogger } from '../utils/campaign-logger';
+import { campaignScheduler } from '../jobs/campaign-scheduler';
 import { prisma } from '../database/prisma';
 
 export class App {
@@ -259,6 +260,11 @@ export class App {
       logger.info(LogContext.CACHE, 'Cache service initialized successfully');
       console.log('✅ [APP] Cache inicializado');
 
+      // Start campaign scheduler
+      console.log('🚀 [APP] Iniciando campaign scheduler...');
+      campaignScheduler.start();
+      console.log('✅ [APP] Campaign scheduler iniciado');
+
       const port = env.PORT;
       console.log(`🚀 [APP] Iniciando servidor na porta ${port}...`);
 
@@ -275,6 +281,9 @@ export class App {
   }
 
   public async stop(): Promise<void> {
+    console.log('⏹️ [APP] Parando campaign scheduler...');
+    campaignScheduler.stop();
+    
     return new Promise((resolve) => {
       this.server.close(() => {
         resolve();

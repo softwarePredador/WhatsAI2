@@ -5,6 +5,7 @@ import { Campaign, CampaignStatus, CAMPAIGN_STATUS_LABELS } from '../types/campa
 import { userAuthStore } from '../../auth/store/authStore';
 import { CampaignCard } from '../components/CampaignCard';
 import { CreateCampaignModal } from '../components/CreateCampaignModal';
+import { CampaignReportModal } from '../components/CampaignReportModal';
 import { UpgradeModal } from '../../plans/components/UpgradeModal';
 import { plansService } from '../../plans/services/plansService';
 import { PlanType } from '../../plans/types/plans';
@@ -19,6 +20,8 @@ export const CampaignsPage: React.FC = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [reportCampaignId, setReportCampaignId] = useState<string>('');
   const [currentPlan, setCurrentPlan] = useState<PlanType>('FREE');
   const [currentUsage, setCurrentUsage] = useState(0);
   const [limit, setLimit] = useState(3);
@@ -246,6 +249,24 @@ export const CampaignsPage: React.FC = () => {
     }
   };
 
+  const handleViewReport = async (id: string) => {
+    if (!token) return;
+
+    setReportCampaignId(id);
+    setIsReportModalOpen(true);
+  };
+
+  const handleExportCSV = async (id: string) => {
+    if (!token) return;
+
+    try {
+      await campaignsService.exportCampaignCSV(token, id);
+    } catch (error) {
+      console.error('Error exporting CSV:', error);
+      alert('Erro ao exportar CSV');
+    }
+  };
+
   const handleModalSuccess = async () => {
     await loadCampaigns();
     await loadPlanInfo();
@@ -370,6 +391,8 @@ export const CampaignsPage: React.FC = () => {
                 onPause={handlePause}
                 onResume={handleResume}
                 onCancel={handleCancel}
+                onViewReport={handleViewReport}
+                onExportCSV={handleExportCSV}
               />
             ))}
           </div>
@@ -386,6 +409,15 @@ export const CampaignsPage: React.FC = () => {
           editCampaign={editingCampaign}
           instances={instances}
         />
+
+        {token && (
+          <CampaignReportModal
+            isOpen={isReportModalOpen}
+            onClose={() => setIsReportModalOpen(false)}
+            campaignId={reportCampaignId}
+            token={token}
+          />
+        )}
 
         <UpgradeModal
           isOpen={isUpgradeModalOpen}

@@ -24,6 +24,7 @@ export const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
   const [message, setMessage] = useState('');
   const [templateId, setTemplateId] = useState('');
   const [instanceId, setInstanceId] = useState('');
+  const [scheduledFor, setScheduledFor] = useState('');
   const [recipients, setRecipients] = useState<Array<{ phoneNumber: string; variables: Record<string, string> }>>([]);
   const [recipientInput, setRecipientInput] = useState('');
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -70,6 +71,7 @@ export const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
     setMessage('');
     setTemplateId('');
     setInstanceId('');
+    setScheduledFor('');
     setRecipients([]);
     setRecipientInput('');
     setError(null);
@@ -167,6 +169,7 @@ export const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
         message: message.trim(),
         templateId: templateId || undefined,
         instanceId,
+        scheduledFor: scheduledFor || undefined,
         recipients: recipients.map(r => ({
           phone: r.phoneNumber,
           variables: Object.keys(r.variables).length > 0 ? r.variables : undefined
@@ -265,6 +268,23 @@ export const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
                 maxLength={4096}
               />
               <div className="text-xs text-base-content/60 text-right mt-1">{message.length}/4096</div>
+            </div>
+
+            <div>
+              <label className="label">
+                <span className="label-text">Agendamento (opcional)</span>
+              </label>
+              <input
+                type="datetime-local"
+                className="input input-bordered w-full"
+                value={scheduledFor}
+                onChange={(e) => setScheduledFor(e.target.value)}
+                disabled={loading}
+                min={new Date().toISOString().slice(0, 16)}
+              />
+              <div className="text-xs text-base-content/60 mt-1">
+                Deixe em branco para iniciar manualmente
+              </div>
             </div>
           </div>
         )}

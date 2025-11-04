@@ -280,7 +280,7 @@ router.post('/:id/actions', async (req: Request, res: Response) => {
         campaign = await campaignService.pauseCampaign(campaignId, userId);
         break;
       case 'resume':
-        campaign = await campaignService.startCampaign(campaignId, userId);
+        campaign = await campaignService.resumeCampaign(campaignId, userId);
         break;
       case 'cancel':
         campaign = await campaignService.cancelCampaign(campaignId, userId);
@@ -305,6 +305,87 @@ router.post('/:id/actions', async (req: Request, res: Response) => {
         details: error.errors
       });
     } else if (error instanceof Error) {
+      return res.status(400).json({
+        success: false,
+        error: error.message
+      });
+    } else {
+      return res.status(500).json({
+        success: false,
+        error: 'Internal server error'
+      });
+    }
+  }
+});
+
+/**
+ * GET /api/campaigns/:id/report
+ * Get detailed campaign report with statistics
+ */
+router.get('/:id/report', async (req: Request, res: Response) => {
+  try {
+    const userId = req.userId!;
+    const { id: campaignId } = req.params;
+    
+    if (!campaignId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Campaign ID is required'
+      });
+    }
+    
+    const report = await campaignService.getCampaignReport(campaignId, userId);
+    
+    return res.json({
+      success: true,
+      data: report
+    });
+  } catch (error) {
+    if (error instanceof Error) {
+      return res.status(400).json({
+        success: false,
+        error: error.message
+      });
+    } else {
+      return res.status(500).json({
+        success: false,
+        error: 'Internal server error'
+      });
+    }
+  }
+});
+
+/**
+ * GET /api/campaigns/:id/export
+ * Export campaign results to CSV
+ */
+router.get('/:id/export', async (req: Request, res: Response) => {
+  try {
+    const userId = req.userId!;
+    const { id: campaignId } = req.params;
+    
+    if (!campaignId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Campaign ID is required'
+      });
+    }
+    
+    const csv = await campaignService.exportCampaignToCSV(campaignId, userId);
+    
+    // Get campaign name for filename
+    const campaign = await campaignService.getCampaignById(campaignId, userId);
+    const filename = campaign 
+      ? `campanha-${campaign.name.replace(/[^a-z0-9]/gi, '-').toLowerCase()}.csv`
+      : `campanha-${campaignId}.csv`;
+    
+    // Set headers for file download
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    
+    return res.send('\ufeff' + csv); // Add BOM for Excel UTF-8 support
+  } catch (error) {
+    if (error instanceof Error) {
       return res.status(400).json({
         success: false,
         error: error.message

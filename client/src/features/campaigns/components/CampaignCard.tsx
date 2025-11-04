@@ -1,7 +1,7 @@
 import React from 'react';
 import { 
   Send, Edit2, Trash2, Play, Pause, Square, Calendar, 
-  Users, CheckCircle, XCircle, Clock 
+  Users, CheckCircle, XCircle, Clock, FileDown, BarChart3
 } from 'lucide-react';
 import { Campaign, CAMPAIGN_STATUS_LABELS, CAMPAIGN_STATUS_COLORS } from '../types/campaigns';
 
@@ -13,6 +13,8 @@ interface CampaignCardProps {
   onPause: (id: string) => void;
   onResume: (id: string) => void;
   onCancel: (id: string) => void;
+  onViewReport?: (id: string) => void;
+  onExportCSV?: (id: string) => void;
 }
 
 export const CampaignCard: React.FC<CampaignCardProps> = ({
@@ -22,7 +24,9 @@ export const CampaignCard: React.FC<CampaignCardProps> = ({
   onStart,
   onPause,
   onResume,
-  onCancel
+  onCancel,
+  onViewReport,
+  onExportCSV
 }) => {
   const stats = campaign.stats || {
     totalRecipients: 0,
@@ -166,7 +170,31 @@ export const CampaignCard: React.FC<CampaignCardProps> = ({
         )}
 
         {/* Actions */}
-        <div className="flex gap-2 pt-3 border-t border-base-300">
+        <div className="flex flex-wrap gap-2 pt-3 border-t border-base-300">
+          {/* View Report Button - Show for completed or running campaigns */}
+          {(campaign.status === 'COMPLETED' || campaign.status === 'RUNNING' || campaign.status === 'PAUSED') && onViewReport && (
+            <button
+              onClick={() => onViewReport(campaign.id)}
+              className="btn btn-sm btn-info"
+              title="Ver relatório detalhado"
+            >
+              <BarChart3 className="w-4 h-4" />
+              Relatório
+            </button>
+          )}
+
+          {/* Export CSV Button - Show for completed campaigns */}
+          {campaign.status === 'COMPLETED' && onExportCSV && (
+            <button
+              onClick={() => onExportCSV(campaign.id)}
+              className="btn btn-sm btn-success"
+              title="Exportar CSV"
+            >
+              <FileDown className="w-4 h-4" />
+              Exportar
+            </button>
+          )}
+
           {canStart && (
             <button
               onClick={() => onStart(campaign.id)}

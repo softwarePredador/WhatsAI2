@@ -279,6 +279,31 @@ export class CampaignService extends EventEmitter {
   }
 
   /**
+   * Resume paused campaign
+   */
+  async resumeCampaign(campaignId: string, userId: string): Promise<Campaign> {
+    const campaign = await this.getCampaignById(campaignId, userId);
+    if (!campaign) {
+      throw new Error('Campanha não encontrada');
+    }
+
+    if (campaign.status !== 'PAUSED') {
+      throw new Error('Apenas campanhas pausadas podem ser retomadas');
+    }
+
+    // Update status to RUNNING
+    const updated = await prisma.campaign.update({
+      where: { id: campaignId },
+      data: { status: 'RUNNING' }
+    });
+
+    // Resume processing
+    await this.processCampaign(campaignId);
+
+    return this.formatCampaign(updated);
+  }
+
+  /**
    * Cancel campaign
    */
   async cancelCampaign(campaignId: string, userId: string): Promise<Campaign> {
@@ -532,28 +557,319 @@ export class CampaignService extends EventEmitter {
     } catch (error) {
       campaignLogger.error(`Erro ao enviar mensagem ${messageId}`, error);
 
-      // Update message status
-      await prisma.campaignMessage.update({
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      // Determine if error is temporary or permanent
+      const isPermanentError = this.isPermanentError(errorMessage);
+      const currentMessage = await prisma.campaignMessage.findUnique({
         where: { id: messageId },
-        data: {
-          status: 'FAILED',
-          failedAt: new Date(),
-          error: error instanceof Error ? error.message : 'Unknown error',
-          retryCount: { increment: 1 }
-        }
+        select: { retryCount: true, maxRetries: true }
       });
 
-      // Update campaign counters
-      await prisma.campaign.update({
-        where: { id: campaign.id },
-        data: {
-          failedCount: { increment: 1 },
-          pendingCount: { decrement: 1 }
-        }
-      });
+      const shouldRetry = !isPermanentError && 
+                         currentMessage && 
+                         currentMessage.retryCount < currentMessage.maxRetries;
 
-      this.emit('message:failed', { messageId, campaignId: campaign.id, error });
+      if (shouldRetry) {
+        // Calculate backoff delay (exponential: 2^retryCount minutes)
+        const backoffMinutes = Math.pow(2, currentMessage.retryCount);
+        const nextRetryAt = new Date(Date.now() + backoffMinutes * 60 * 1000);
+
+        campaignLogger.log(`🔄 [CAMPAIGN] Agendando retry para mensagem ${messageId}`, {
+          retryCount: currentMessage.retryCount + 1,
+          maxRetries: currentMessage.maxRetries,
+          nextRetryAt: nextRetryAt.toISOString(),
+          backoffMinutes
+        });
+
+        // Update message status to pending with retry info
+        await prisma.campaignMessage.update({
+          where: { id: messageId },
+          data: {
+            status: 'PENDING', // Keep as pending for retry
+            error: errorMessage,
+            retryCount: { increment: 1 },
+            lastRetryAt: new Date()
+          }
+        });
+
+        // Don't increment failed count, it will be retried
+        
+      } else {
+        // Permanent failure or max retries exceeded
+        const failReason = isPermanentError 
+          ? `Erro permanente: ${errorMessage}`
+          : `Máximo de tentativas excedido (${currentMessage?.maxRetries}): ${errorMessage}`;
+
+        campaignLogger.error(`❌ [CAMPAIGN] Falha permanente para mensagem ${messageId}`, {
+          reason: failReason,
+          isPermanentError,
+          retryCount: currentMessage?.retryCount
+        });
+
+        await prisma.campaignMessage.update({
+          where: { id: messageId },
+          data: {
+            status: 'FAILED',
+            failedAt: new Date(),
+            error: failReason,
+            retryCount: { increment: 1 }
+          }
+        });
+
+        // Update campaign counters
+        await prisma.campaign.update({
+          where: { id: campaign.id },
+          data: {
+            failedCount: { increment: 1 },
+            pendingCount: { decrement: 1 }
+          }
+        });
+
+        this.emit('message:failed', { messageId, campaignId: campaign.id, error });
+      }
     }
+  }
+
+  /**
+   * Determine if an error is permanent (non-retryable)
+   */
+  private isPermanentError(errorMessage: string): boolean {
+    const permanentErrorPatterns = [
+      /invalid number/i,
+      /número inválido/i,
+      /not registered/i,
+      /não registrado/i,
+      /blocked/i,
+      /bloqueado/i,
+      /banned/i,
+      /banido/i,
+      /número não existe/i,
+      /number does not exist/i,
+      /invalid format/i,
+      /formato inválido/i
+    ];
+
+    return permanentErrorPatterns.some(pattern => pattern.test(errorMessage));
+  }
+
+  /**
+   * Get detailed campaign report
+   */
+  async getCampaignReport(campaignId: string, userId: string): Promise<{
+    campaign: Campaign;
+    statistics: {
+      totalRecipients: number;
+      sent: number;
+      delivered: number;
+      failed: number;
+      pending: number;
+      successRate: number;
+      failureRate: number;
+      avgDeliveryTime?: number;
+    };
+    timeline: Array<{
+      timestamp: Date;
+      event: string;
+      count: number;
+    }>;
+    failureReasons: Array<{
+      error: string;
+      count: number;
+    }>;
+    messages: Array<{
+      id: string;
+      recipient: string;
+      status: string;
+      message: string;
+      variables?: any;
+      error?: string;
+      retryCount: number;
+      sentAt?: Date;
+      deliveredAt?: Date;
+      failedAt?: Date;
+    }>;
+  }> {
+    // Get campaign
+    const campaign = await prisma.campaign.findFirst({
+      where: { id: campaignId, userId }
+    });
+
+    if (!campaign) {
+      throw new Error('Campanha não encontrada');
+    }
+
+    // Get all messages
+    const messages = await prisma.campaignMessage.findMany({
+      where: { campaignId },
+      orderBy: { createdAt: 'asc' }
+    });
+
+    // Calculate statistics
+    const totalRecipients = campaign.totalRecipients;
+    const sent = campaign.sentCount;
+    const delivered = campaign.deliveredCount;
+    const failed = campaign.failedCount;
+    const pending = campaign.pendingCount;
+    const successRate = totalRecipients > 0 ? (delivered / totalRecipients) * 100 : 0;
+    const failureRate = totalRecipients > 0 ? (failed / totalRecipients) * 100 : 0;
+
+    // Calculate average delivery time
+    const deliveredMessages = messages.filter(m => m.sentAt && m.deliveredAt);
+    const avgDeliveryTime = deliveredMessages.length > 0
+      ? deliveredMessages.reduce((sum, m) => {
+          const deliveryTime = m.deliveredAt!.getTime() - m.sentAt!.getTime();
+          return sum + deliveryTime;
+        }, 0) / deliveredMessages.length
+      : undefined;
+
+    // Build timeline (hourly events)
+    const timeline: Array<{ timestamp: Date; event: string; count: number }> = [];
+    const sentByHour = new Map<string, number>();
+    const deliveredByHour = new Map<string, number>();
+    const failedByHour = new Map<string, number>();
+
+    messages.forEach(m => {
+      if (m.sentAt) {
+        const hour = new Date(m.sentAt).setMinutes(0, 0, 0);
+        const key = new Date(hour).toISOString();
+        sentByHour.set(key, (sentByHour.get(key) || 0) + 1);
+      }
+      if (m.deliveredAt) {
+        const hour = new Date(m.deliveredAt).setMinutes(0, 0, 0);
+        const key = new Date(hour).toISOString();
+        deliveredByHour.set(key, (deliveredByHour.get(key) || 0) + 1);
+      }
+      if (m.failedAt) {
+        const hour = new Date(m.failedAt).setMinutes(0, 0, 0);
+        const key = new Date(hour).toISOString();
+        failedByHour.set(key, (failedByHour.get(key) || 0) + 1);
+      }
+    });
+
+    // Combine timeline events
+    const allTimestamps = new Set([
+      ...sentByHour.keys(),
+      ...deliveredByHour.keys(),
+      ...failedByHour.keys()
+    ]);
+
+    allTimestamps.forEach(timestamp => {
+      if (sentByHour.has(timestamp)) {
+        timeline.push({
+          timestamp: new Date(timestamp),
+          event: 'sent',
+          count: sentByHour.get(timestamp)!
+        });
+      }
+      if (deliveredByHour.has(timestamp)) {
+        timeline.push({
+          timestamp: new Date(timestamp),
+          event: 'delivered',
+          count: deliveredByHour.get(timestamp)!
+        });
+      }
+      if (failedByHour.has(timestamp)) {
+        timeline.push({
+          timestamp: new Date(timestamp),
+          event: 'failed',
+          count: failedByHour.get(timestamp)!
+        });
+      }
+    });
+
+    // Sort timeline by timestamp
+    timeline.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+
+    // Aggregate failure reasons
+    const failureReasons = new Map<string, number>();
+    messages.filter(m => m.error).forEach(m => {
+      const error = m.error || 'Unknown error';
+      failureReasons.set(error, (failureReasons.get(error) || 0) + 1);
+    });
+
+    const failureReasonsArray = Array.from(failureReasons.entries())
+      .map(([error, count]) => ({ error, count }))
+      .sort((a, b) => b.count - a.count);
+
+    // Format messages for response
+    const formattedMessages = messages.map(m => ({
+      id: m.id,
+      recipient: m.recipient,
+      status: m.status,
+      message: m.message,
+      ...(m.variables && { variables: JSON.parse(m.variables) }),
+      ...(m.error && { error: m.error }),
+      retryCount: m.retryCount,
+      ...(m.sentAt && { sentAt: m.sentAt }),
+      ...(m.deliveredAt && { deliveredAt: m.deliveredAt }),
+      ...(m.failedAt && { failedAt: m.failedAt })
+    }));
+
+    return {
+      campaign: this.formatCampaign(campaign),
+      statistics: {
+        totalRecipients,
+        sent,
+        delivered,
+        failed,
+        pending,
+        successRate: Math.round(successRate * 100) / 100,
+        failureRate: Math.round(failureRate * 100) / 100,
+        ...(avgDeliveryTime !== undefined && { avgDeliveryTime: Math.round(avgDeliveryTime / 1000) })
+      },
+      timeline,
+      failureReasons: failureReasonsArray,
+      messages: formattedMessages
+    };
+  }
+
+  /**
+   * Export campaign results to CSV
+   */
+  async exportCampaignToCSV(campaignId: string, userId: string): Promise<string> {
+    // Get campaign report (reuse existing method)
+    const report = await this.getCampaignReport(campaignId, userId);
+
+    // Build CSV header
+    const headers = [
+      'Destinatário',
+      'Status',
+      'Tentativas',
+      'Enviado em',
+      'Entregue em',
+      'Falha em',
+      'Erro'
+    ];
+
+    // Build CSV rows
+    const rows = report.messages.map(m => [
+      m.recipient,
+      m.status,
+      m.retryCount.toString(),
+      m.sentAt ? m.sentAt.toISOString() : '',
+      m.deliveredAt ? m.deliveredAt.toISOString() : '',
+      m.failedAt ? m.failedAt.toISOString() : '',
+      m.error || ''
+    ]);
+
+    // Add statistics header
+    const csvParts = [
+      `Campanha: ${report.campaign.name}`,
+      `Status: ${report.campaign.status}`,
+      `Total de Destinatários: ${report.statistics.totalRecipients}`,
+      `Enviados: ${report.statistics.sent}`,
+      `Entregues: ${report.statistics.delivered}`,
+      `Falhas: ${report.statistics.failed}`,
+      `Pendentes: ${report.statistics.pending}`,
+      `Taxa de Sucesso: ${report.statistics.successRate}%`,
+      `Taxa de Falha: ${report.statistics.failureRate}%`,
+      '',
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(','))
+    ];
+
+    return csvParts.join('\n');
   }
 
   /**
