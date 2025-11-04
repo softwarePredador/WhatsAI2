@@ -4,8 +4,12 @@ import { MetricsCards } from '../components/MetricsCards';
 import { MessagesChart } from '../components/MessagesChart';
 import { InstancesStatusChart } from '../components/InstancesStatusChart';
 import { InstancesList } from '../components/InstancesList';
+import { CostsChart } from '../components/CostsChart';
+import { PeakHoursChart } from '../components/PeakHoursChart';
+import { ActivityFeed } from '../components/ActivityFeed';
+import { ResponseTimeStats } from '../components/ResponseTimeStats';
 import { dashboardService } from '../services/dashboardService';
-import { DashboardMetrics, MessageChartData, InstanceStatusData } from '../types/dashboard';
+import { DashboardMetrics, MessageChartData, InstanceStatusData, CostData, ActivityLog } from '../types/dashboard';
 import { userAuthStore } from '../../auth/store/authStore';
 
 export const DashboardPage: React.FC = () => {
@@ -14,10 +18,18 @@ export const DashboardPage: React.FC = () => {
   const [messageChartData, setMessageChartData] = useState<MessageChartData[]>([]);
   const [instanceStatusData, setInstanceStatusData] = useState<InstanceStatusData[]>([]);
   const [instancesList, setInstancesList] = useState<any[]>([]);
+  const [costData, setCostData] = useState<CostData[]>([]);
+  const [peakHours, setPeakHours] = useState<{ hour: number; count: number }[]>([]);
+  const [activities, setActivities] = useState<ActivityLog[]>([]);
+  const [responseTimeStats, setResponseTimeStats] = useState<{ average: number; median: number; min: number; max: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [chartLoading, setChartLoading] = useState(true);
   const [statusLoading, setStatusLoading] = useState(true);
   const [instancesLoading, setInstancesLoading] = useState(true);
+  const [costsLoading, setCostsLoading] = useState(true);
+  const [peakHoursLoading, setPeakHoursLoading] = useState(true);
+  const [activitiesLoading, setActivitiesLoading] = useState(true);
+  const [responseTimeLoading, setResponseTimeLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'chart' | 'list'>('list');
 
@@ -30,19 +42,40 @@ export const DashboardPage: React.FC = () => {
         setChartLoading(true);
         setStatusLoading(true);
         setInstancesLoading(true);
+        setCostsLoading(true);
+        setPeakHoursLoading(true);
+        setActivitiesLoading(true);
+        setResponseTimeLoading(true);
 
-        // Load metrics, chart data, instance status and instances list in parallel
-        const [metricsData, chartData, statusData, instances] = await Promise.all([
+        // Load all data in parallel
+        const [
+          metricsData, 
+          chartData, 
+          statusData, 
+          instances,
+          costs,
+          peakHoursData,
+          activitiesData,
+          responseTime
+        ] = await Promise.all([
           dashboardService.getMetrics(token),
           dashboardService.getMessageChart(token),
           dashboardService.getInstanceStatus(token),
-          dashboardService.getInstancesList(token)
+          dashboardService.getInstancesList(token),
+          dashboardService.getCostData(token),
+          dashboardService.getPeakHours(token),
+          dashboardService.getActivityLog(token),
+          dashboardService.getResponseTimeStats(token)
         ]);
 
         setMetrics(metricsData);
         setMessageChartData(chartData);
         setInstanceStatusData(statusData);
         setInstancesList(instances);
+        setCostData(costs);
+        setPeakHours(peakHoursData);
+        setActivities(activitiesData);
+        setResponseTimeStats(responseTime);
         setError(null);
       } catch (err) {
         setError('Erro ao carregar dados do dashboard');
@@ -52,6 +85,10 @@ export const DashboardPage: React.FC = () => {
         setChartLoading(false);
         setStatusLoading(false);
         setInstancesLoading(false);
+        setCostsLoading(false);
+        setPeakHoursLoading(false);
+        setActivitiesLoading(false);
+        setResponseTimeLoading(false);
       }
     };
 
@@ -126,13 +163,19 @@ export const DashboardPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Activity Feed Placeholder */}
-        <div className="bg-base-100 p-6 rounded-xl border border-base-300">
-          <h3 className="text-lg font-semibold mb-4 text-base-content">Atividades Recentes</h3>
-          <div className="space-y-3">
-            <div className="h-16 flex items-center justify-center text-base-content/50">
-              <p>Feed de atividades será implementado na próxima etapa</p>
-            </div>
+        {/* Costs and Peak Hours */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <CostsChart data={costData} loading={costsLoading} />
+          <PeakHoursChart data={peakHours} loading={peakHoursLoading} />
+        </div>
+
+        {/* Response Time and Activity Feed */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-1">
+            <ResponseTimeStats stats={responseTimeStats} loading={responseTimeLoading} />
+          </div>
+          <div className="lg:col-span-2">
+            <ActivityFeed activities={activities} loading={activitiesLoading} />
           </div>
         </div>
       </div>
