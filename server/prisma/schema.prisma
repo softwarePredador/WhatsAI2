@@ -60,6 +60,13 @@ model WhatsAppInstance {
   lastSeen    DateTime?
   connectedAt DateTime?
 
+  // Out of Office / Business Hours
+  outOfOfficeEnabled  Boolean @default(false)
+  outOfOfficeMessage  String? @db.Text
+  businessHoursStart  String? // HH:MM format (ex: "09:00")
+  businessHoursEnd    String? // HH:MM format (ex: "18:00")
+  businessDays        String? @default("[1,2,3,4,5]") // JSON array: 0=Sunday, 6=Saturday
+
   // User ownership
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -72,6 +79,7 @@ model WhatsAppInstance {
   messages      Message[]
   conversations Conversation[]
   campaigns     Campaign[]
+  autoResponses AutoResponse[]
 
   @@map("whatsapp_instances")
 }
@@ -445,6 +453,43 @@ model PaymentMethod {
   @@index([userId])
   @@index([stripePaymentMethodId])
   @@map("payment_methods")
+}
+
+model AutoResponse {
+  id         String   @id @default(cuid())
+  instanceId String
+  name       String   // Nome descritivo da regra
+  
+  // Trigger configuration
+  keywords   String[] // Array de palavras-chave que ativam a resposta
+  matchType  String   @default("CONTAINS") // CONTAINS, EXACT, STARTS_WITH, ENDS_WITH
+  caseSensitive Boolean @default(false)
+  
+  // Response configuration
+  response   String   @db.Text // Mensagem a ser enviada
+  useVariables Boolean @default(true) // Habilitar substituição de variáveis
+  
+  // Media attachment
+  mediaUrl   String?
+  mediaType  String?  // image, video, audio, document
+  
+  // Control
+  active     Boolean  @default(true)
+  
+  // Statistics
+  triggerCount Int @default(0) // Contador de vezes que foi acionada
+  lastTriggeredAt DateTime?
+  
+  // Timestamps
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  // Relations
+  instance   WhatsAppInstance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  
+  @@index([instanceId])
+  @@index([active])
+  @@map("auto_responses")
 }
 
 // SQLite doesn't support enums, so we use string literals

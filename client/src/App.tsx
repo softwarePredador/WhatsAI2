@@ -19,6 +19,7 @@ import { socketService } from './services/socketService';
 import { DashboardPage } from './features/dashboard/pages/DashboardPage';
 import { TemplatesPage } from './features/templates/pages/TemplatesPage';
 import { CampaignsPage } from './features/campaigns/pages/CampaignsPage';
+import { AutomationsPage } from './features/automations/pages/AutomationsPage';
 import Pricing from './pages/Pricing';
 import Success from './pages/Success';
 import Cancel from './pages/Cancel';
@@ -166,6 +167,14 @@ export function App() {
               element={
                 <ProtectedRoute>
                   <CampaignsPage />
+                </ProtectedRoute>
+              }
+              />
+            <Route
+              path="/automations"
+              element={
+                <ProtectedRoute>
+                  <AutomationsPage />
                 </ProtectedRoute>
               }
               />
