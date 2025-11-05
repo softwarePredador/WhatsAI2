@@ -28,10 +28,11 @@ class OnboardingService {
   /**
    * Get current onboarding status
    */
-  async getStatus(): Promise<OnboardingStatus> {
+  async getStatus(token?: string): Promise<OnboardingStatus> {
+    const headers = token ? { Authorization: `Bearer ${token}` } : this.getHeaders();
     const response = await axios.get<OnboardingResponse>(
       `${API_URL}/api/onboarding/status`,
-      { headers: this.getHeaders() }
+      { headers }
     );
 
     if (!response.data.success || !response.data.data) {

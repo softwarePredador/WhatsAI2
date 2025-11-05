@@ -11,6 +11,10 @@ import { ResponseTimeStats } from '../components/ResponseTimeStats';
 import { dashboardService } from '../services/dashboardService';
 import { DashboardMetrics, MessageChartData, InstanceStatusData, CostData, ActivityLog } from '../types/dashboard';
 import { userAuthStore } from '../../auth/store/authStore';
+import OnboardingTour from '../../../components/onboarding/OnboardingTour';
+import OnboardingChecklist from '../../../components/onboarding/OnboardingChecklist';
+import WelcomeModal from '../../../components/onboarding/WelcomeModal';
+import { onboardingService } from '../../../services/onboarding';
 
 export const DashboardPage: React.FC = () => {
   const { token } = userAuthStore();
@@ -32,6 +36,38 @@ export const DashboardPage: React.FC = () => {
   const [responseTimeLoading, setResponseTimeLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'chart' | 'list'>('list');
+  
+  // Onboarding state
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+  const [runTour, setRunTour] = useState(false);
+  const [onboardingStatus, setOnboardingStatus] = useState({
+    completed: false,
+    step: 0
+  });
+
+  // Load onboarding status
+  useEffect(() => {
+    const loadOnboardingStatus = async () => {
+      if (!token) return;
+      
+      try {
+        const status = await onboardingService.getStatus(token);
+        setOnboardingStatus({
+          completed: status.onboardingCompleted,
+          step: status.onboardingStep
+        });
+        
+        // Show welcome modal if onboarding not completed
+        if (!status.onboardingCompleted) {
+          setShowWelcomeModal(true);
+        }
+      } catch (err) {
+        console.error('Failed to load onboarding status:', err);
+      }
+    };
+    
+    loadOnboardingStatus();
+  }, [token]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -95,8 +131,73 @@ export const DashboardPage: React.FC = () => {
     loadData();
   }, [token]);
 
+  const handleStartTour = () => {
+    setShowWelcomeModal(false);
+    setRunTour(true);
+  };
+
+  const handleSkipOnboarding = async () => {
+    setShowWelcomeModal(false);
+    setRunTour(false);
+    setOnboardingStatus({ completed: true, step: 0 });
+  };
+
+  const handleCompleteTour = () => {
+    setRunTour(false);
+    setOnboardingStatus({ completed: true, step: 5 });
+  };
+
+  // Calculate checklist items based on actual data
+  const checklistItems = [
+    {
+      id: 'create-instance',
+      title: 'Conectar WhatsApp',
+      description: 'Conecte sua primeira conta WhatsApp',
+      completed: (metrics?.activeInstances ?? 0) > 0 || instancesList.length > 0
+    },
+    {
+      id: 'send-message',
+      title: 'Enviar primeira mensagem',
+      description: 'Envie sua primeira mensagem de teste',
+      completed: (metrics?.totalMessages ?? 0) > 0
+    },
+    {
+      id: 'create-template',
+      title: 'Criar template',
+      description: 'Crie um template de mensagem rápida',
+      completed: false // This would need template count from metrics
+    },
+    {
+      id: 'create-campaign',
+      title: 'Criar campanha',
+      description: 'Configure sua primeira campanha',
+      completed: false // This would need campaign count from metrics
+    },
+    {
+      id: 'setup-automation',
+      title: 'Configurar auto-resposta',
+      description: 'Ative uma resposta automática',
+      completed: false // This would need auto-response count from metrics
+    }
+  ];
+
   return (
     <DashboardLayout>
+      {/* Welcome Modal */}
+      <WelcomeModal
+        isOpen={showWelcomeModal}
+        onClose={() => setShowWelcomeModal(false)}
+        onStartTour={handleStartTour}
+        onSkip={handleSkipOnboarding}
+      />
+
+      {/* Onboarding Tour */}
+      <OnboardingTour
+        run={runTour}
+        onComplete={handleCompleteTour}
+        onSkip={handleSkipOnboarding}
+      />
+
       <div className="space-y-6">
         {/* Welcome Section */}
         <div className="bg-gradient-to-r from-primary to-secondary p-6 rounded-xl text-primary-content">
@@ -105,6 +206,14 @@ export const DashboardPage: React.FC = () => {
             Monitore o desempenho do seu sistema de mensagens WhatsApp em tempo real.
           </p>
         </div>
+
+        {/* Onboarding Checklist - Show if not completed */}
+        {!onboardingStatus.completed && (
+          <OnboardingChecklist 
+            items={checklistItems}
+            onStartTour={handleStartTour}
+          />
+        )}
 
         {/* Error Message */}
         {error && (
