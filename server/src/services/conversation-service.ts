@@ -1517,12 +1517,19 @@ export class ConversationService {
         // Para grupos: senderName é o pushName de quem mandou (participant)
         // Para individuais: senderName não é necessário (já está no contactName da conversa)
         let senderName: string | undefined = undefined;
+        let senderNumber: string | undefined = undefined;
         if (!messageData.key.fromMe) {
-          if (isGroupConversation && messageData.pushName) {
-            // Em grupos, usar pushName do participante que mandou a mensagem
-            senderName = messageData.pushName;
+          if (isGroupConversation) {
+            if (messageData.pushName) {
+              // Em grupos, usar pushName do participante que mandou a mensagem
+              senderName = messageData.pushName;
+            }
+            if (messageData.key.participant) {
+              // Em grupos, armazenar o número do participante
+              senderNumber = messageData.key.participant;
+            }
           }
-          // Para conversas individuais, não precisamos de senderName
+          // Para conversas individuais, não precisamos de senderName/senderNumber
         }
 
         const messageCreateData = {
@@ -1542,6 +1549,7 @@ export class ConversationService {
           fileName: messageData.message?.documentMessage?.fileName,
           caption: messageData.message?.imageMessage?.caption || messageData.message?.videoMessage?.caption,
           senderName: senderName || null,
+          senderNumber: senderNumber || null,
           conversationId: conversation.id
         };
 
