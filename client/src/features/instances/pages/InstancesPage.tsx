@@ -77,12 +77,24 @@ export default function InstancesPage() {
 
   const handleConnect = async (instanceId: string) => {
     if (!token) return;
+    
+    // Find the instance that will be connected
+    const instanceToConnect = instances.find((inst: WhatsAppInstance) => inst.id === instanceId);
+    
+    // Open the modal immediately with the current instance state
+    if (instanceToConnect) {
+      setSelectedInstanceForQR(instanceToConnect);
+    }
+    
+    // Start the connection process
     await connectInstance(instanceId, token);
     
-    // Fetch updated instance and show QR code
+    // Fetch updated instance to get the QR code
     await fetchInstance(instanceId, token);
     const updatedInstance = instances.find((inst: WhatsAppInstance) => inst.id === instanceId);
-    if (updatedInstance?.qrCode) {
+    
+    // Update the modal with the fresh instance data (including QR code)
+    if (updatedInstance) {
       setSelectedInstanceForQR(updatedInstance);
     }
   };

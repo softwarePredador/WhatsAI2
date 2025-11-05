@@ -15,12 +15,19 @@ export default function QRCodeModal({ instance, onClose, onRefresh }: QRCodeModa
   useEffect(() => {
     if (instance?.status.toUpperCase() === "CONNECTED") {
       console.log("✅ Instance connected! Closing QR Code modal...");
-      // Wait 1 second to show success message, then close
+      // Wait 1.5 seconds to show success message, then close
       setTimeout(() => {
         onClose();
       }, 1500);
     }
   }, [instance?.status, onClose]);
+
+  // Reset countdown when instance changes (e.g., when QR code is refreshed)
+  useEffect(() => {
+    if (instance?.qrCode) {
+      setCountdown(30);
+    }
+  }, [instance?.qrCode]);
 
   useEffect(() => {
     if (!instance || !autoRefresh || countdown <= 0) return;
@@ -50,7 +57,10 @@ export default function QRCodeModal({ instance, onClose, onRefresh }: QRCodeModa
 
   if (!instance) return null;
 
-  const hasQRCode = instance.qrCode && instance.status.toUpperCase() === "CONNECTING";
+  const isConnected = instance.status.toUpperCase() === "CONNECTED";
+  const isConnecting = instance.status.toUpperCase() === "CONNECTING";
+  const hasQRCode = instance.qrCode && isConnecting;
+  const isLoading = isConnecting && !instance.qrCode; // Connecting but QR not yet available
 
   return (
     <div className="modal modal-open">
@@ -116,7 +126,7 @@ export default function QRCodeModal({ instance, onClose, onRefresh }: QRCodeModa
               Atualizar QR Code agora
             </button>
           </div>
-        ) : instance.status.toUpperCase() === "CONNECTED" ? (
+        ) : isConnected ? (
           <div className="alert alert-success shadow-lg animate-pulse">
             <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -124,6 +134,16 @@ export default function QRCodeModal({ instance, onClose, onRefresh }: QRCodeModa
             <div>
               <h3 className="font-bold">🎉 Conectado com Sucesso!</h3>
               <div className="text-sm">Sua instância está conectada ao WhatsApp. Fechando...</div>
+            </div>
+          </div>
+        ) : isLoading ? (
+          <div className="alert alert-info">
+            <svg xmlns="http://www.w3.org/2000/svg" className="animate-spin h-6 w-6 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <div>
+              <h3 className="font-bold">Gerando QR Code...</h3>
+              <div className="text-sm">Aguarde enquanto preparamos o código QR para conexão.</div>
             </div>
           </div>
         ) : (
