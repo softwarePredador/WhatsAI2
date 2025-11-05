@@ -4,7 +4,7 @@ import { Send, Phone, Video, MoreVertical, ArrowLeft, Search, Paperclip } from '
 import { userAuthStore } from '../features/auth/store/authStore';
 import { conversationService } from '../services/conversationService';
 import { socketService } from '../services/socketService';
-import { getDisplayName } from '../utils/contact-display';
+import { getDisplayName, formatPhoneNumber } from '../utils/contact-display';
 import { MediaMessage } from '../components/messages';
 import { FileUploadService } from '../services/fileUploadService';
 import { usePresence } from '../hooks/usePresence';
@@ -35,6 +35,9 @@ interface Conversation {
   isPinned: boolean;
   isArchived: boolean;
 }
+
+// Texto padrão para remetentes sem nome em grupos
+const DEFAULT_SENDER_NAME = 'Participante';
 
 export const ChatPage: React.FC = () => {
   // instanceId vem da URL, mas não é usado diretamente aqui (ChatLayout gerencia a conexão)
@@ -703,10 +706,10 @@ export const ChatPage: React.FC = () => {
                     {/* Nome e número do remetente (apenas para mensagens de grupo recebidas) */}
                     {!message.fromMe && conversation?.isGroup && (message.senderName || message.senderNumber) && (
                       <div className="text-xs font-semibold text-primary mb-1">
-                        {message.senderName || 'Participante'}
+                        {message.senderName || DEFAULT_SENDER_NAME}
                         {message.senderNumber && (
                           <span className="text-[10px] font-normal text-base-content/60 ml-1">
-                            ({message.senderNumber.replace('@s.whatsapp.net', '').replace('@g.us', '')})
+                            ({formatPhoneNumber(message.senderNumber)})
                           </span>
                         )}
                       </div>
