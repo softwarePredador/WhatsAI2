@@ -95,6 +95,7 @@ model Message {
   fileName    String?
   caption     String?
   senderName  String? // Nome de quem enviou (importante para grupos)
+  senderNumber String? // Número de quem enviou (participant do grupo)
 
   // WhatsApp message data
   messageId String   @unique

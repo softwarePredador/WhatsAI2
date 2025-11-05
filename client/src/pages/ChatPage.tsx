@@ -20,6 +20,7 @@ interface Message {
   fileName?: string;
   caption?: string;
   senderName?: string; // Nome do remetente (para mensagens de grupo)
+  senderNumber?: string; // Número do remetente (para mensagens de grupo)
 }
 
 interface Conversation {
@@ -175,6 +176,7 @@ export const ChatPage: React.FC = () => {
           messageType: data.message.messageType || 'text',
           status: data.message.status || (data.message.fromMe ? 'SENT' : undefined),
           senderName: data.message.senderName,
+          senderNumber: data.message.senderNumber,
           mediaUrl: data.message.mediaUrl,
           fileName: data.message.fileName,
           caption: data.message.caption
@@ -698,10 +700,15 @@ export const ChatPage: React.FC = () => {
                         : `bg-base-100 text-base-content rounded-bl-none shadow-sm`
                     }`}
                   >
-                    {/* Nome do remetente (apenas para mensagens de grupo recebidas) */}
-                    {message.senderName && !message.fromMe && conversation?.isGroup && (
+                    {/* Nome e número do remetente (apenas para mensagens de grupo recebidas) */}
+                    {!message.fromMe && conversation?.isGroup && (message.senderName || message.senderNumber) && (
                       <div className="text-xs font-semibold text-primary mb-1">
-                        {message.senderName}
+                        {message.senderName || 'Participante'}
+                        {message.senderNumber && (
+                          <span className="text-[10px] font-normal text-base-content/60 ml-1">
+                            ({message.senderNumber.replace('@s.whatsapp.net', '').replace('@g.us', '')})
+                          </span>
+                        )}
                       </div>
                     )}
 
