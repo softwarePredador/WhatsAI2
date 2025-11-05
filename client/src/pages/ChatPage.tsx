@@ -581,11 +581,11 @@ export const ChatPage: React.FC = () => {
                   {conversation.isGroup ? (
                     // Para grupos, mostrar "Grupo"
                     'Grupo'
-                  ) : conversation.remoteJid && !conversation.remoteJid.includes('@g.us') ? (
-                    // Para contatos individuais, mostrar número formatado
+                  ) : conversation.contactName ? (
+                    // Para contatos individuais com nome, mostrar número formatado
                     conversation.remoteJid.replace('@s.whatsapp.net', '')
                   ) : (
-                    // Mostrar status de presença para contatos individuais
+                    // Mostrar status de presença quando não há nome salvo
                     (() => {
                       if (!conversation) return 'Offline';
                       const presence = getPresence(conversation.remoteJid);
