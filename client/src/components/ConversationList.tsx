@@ -266,6 +266,29 @@ export const ConversationList: React.FC = () => {
     }
   };
 
+  // Helper para texto descritivo de tipo de mensagem (quando content está vazio)
+  const getMessageTypeDescription = (messageType: string) => {
+    switch (messageType.toUpperCase()) {
+      case 'IMAGE':
+        return 'Imagem';
+      case 'AUDIO':
+      case 'PTT':
+        return 'Áudio';
+      case 'VIDEO':
+        return 'Vídeo';
+      case 'DOCUMENT':
+        return 'Documento';
+      case 'STICKER':
+        return 'Figurinha';
+      case 'LOCATION':
+        return 'Localização';
+      case 'CONTACT':
+        return 'Contato';
+      default:
+        return null;
+    }
+  };
+
   // Helper para ícone de status de leitura
   const getStatusIcon = (status?: string) => {
     if (!status || status === 'PENDING') return <Check className="h-3 w-3 inline" />;
@@ -582,9 +605,13 @@ export const ConversationList: React.FC = () => {
                       <div className="mt-1">
                         {(() => {
                           // Priorizar lastMessagePreview (mais completo)
-                          if (conversation.lastMessagePreview?.content) {
+                          if (conversation.lastMessagePreview) {
                             const preview = conversation.lastMessagePreview;
                             const messageTypeIcon = getMessageTypeIcon(preview.messageType);
+                            const messageTypeDesc = getMessageTypeDescription(preview.messageType);
+                            
+                            // Determinar o conteúdo a exibir: conteúdo da mensagem ou descrição do tipo
+                            const displayContent = preview.content?.trim() || messageTypeDesc || 'Mensagem';
                             
                             return (
                               <p className={`text-sm truncate text-base-content/70 flex items-center`}>
@@ -606,8 +633,8 @@ export const ConversationList: React.FC = () => {
                                 {/* Ícone de tipo de mensagem */}
                                 {messageTypeIcon && <span className="mr-1">{messageTypeIcon}</span>}
                                 
-                                {/* Conteúdo da mensagem */}
-                                <span className="truncate">{truncateMessage(preview.content)}</span>
+                                {/* Conteúdo da mensagem ou descrição do tipo */}
+                                <span className="truncate">{truncateMessage(displayContent)}</span>
                               </p>
                             );
                           }
