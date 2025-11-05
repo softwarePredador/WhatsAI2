@@ -62,11 +62,12 @@ class OnboardingService {
   /**
    * Mark onboarding as completed
    */
-  async complete(): Promise<OnboardingStatus> {
+  async complete(token?: string): Promise<OnboardingStatus> {
+    const headers = token ? { Authorization: `Bearer ${token}` } : this.getHeaders();
     const response = await axios.post<OnboardingResponse>(
       `${API_URL}/api/onboarding/complete`,
       {},
-      { headers: this.getHeaders() }
+      { headers }
     );
 
     if (!response.data.success || !response.data.data) {
@@ -79,11 +80,12 @@ class OnboardingService {
   /**
    * Skip onboarding
    */
-  async skip(): Promise<OnboardingStatus> {
+  async skip(token?: string): Promise<OnboardingStatus> {
+    const headers = token ? { Authorization: `Bearer ${token}` } : this.getHeaders();
     const response = await axios.post<OnboardingResponse>(
       `${API_URL}/api/onboarding/skip`,
       {},
-      { headers: this.getHeaders() }
+      { headers }
     );
 
     if (!response.data.success || !response.data.data) {

@@ -139,15 +139,32 @@ export const DashboardPage: React.FC = () => {
   const handleSkipOnboarding = async () => {
     setShowWelcomeModal(false);
     setRunTour(false);
-    setOnboardingStatus({ completed: true, step: 0 });
+    if (token) {
+      try {
+        await onboardingService.skip(token);
+        setOnboardingStatus({ completed: true, step: 0 });
+      } catch (error) {
+        console.error('Failed to skip onboarding:', error);
+      }
+    }
   };
 
-  const handleCompleteTour = () => {
+  const handleCompleteTour = async () => {
     setRunTour(false);
-    setOnboardingStatus({ completed: true, step: 5 });
+    if (token) {
+      try {
+        await onboardingService.complete(token);
+        setOnboardingStatus({ completed: true, step: 5 });
+      } catch (error) {
+        console.error('Failed to complete tour:', error);
+      }
+    }
   };
 
   // Calculate checklist items based on actual data
+  // NOTE: Template, campaign, and automation counts would require additional
+  // metrics from the backend. For MVP, these are marked as incomplete.
+  // Future enhancement: Add templateCount, campaignCount, autoResponseCount to dashboard metrics
   const checklistItems = [
     {
       id: 'create-instance',
@@ -165,19 +182,19 @@ export const DashboardPage: React.FC = () => {
       id: 'create-template',
       title: 'Criar template',
       description: 'Crie um template de mensagem rápida',
-      completed: false // This would need template count from metrics
+      completed: false // TODO: Add templateCount to dashboard metrics
     },
     {
       id: 'create-campaign',
       title: 'Criar campanha',
       description: 'Configure sua primeira campanha',
-      completed: false // This would need campaign count from metrics
+      completed: false // TODO: Add campaignCount to dashboard metrics
     },
     {
       id: 'setup-automation',
       title: 'Configurar auto-resposta',
       description: 'Ative uma resposta automática',
-      completed: false // This would need auto-response count from metrics
+      completed: false // TODO: Add autoResponseCount to dashboard metrics
     }
   ];
 
