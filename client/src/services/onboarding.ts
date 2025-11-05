@@ -16,17 +16,22 @@ export interface OnboardingResponse {
 
 class OnboardingService {
   /**
+   * Get authorization headers with token
+   */
+  private getHeaders(): Record<string, string> {
+    const token = localStorage.getItem('token');
+    return {
+      Authorization: `Bearer ${token}`,
+    };
+  }
+
+  /**
    * Get current onboarding status
    */
   async getStatus(): Promise<OnboardingStatus> {
-    const token = localStorage.getItem('token');
     const response = await axios.get<OnboardingResponse>(
       `${API_URL}/api/onboarding/status`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
+      { headers: this.getHeaders() }
     );
 
     if (!response.data.success || !response.data.data) {
@@ -40,15 +45,10 @@ class OnboardingService {
    * Update onboarding step
    */
   async updateStep(step: number): Promise<OnboardingStatus> {
-    const token = localStorage.getItem('token');
     const response = await axios.put<OnboardingResponse>(
       `${API_URL}/api/onboarding/step`,
       { step },
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
+      { headers: this.getHeaders() }
     );
 
     if (!response.data.success || !response.data.data) {
@@ -62,15 +62,10 @@ class OnboardingService {
    * Mark onboarding as completed
    */
   async complete(): Promise<OnboardingStatus> {
-    const token = localStorage.getItem('token');
     const response = await axios.post<OnboardingResponse>(
       `${API_URL}/api/onboarding/complete`,
       {},
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
+      { headers: this.getHeaders() }
     );
 
     if (!response.data.success || !response.data.data) {
@@ -84,15 +79,10 @@ class OnboardingService {
    * Skip onboarding
    */
   async skip(): Promise<OnboardingStatus> {
-    const token = localStorage.getItem('token');
     const response = await axios.post<OnboardingResponse>(
       `${API_URL}/api/onboarding/skip`,
       {},
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
+      { headers: this.getHeaders() }
     );
 
     if (!response.data.success || !response.data.data) {

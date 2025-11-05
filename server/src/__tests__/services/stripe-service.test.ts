@@ -13,6 +13,7 @@ jest.mock('../../database/prisma', () => ({
     },
     subscription: {
       findMany: jest.fn(),
+      findFirst: jest.fn(),
       findUnique: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
