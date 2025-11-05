@@ -206,6 +206,7 @@ export default function Subscription() {
     });
   };
 
+  // @ts-ignore - formatCurrency will be used in future updates
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',

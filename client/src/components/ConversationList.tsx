@@ -498,16 +498,24 @@ export const ConversationList: React.FC = () => {
                     {/* Content */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
-                        <h3 className={`text-sm font-medium truncate text-base-content`}>
-                          {getDisplayName({
-                            nickname: (conversation as any).nickname,
-                            contactName: conversation.contactName,
-                            remoteJid: conversation.remoteJid
-                          })}
-                          {conversation.isGroup && (
-                            <span className="ml-1 text-xs text-base-content/60">(Grupo)</span>
+                        <div className="flex-1 min-w-0">
+                          <h3 className={`text-sm font-medium truncate text-base-content`}>
+                            {getDisplayName({
+                              nickname: (conversation as any).nickname,
+                              contactName: conversation.contactName,
+                              remoteJid: conversation.remoteJid
+                            })}
+                            {conversation.isGroup && (
+                              <span className="ml-1 text-xs text-base-content/60">(Grupo)</span>
+                            )}
+                          </h3>
+                          {/* Mostrar número abaixo do nome se houver um nome salvo */}
+                          {!conversation.isGroup && (conversation.contactName || (conversation as any).nickname) && (
+                            <p className="text-xs text-base-content/50 truncate">
+                              {conversation.remoteJid.replace('@s.whatsapp.net', '')}
+                            </p>
                           )}
-                        </h3>
+                        </div>
                         <div className="flex items-center space-x-2">
                           <span className={`text-xs text-base-content/60`}>
                             {formatTime(conversation.lastMessageAt)}

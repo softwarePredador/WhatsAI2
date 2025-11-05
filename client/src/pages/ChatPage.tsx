@@ -57,6 +57,19 @@ export const ChatPage: React.FC = () => {
   const token = userAuthStore((state) => state.token);
   const logout = userAuthStore((state) => state.logout);
 
+  // Helper component: Avatar do remetente (para mensagens de grupo)
+  const SenderAvatar: React.FC<{ senderName?: string }> = ({ senderName }) => {
+    if (!senderName) return null;
+    
+    return (
+      <div className="h-8 w-8 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
+        <span className="text-secondary-content font-medium text-xs">
+          {senderName.charAt(0).toUpperCase()}
+        </span>
+      </div>
+    );
+  };
+
   // Componente de check mark do WhatsApp
   const MessageStatusCheck = ({ status }: { status?: Message['status'] }) => {
     if (!status) return null;
@@ -563,27 +576,37 @@ export const ChatPage: React.FC = () => {
                     remoteJid: conversation.remoteJid
                   })}
                 </h2>
+                {/* Mostrar número do contato abaixo do nome, estilo WhatsApp */}
                 <p className={`text-sm text-base-content/70`}>
-                  {conversation.isGroup ? 'Grupo' : (() => {
-                    if (!conversation) return 'Offline';
-                    const presence = getPresence(conversation.remoteJid);
-                    switch (presence.status) {
-                      case 'online':
-                        return 'Online';
-                      case 'typing':
-                        return 'Digitando...';
-                      case 'offline':
-                        // Usar lastMessageAt da conversa em vez de lastSeen do presence
-                        const lastInteraction = conversation.lastMessageAt;
-                        if (lastInteraction) {
-                          const date = new Date(lastInteraction);
-                          return `Visto por último ${date.toLocaleDateString('pt-BR')} ${date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
-                        }
-                        return 'Offline';
-                      default:
-                        return 'Offline';
-                    }
-                  })()}
+                  {conversation.isGroup ? (
+                    // Para grupos, mostrar "Grupo"
+                    'Grupo'
+                  ) : conversation.remoteJid && !conversation.remoteJid.includes('@g.us') ? (
+                    // Para contatos individuais, mostrar número formatado
+                    conversation.remoteJid.replace('@s.whatsapp.net', '')
+                  ) : (
+                    // Mostrar status de presença para contatos individuais
+                    (() => {
+                      if (!conversation) return 'Offline';
+                      const presence = getPresence(conversation.remoteJid);
+                      switch (presence.status) {
+                        case 'online':
+                          return 'Online';
+                        case 'typing':
+                          return 'Digitando...';
+                        case 'offline':
+                          // Usar lastMessageAt da conversa em vez de lastSeen do presence
+                          const lastInteraction = conversation.lastMessageAt;
+                          if (lastInteraction) {
+                            const date = new Date(lastInteraction);
+                            return `Visto por último ${date.toLocaleDateString('pt-BR')} ${date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+                          }
+                          return 'Offline';
+                        default:
+                          return 'Offline';
+                      }
+                    })()
+                  )}
                 </p>
               </div>
             </div>
@@ -620,8 +643,13 @@ export const ChatPage: React.FC = () => {
             return (
               <div
                 key={message.id}
-                className={`flex ${message.fromMe ? 'justify-end' : 'justify-start'}`}
+                className={`flex ${message.fromMe ? 'justify-end' : 'justify-start'} items-end gap-2`}
               >
+                {/* Avatar do remetente (apenas para mensagens recebidas em grupos) */}
+                {!message.fromMe && conversation?.isGroup && (
+                  <SenderAvatar senderName={message.senderName} />
+                )}
+
                 {/* Stickers sem balão de mensagem */}
                 {isSticker ? (
                   <div className="relative">
@@ -671,8 +699,8 @@ export const ChatPage: React.FC = () => {
                     }`}
                   >
                     {/* Nome do remetente (apenas para mensagens de grupo recebidas) */}
-                    {message.senderName && !message.fromMe && (
-                      <div className="text-xs font-medium text-base-content/80 mb-1">
+                    {message.senderName && !message.fromMe && conversation?.isGroup && (
+                      <div className="text-xs font-semibold text-primary mb-1">
                         {message.senderName}
                       </div>
                     )}
