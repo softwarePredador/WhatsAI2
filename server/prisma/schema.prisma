@@ -27,6 +27,10 @@ model User {
   // Stripe
   stripeCustomerId String? @unique
 
+  // Onboarding
+  onboardingCompleted Boolean @default(false)
+  onboardingStep      Int     @default(0) // 0=not started, 1=welcome, 2=instance, 3=qr, 4=message, 5=complete
+
   // Timestamps
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
