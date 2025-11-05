@@ -82,6 +82,7 @@ export default function InstancesPage() {
     const instanceToConnect = instances.find((inst: WhatsAppInstance) => inst.id === instanceId);
     
     // Open the modal immediately with the current instance state
+    // This will show "Gerando QR Code..." loading state
     if (instanceToConnect) {
       setSelectedInstanceForQR(instanceToConnect);
     }
@@ -89,13 +90,33 @@ export default function InstancesPage() {
     // Start the connection process
     await connectInstance(instanceId, token);
     
-    // Fetch updated instance to get the QR code
-    await fetchInstance(instanceId, token);
-    const updatedInstance = instances.find((inst: WhatsAppInstance) => inst.id === instanceId);
+    // Polling to get QR code - try multiple times with delays
+    let attempts = 0;
+    const maxAttempts = 10; // Try for up to 10 seconds
     
-    // Update the modal with the fresh instance data (including QR code)
-    if (updatedInstance) {
-      setSelectedInstanceForQR(updatedInstance);
+    while (attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+      
+      // Fetch updated instance to check for QR code
+      await fetchInstance(instanceId, token);
+      const updatedInstance = instances.find((inst: WhatsAppInstance) => inst.id === instanceId);
+      
+      if (updatedInstance) {
+        setSelectedInstanceForQR(updatedInstance);
+        
+        // If QR code is available or instance is connected, stop polling
+        if (updatedInstance.qrCode || updatedInstance.status.toUpperCase() === 'CONNECTED') {
+          console.log('✅ QR Code disponível ou instância conectada');
+          break;
+        }
+      }
+      
+      attempts++;
+      console.log(`🔄 Tentativa ${attempts}/${maxAttempts} - Aguardando QR code...`);
+    }
+    
+    if (attempts >= maxAttempts) {
+      console.warn('⚠️ QR Code não gerado após 10 tentativas');
     }
   };
 
@@ -120,17 +141,35 @@ export default function InstancesPage() {
   const handleRefreshQR = async (instanceId: string) => {
     if (!token) return;
     
-    // Instead of fetchInstance, call the QR code endpoint directly
     try {
       console.log('🔄 [InstancesPage] Refreshing QR code for instance:', instanceId);
-      // Call instance service to get QR code specifically
-      await fetchInstance(instanceId, token);
       
-      // Update the selected instance in the modal
-      const updatedInstance = instances.find((inst: WhatsAppInstance) => inst.id === instanceId);
-      if (updatedInstance) {
-        setSelectedInstanceForQR(updatedInstance);
+      // Fetch instance multiple times with delays to ensure we get the QR code
+      let attempts = 0;
+      const maxAttempts = 5;
+      
+      while (attempts < maxAttempts) {
+        await fetchInstance(instanceId, token);
+        
+        const updatedInstance = instances.find((inst: WhatsAppInstance) => inst.id === instanceId);
+        if (updatedInstance) {
+          setSelectedInstanceForQR(updatedInstance);
+          
+          // If QR code is available, stop trying
+          if (updatedInstance.qrCode) {
+            console.log('✅ QR Code atualizado com sucesso');
+            return;
+          }
+        }
+        
+        // Wait before next attempt
+        if (attempts < maxAttempts - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+        attempts++;
       }
+      
+      console.warn('⚠️ QR Code não disponível após múltiplas tentativas');
     } catch (error) {
       console.error('❌ [InstancesPage] Error refreshing QR code:', error);
     }
