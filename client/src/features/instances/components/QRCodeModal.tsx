@@ -7,8 +7,10 @@ interface QRCodeModalProps {
   onRefresh: (instanceId: string) => void;
 }
 
+const COUNTDOWN_SECONDS = 30;
+
 export default function QRCodeModal({ instance, onClose, onRefresh }: QRCodeModalProps) {
-  const [countdown, setCountdown] = useState(30);
+  const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
   const [autoRefresh, setAutoRefresh] = useState(true);
 
   // Auto-close modal when instance is connected
@@ -25,7 +27,7 @@ export default function QRCodeModal({ instance, onClose, onRefresh }: QRCodeModa
   // Reset countdown when instance changes (e.g., when QR code is refreshed)
   useEffect(() => {
     if (instance?.qrCode) {
-      setCountdown(30);
+      setCountdown(COUNTDOWN_SECONDS);
     }
   }, [instance?.qrCode]);
 
@@ -39,7 +41,7 @@ export default function QRCodeModal({ instance, onClose, onRefresh }: QRCodeModa
           if (instance.status.toUpperCase() === "CONNECTING") {
             onRefresh(instance.id);
           }
-          return 30; // Reset countdown
+          return COUNTDOWN_SECONDS; // Reset countdown
         }
         return prev - 1;
       });
@@ -51,7 +53,7 @@ export default function QRCodeModal({ instance, onClose, onRefresh }: QRCodeModa
   const handleRefresh = () => {
     if (instance) {
       onRefresh(instance.id);
-      setCountdown(30);
+      setCountdown(COUNTDOWN_SECONDS);
     }
   };
 
