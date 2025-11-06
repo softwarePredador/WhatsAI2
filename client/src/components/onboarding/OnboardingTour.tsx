@@ -20,7 +20,7 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ run, onComplete, onSkip
           <p className="text-lg mb-4">
             Gerencie múltiplas contas WhatsApp em um só lugar.
           </p>
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-base-content/60">
             Vamos fazer um tour rápido de 5 minutos para você conhecer tudo.
           </p>
         </div>
@@ -101,7 +101,7 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ run, onComplete, onSkip
           <p className="text-lg mb-4">
             Agora você já conhece o básico do WhatsAI.
           </p>
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-base-content/60">
             Comece conectando sua primeira conta WhatsApp!
           </p>
         </div>
@@ -143,24 +143,28 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ run, onComplete, onSkip
       callback={handleJoyrideCallback}
       styles={{
         options: {
-          primaryColor: '#10b981', // green-500
+          primaryColor: 'hsl(var(--s))', // Use DaisyUI success color
           zIndex: 10000,
+          textColor: 'hsl(var(--bc))', // Use DaisyUI base-content
+          backgroundColor: 'hsl(var(--b1))', // Use DaisyUI base-100
         },
         tooltip: {
           borderRadius: 12,
           padding: 20,
         },
         buttonNext: {
-          backgroundColor: '#10b981',
+          backgroundColor: 'hsl(var(--s))', // success color
           borderRadius: 8,
           padding: '8px 16px',
         },
         buttonBack: {
-          color: '#6b7280',
+          color: 'hsl(var(--bc))',
+          opacity: 0.6,
           marginRight: 8,
         },
         buttonSkip: {
-          color: '#9ca3af',
+          color: 'hsl(var(--bc))',
+          opacity: 0.5,
         },
       }}
       locale={{
