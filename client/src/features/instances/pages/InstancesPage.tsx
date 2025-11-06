@@ -78,16 +78,7 @@ export default function InstancesPage() {
   const handleConnect = async (instanceId: string) => {
     if (!token) return;
     
-    // Find the instance that will be connected
-    const instanceToConnect = instances.find((inst: WhatsAppInstance) => inst.id === instanceId);
-    
-    // Open the modal immediately with the current instance state
-    // This will show "Gerando QR Code..." loading state
-    if (instanceToConnect) {
-      setSelectedInstanceForQR(instanceToConnect);
-    }
-    
-    // Start the connection process
+    // Start the connection process first
     await connectInstance(instanceId, token);
     
     // Polling to get QR code - try multiple times with delays
@@ -102,7 +93,10 @@ export default function InstancesPage() {
       const updatedInstance = instances.find((inst: WhatsAppInstance) => inst.id === instanceId);
       
       if (updatedInstance) {
-        setSelectedInstanceForQR(updatedInstance);
+        // Only open modal when instance is in connecting state or has QR code
+        if (updatedInstance.status.toUpperCase() === 'CONNECTING' || updatedInstance.qrCode) {
+          setSelectedInstanceForQR(updatedInstance);
+        }
         
         // If QR code is available or instance is connected, stop polling
         if (updatedInstance.qrCode || updatedInstance.status.toUpperCase() === 'CONNECTED') {
