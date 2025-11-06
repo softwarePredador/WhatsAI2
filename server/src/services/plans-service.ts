@@ -67,19 +67,34 @@ export class PlansService {
    * Get user's current plan and limits
    */
   static async getUserPlan(userId: string): Promise<{ plan: PlanType; limits: PlanLimits }> {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { plan: true, planLimits: true },
-    });
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { plan: true, planLimits: true },
+      });
 
-    if (!user) {
-      throw new Error('Usuário não encontrado');
+      if (!user) {
+        throw new Error('Usuário não encontrado');
+      }
+
+      const planType = user.plan as PlanType;
+      
+      // Safe JSON parsing with fallback
+      let limits: PlanLimits;
+      try {
+        limits = typeof user.planLimits === 'string' 
+          ? JSON.parse(user.planLimits) 
+          : user.planLimits as unknown as PlanLimits;
+      } catch (error) {
+        console.error('Error parsing planLimits in getUserPlan, using defaults:', error);
+        limits = getDefaultLimits(planType);
+      }
+
+      return { plan: planType, limits };
+    } catch (error) {
+      console.error('Error in getUserPlan:', error);
+      throw error;
     }
-
-    const planType = user.plan as PlanType;
-    const limits = user.planLimits as unknown as PlanLimits;
-
-    return { plan: planType, limits };
   }
 
   /**

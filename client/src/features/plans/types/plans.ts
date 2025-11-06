@@ -32,10 +32,18 @@ export interface UsageItem {
 
 export interface UsageResponse {
   plan: PlanType;
-  instances: UsageItem;
-  messages_today: UsageItem;
-  templates: UsageItem;
-  campaigns?: UsageItem;
+  planDisplayName: string;
+  limits: PlanLimits;
+  usage: {
+    instances: UsageItem;
+    messages_today: UsageItem;
+    templates: UsageItem;
+    campaigns_this_month?: UsageItem;
+  };
+  canCreateInstance: boolean;
+  canSendMessage: boolean;
+  canCreateTemplate: boolean;
+  canCreateCampaign: boolean;
 }
 
 export interface CheckActionRequest {

@@ -104,30 +104,30 @@ export const PlansPage: React.FC = () => {
         </div>
 
         {/* Current Usage */}
-        {usage && usage.instances && usage.messages_today && usage.templates && (
+        {usage && usage.usage && (
           <div className="bg-base-100 rounded-xl p-6 shadow-lg">
             <h2 className="text-xl font-bold mb-4">Uso Atual</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <UsageBar
                 label="Instâncias"
-                current={usage.instances.current}
-                limit={usage.instances.limit}
+                current={usage.usage.instances.current}
+                limit={usage.usage.instances.limit}
               />
               <UsageBar
                 label="Mensagens Hoje"
-                current={usage.messages_today.current}
-                limit={usage.messages_today.limit}
+                current={usage.usage.messages_today.current}
+                limit={usage.usage.messages_today.limit}
               />
               <UsageBar
                 label="Templates"
-                current={usage.templates.current}
-                limit={usage.templates.limit}
+                current={usage.usage.templates.current}
+                limit={usage.usage.templates.limit}
               />
-              {usage.campaigns && (
+              {usage.usage.campaigns_this_month && (
                 <UsageBar
                   label="Campanhas"
-                  current={usage.campaigns.current}
-                  limit={usage.campaigns.limit}
+                  current={usage.usage.campaigns_this_month.current}
+                  limit={usage.usage.campaigns_this_month.limit}
                 />
               )}
             </div>
