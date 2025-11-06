@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Joyride, { Step, CallBackProps, STATUS, ACTIONS, EVENTS } from 'react-joyride';
 import { onboardingService } from '../../services/onboarding';
 
@@ -18,10 +18,10 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ run, onComplete, onSkip
         <div className="text-center">
           <h2 className="text-2xl font-bold mb-4">🎉 Bem-vindo ao WhatsAI!</h2>
           <p className="text-lg mb-4">
-            Gerencie múltiplas contas WhatsApp em um só lugar.
+            Gerencie múltiplas contas WhatsApp em um só lugar com inteligência artificial.
           </p>
           <p className="text-sm text-base-content/60">
-            Vamos fazer um tour rápido de 5 minutos para você conhecer tudo.
+            Vamos conhecer os principais recursos da plataforma.
           </p>
         </div>
       ),
@@ -29,68 +29,67 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ run, onComplete, onSkip
       disableBeacon: true,
     },
     {
-      target: '[data-tour="create-instance"]',
+      target: 'body',
       content: (
-        <div>
-          <h3 className="text-xl font-bold mb-2">📱 Conecte seu WhatsApp</h3>
-          <p>
-            Clique aqui para adicionar sua primeira conexão WhatsApp. É super rápido!
+        <div className="text-center">
+          <h3 className="text-xl font-bold mb-3">📱 Conexões WhatsApp</h3>
+          <p className="text-base mb-3">
+            Conecte múltiplas contas WhatsApp simultaneamente.
+          </p>
+          <p className="text-sm text-base-content/60">
+            Cada conexão funciona de forma independente e você pode gerenciar todas em um só lugar.
           </p>
         </div>
       ),
-      placement: 'bottom',
+      placement: 'center',
       disableBeacon: true,
     },
     {
-      target: '[data-tour="instances-list"]',
+      target: 'body',
       content: (
-        <div>
-          <h3 className="text-xl font-bold mb-2">📋 Suas Instâncias</h3>
-          <p>
-            Aqui você verá todas as suas conexões WhatsApp. Você pode ter múltiplas contas!
+        <div className="text-center">
+          <h3 className="text-xl font-bold mb-3">💬 Chat Inteligente</h3>
+          <p className="text-base mb-3">
+            Converse com seus contatos através de uma interface moderna e intuitiva.
+          </p>
+          <p className="text-sm text-base-content/60">
+            Suporte a texto, imagens, vídeos, áudios e documentos.
           </p>
         </div>
       ),
-      placement: 'right',
+      placement: 'center',
       disableBeacon: true,
     },
     {
-      target: '[data-tour="chat-area"]',
+      target: 'body',
       content: (
-        <div>
-          <h3 className="text-xl font-bold mb-2">💬 Área de Chat</h3>
-          <p>
-            Aqui você conversa com seus contatos. Interface igual ao WhatsApp Web!
+        <div className="text-center">
+          <h3 className="text-xl font-bold mb-3">📝 Templates & Automação</h3>
+          <p className="text-base mb-3">
+            Crie templates de mensagens com variáveis dinâmicas.
+          </p>
+          <p className="text-sm text-base-content/60">
+            Configure respostas automáticas e horários de atendimento para otimizar seu tempo.
           </p>
         </div>
       ),
-      placement: 'left',
+      placement: 'center',
       disableBeacon: true,
     },
     {
-      target: '[data-tour="templates"]',
+      target: 'body',
       content: (
-        <div>
-          <h3 className="text-xl font-bold mb-2">📝 Templates</h3>
-          <p>
-            Crie respostas rápidas com variáveis para agilizar seu atendimento.
+        <div className="text-center">
+          <h3 className="text-xl font-bold mb-3">📢 Campanhas de Mensagens</h3>
+          <p className="text-base mb-3">
+            Envie mensagens em massa de forma organizada e controlada.
+          </p>
+          <p className="text-sm text-base-content/60">
+            Configure taxa de envio, agende campanhas e acompanhe os resultados.
           </p>
         </div>
       ),
-      placement: 'bottom',
-      disableBeacon: true,
-    },
-    {
-      target: '[data-tour="campaigns"]',
-      content: (
-        <div>
-          <h3 className="text-xl font-bold mb-2">📢 Campanhas</h3>
-          <p>
-            Envie mensagens em massa para seus contatos de forma organizada.
-          </p>
-        </div>
-      ),
-      placement: 'bottom',
+      placement: 'center',
       disableBeacon: true,
     },
     {
@@ -99,10 +98,10 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ run, onComplete, onSkip
         <div className="text-center">
           <h2 className="text-2xl font-bold mb-4">✅ Tudo Pronto!</h2>
           <p className="text-lg mb-4">
-            Agora você já conhece o básico do WhatsAI.
+            Você conheceu os principais recursos do WhatsAI.
           </p>
           <p className="text-sm text-base-content/60">
-            Comece conectando sua primeira conta WhatsApp!
+            Comece conectando sua primeira conta WhatsApp no menu "Instâncias"!
           </p>
         </div>
       ),
@@ -123,12 +122,17 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ run, onComplete, onSkip
         await onboardingService.skip();
         onSkip();
       }
-    } else if (type === EVENTS.STEP_AFTER && action !== ACTIONS.PREV) {
+    } else if (type === EVENTS.STEP_AFTER) {
       // Move to next step
-      setStepIndex(index + (action === ACTIONS.PREV ? -1 : 1));
+      const newIndex = action === ACTIONS.NEXT ? index + 1 : index - 1;
+      setStepIndex(newIndex);
       
-      // Update step in backend
-      await onboardingService.updateStep(index + 1);
+      // Update step in backend (steps 0-5, total 6 steps)
+      try {
+        await onboardingService.updateStep(Math.min(newIndex, 5));
+      } catch (error) {
+        console.error('Failed to update onboarding step:', error);
+      }
     }
   };
 
@@ -141,6 +145,11 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ run, onComplete, onSkip
       showSkipButton
       stepIndex={stepIndex}
       callback={handleJoyrideCallback}
+      disableOverlayClose
+      disableCloseOnEsc={false}
+      spotlightClicks={true}
+      scrollToFirstStep={true}
+      scrollOffset={100}
       styles={{
         options: {
           primaryColor: 'hsl(var(--s))', // Use DaisyUI success color

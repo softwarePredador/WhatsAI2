@@ -31,7 +31,7 @@ class OnboardingService {
   async getStatus(token?: string): Promise<OnboardingStatus> {
     const headers = token ? { Authorization: `Bearer ${token}` } : this.getHeaders();
     const response = await axios.get<OnboardingResponse>(
-      `${API_URL}/api/onboarding/status`,
+      `${API_URL}/onboarding/status`,
       { headers }
     );
 
@@ -47,7 +47,7 @@ class OnboardingService {
    */
   async updateStep(step: number): Promise<OnboardingStatus> {
     const response = await axios.put<OnboardingResponse>(
-      `${API_URL}/api/onboarding/step`,
+      `${API_URL}/onboarding/step`,
       { step },
       { headers: this.getHeaders() }
     );
@@ -65,7 +65,7 @@ class OnboardingService {
   async complete(token?: string): Promise<OnboardingStatus> {
     const headers = token ? { Authorization: `Bearer ${token}` } : this.getHeaders();
     const response = await axios.post<OnboardingResponse>(
-      `${API_URL}/api/onboarding/complete`,
+      `${API_URL}/onboarding/complete`,
       {},
       { headers }
     );
@@ -83,7 +83,7 @@ class OnboardingService {
   async skip(token?: string): Promise<OnboardingStatus> {
     const headers = token ? { Authorization: `Bearer ${token}` } : this.getHeaders();
     const response = await axios.post<OnboardingResponse>(
-      `${API_URL}/api/onboarding/skip`,
+      `${API_URL}/onboarding/skip`,
       {},
       { headers }
     );

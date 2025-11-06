@@ -10,7 +10,14 @@ const router = Router();
  */
 router.post('/complete', authMiddleware, async (req, res) => {
   try {
-    const userId = req.user!.userId;
+    const userId = req.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'User not authenticated',
+      });
+    }
 
     const user = await prisma.user.update({
       where: { id: userId },
@@ -43,8 +50,15 @@ router.post('/complete', authMiddleware, async (req, res) => {
  */
 router.put('/step', authMiddleware, async (req, res) => {
   try {
-    const userId = req.user!.userId;
+    const userId = req.userId;
     const { step } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'User not authenticated',
+      });
+    }
 
     if (typeof step !== 'number' || step < 0 || step > 5) {
       return res.status(400).json({
@@ -53,13 +67,18 @@ router.put('/step', authMiddleware, async (req, res) => {
       });
     }
 
+    const updateData: any = {
+      onboardingStep: step,
+    };
+
+    // Auto-complete if step reaches 5
+    if (step === 5) {
+      updateData.onboardingCompleted = true;
+    }
+
     const user = await prisma.user.update({
       where: { id: userId },
-      data: {
-        onboardingStep: step,
-        // Auto-complete if step reaches 5
-        onboardingCompleted: step === 5 ? true : undefined,
-      },
+      data: updateData,
     });
 
     res.json({
@@ -85,7 +104,14 @@ router.put('/step', authMiddleware, async (req, res) => {
  */
 router.get('/status', authMiddleware, async (req, res) => {
   try {
-    const userId = req.user!.userId;
+    const userId = req.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'User not authenticated',
+      });
+    }
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -121,7 +147,14 @@ router.get('/status', authMiddleware, async (req, res) => {
  */
 router.post('/skip', authMiddleware, async (req, res) => {
   try {
-    const userId = req.user!.userId;
+    const userId = req.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'User not authenticated',
+      });
+    }
 
     const user = await prisma.user.update({
       where: { id: userId },
