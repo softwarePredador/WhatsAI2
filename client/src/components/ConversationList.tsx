@@ -466,7 +466,7 @@ export const ConversationList: React.FC = () => {
             )}
           </div>
         ) : (
-          <div className={`divide-y ${isDark ? 'divide-gray-700' : 'divide-gray-200'}`}>
+          <div className="divide-y divide-base-300">
             {filteredConversations.map((conversation) => (
               <Link
                 key={conversation.id}
@@ -566,11 +566,11 @@ export const ConversationList: React.FC = () => {
                                     className="fixed inset-0 z-10"
                                     onClick={() => setOpenMenuId(null)}
                                   />
-                                  <div className={`absolute right-0 mt-1 w-48 rounded-md shadow-lg z-20 border ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                                  <div className="absolute right-0 mt-1 w-48 rounded-md shadow-lg z-20 border bg-base-100 border-base-300">
                                     <div className="py-1">
                                       <button
                                         onClick={(e) => handleArchiveConversation(e, conversation.id)}
-                                        className={`w-full text-left px-4 py-2 text-sm flex items-center space-x-2 ${isDark ? 'hover:bg-gray-700 text-gray-200' : 'hover:bg-gray-100 text-gray-700'}`}
+                                        className="w-full text-left px-4 py-2 text-sm flex items-center space-x-2 hover:bg-base-200 text-base-content"
                                       >
                                         <Archive className="h-4 w-4" />
                                         <span>Arquivar conversa</span>
@@ -582,13 +582,13 @@ export const ConversationList: React.FC = () => {
                                           contactName: conversation.contactName,
                                           remoteJid: conversation.remoteJid
                                         }))}
-                                        className={`w-full text-left px-4 py-2 text-sm flex items-center space-x-2 ${isDark ? 'hover:bg-gray-700 text-yellow-400' : 'hover:bg-gray-100 text-yellow-600'}`}
+                                        className="w-full text-left px-4 py-2 text-sm flex items-center space-x-2 hover:bg-base-200 text-warning"
                                       >
                                         <Eraser className="h-4 w-4" />
                                         <span>Limpar mensagens</span>
                                       </button>
                                       
-                                      <div className={`border-t ${isDark ? 'border-gray-700' : 'border-gray-200'} my-1`} />
+                                      <div className="border-t border-base-300 my-1" />
                                       
                                       <button
                                         onClick={(e) => handleDeleteConversation(e, conversation.id, getDisplayName({
@@ -596,7 +596,7 @@ export const ConversationList: React.FC = () => {
                                           contactName: conversation.contactName,
                                           remoteJid: conversation.remoteJid
                                         }))}
-                                        className={`w-full text-left px-4 py-2 text-sm flex items-center space-x-2 ${isDark ? 'hover:bg-red-900/20 text-red-400' : 'hover:bg-red-50 text-red-600'}`}
+                                        className="w-full text-left px-4 py-2 text-sm flex items-center space-x-2 hover:bg-error/10 text-error"
                                       >
                                         <Trash2 className="h-4 w-4" />
                                         <span>Excluir conversa</span>
