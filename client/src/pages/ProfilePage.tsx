@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { userAuthStore } from '../features/auth/store/authStore';
 import ChangePasswordModal from '../components/ChangePasswordModal';
 import toast from 'react-hot-toast';
 
 export default function ProfilePage() {
+  const navigate = useNavigate();
   const user = userAuthStore((state) => state.user);
   const setUser = userAuthStore((state) => state.setUser);
   const [isEditing, setIsEditing] = useState(false);
@@ -13,6 +15,29 @@ export default function ProfilePage() {
     name: user?.name || '',
     email: user?.email || '',
   });
+  
+  // Get plan information
+  const currentPlan = user?.plan || 'FREE';
+  const planNames: Record<string, string> = {
+    'FREE': 'Gratuito',
+    'free': 'Gratuito',
+    'STARTER': 'Starter',
+    'starter': 'Starter',
+    'PRO': 'Pro',
+    'pro': 'Pro',
+    'BUSINESS': 'Business',
+    'business': 'Business'
+  };
+  
+  // Parse usage stats
+  const usageStats = typeof user?.usageStats === 'string' 
+    ? JSON.parse(user.usageStats) 
+    : user?.usageStats || { messages_today: 0 };
+  
+  // Parse plan limits
+  const planLimits = typeof user?.planLimits === 'string'
+    ? JSON.parse(user.planLimits)
+    : user?.planLimits || { instances: 1, messages_per_day: 100 };
 
   console.log('ProfilePage render - isEditing:', isEditing, 'isLoading:', isLoading);
 
@@ -176,6 +201,98 @@ export default function ProfilePage() {
                       </span>
                     </p>
                   </div>
+                  <div>
+                    <p className="text-sm text-base-content/50 mb-1">Membro desde</p>
+                    <p className="text-sm font-medium text-base-content">
+                      {user?.createdAt ? new Date(user.createdAt).toLocaleDateString('pt-BR', {
+                        day: '2-digit',
+                        month: 'long',
+                        year: 'numeric'
+                      }) : 'N/A'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-base-content/50 mb-1">Plano Atual</p>
+                    <div className="flex items-center gap-2">
+                      <span className={`badge ${currentPlan.toUpperCase() === 'FREE' ? 'badge-ghost' : 'badge-primary'} font-medium`}>
+                        {planNames[currentPlan] || currentPlan}
+                      </span>
+                      {currentPlan.toUpperCase() === 'FREE' && (
+                        <button
+                          onClick={() => navigate('/pricing')}
+                          className="text-xs text-primary hover:underline"
+                        >
+                          Fazer upgrade
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Usage Statistics */}
+              <div className="pt-6 border-t border-base-300">
+                <h3 className="text-lg font-semibold text-base-content mb-4">
+                  Uso do Plano
+                </h3>
+                <div className="space-y-4">
+                  {/* Messages Usage */}
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm text-base-content/70">Mensagens Hoje</span>
+                      <span className="text-sm font-medium text-base-content">
+                        {usageStats.messages_today || 0} / {planLimits.messages_per_day || 0}
+                      </span>
+                    </div>
+                    <div className="w-full bg-base-300 rounded-full h-2">
+                      <div 
+                        className={`h-2 rounded-full transition-all ${
+                          ((usageStats.messages_today || 0) / (planLimits.messages_per_day || 1)) > 0.9 
+                            ? 'bg-error' 
+                            : ((usageStats.messages_today || 0) / (planLimits.messages_per_day || 1)) > 0.7
+                            ? 'bg-warning'
+                            : 'bg-success'
+                        }`}
+                        style={{ 
+                          width: `${Math.min(100, ((usageStats.messages_today || 0) / (planLimits.messages_per_day || 1)) * 100)}%` 
+                        }}
+                      ></div>
+                    </div>
+                    {((usageStats.messages_today || 0) / (planLimits.messages_per_day || 1)) > 0.8 && (
+                      <p className="text-xs text-warning mt-1">
+                        ⚠️ Você está próximo do limite diário
+                      </p>
+                    )}
+                  </div>
+                  
+                  {/* Instances Limit */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-base-200 rounded-lg p-3">
+                      <p className="text-xs text-base-content/50 mb-1">Instâncias Permitidas</p>
+                      <p className="text-lg font-bold text-base-content">{planLimits.instances || 0}</p>
+                    </div>
+                    <div className="bg-base-200 rounded-lg p-3">
+                      <p className="text-xs text-base-content/50 mb-1">Mensagens/Dia</p>
+                      <p className="text-lg font-bold text-base-content">{planLimits.messages_per_day || 0}</p>
+                    </div>
+                  </div>
+                  
+                  {currentPlan.toUpperCase() === 'FREE' && (
+                    <div className="bg-primary/10 border border-primary/30 rounded-lg p-4">
+                      <p className="text-sm text-base-content mb-2">
+                        🚀 <strong>Precisa de mais recursos?</strong>
+                      </p>
+                      <p className="text-xs text-base-content/70 mb-3">
+                        Faça upgrade para ter mais instâncias, mensagens ilimitadas e recursos exclusivos.
+                      </p>
+                      <button
+                        onClick={() => navigate('/pricing')}
+                        className="btn btn-primary btn-sm w-full"
+                      >
+                        Ver Planos
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 

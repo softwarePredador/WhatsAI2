@@ -333,6 +333,81 @@ export default function Subscription() {
               </p>
             </div>
           </div>
+          
+          {/* Usage Statistics */}
+          {user && (
+            <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg p-4 mb-6">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                <TrendingUp className="w-4 h-4" />
+                Uso Atual
+              </h3>
+              <div className="space-y-3">
+                {/* Messages Usage */}
+                <div>
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-xs text-gray-600 dark:text-gray-300">Mensagens Hoje</span>
+                    <span className="text-xs font-medium text-gray-900 dark:text-white">
+                      {(() => {
+                        const stats = typeof user.usageStats === 'string' 
+                          ? JSON.parse(user.usageStats) 
+                          : user.usageStats;
+                        const limits = typeof user.planLimits === 'string'
+                          ? JSON.parse(user.planLimits)
+                          : user.planLimits;
+                        return `${stats?.messages_today || 0} / ${limits?.messages_per_day || 0}`;
+                      })()}
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                    <div 
+                      className={`h-2 rounded-full transition-all ${(() => {
+                        const stats = typeof user.usageStats === 'string' 
+                          ? JSON.parse(user.usageStats) 
+                          : user.usageStats;
+                        const limits = typeof user.planLimits === 'string'
+                          ? JSON.parse(user.planLimits)
+                          : user.planLimits;
+                        const percentage = ((stats?.messages_today || 0) / (limits?.messages_per_day || 1)) * 100;
+                        return percentage > 90 
+                          ? 'bg-red-600' 
+                          : percentage > 70
+                          ? 'bg-yellow-600'
+                          : 'bg-green-600';
+                      })()}`}
+                      style={{ 
+                        width: `${(() => {
+                          const stats = typeof user.usageStats === 'string' 
+                            ? JSON.parse(user.usageStats) 
+                            : user.usageStats;
+                          const limits = typeof user.planLimits === 'string'
+                            ? JSON.parse(user.planLimits)
+                            : user.planLimits;
+                          return Math.min(100, ((stats?.messages_today || 0) / (limits?.messages_per_day || 1)) * 100);
+                        })()}%` 
+                      }}
+                    ></div>
+                  </div>
+                  {(() => {
+                    const stats = typeof user.usageStats === 'string' 
+                      ? JSON.parse(user.usageStats) 
+                      : user.usageStats;
+                    const limits = typeof user.planLimits === 'string'
+                      ? JSON.parse(user.planLimits)
+                      : user.planLimits;
+                    const percentage = ((stats?.messages_today || 0) / (limits?.messages_per_day || 1)) * 100;
+                    if (percentage > 80) {
+                      return (
+                        <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
+                          ⚠️ Você está próximo do limite diário
+                        </p>
+                      );
+                    }
+                    return null;
+                  })()}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Subscription Details */}
           {subscription && (
