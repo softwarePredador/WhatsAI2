@@ -618,76 +618,81 @@ export class CampaignService extends EventEmitter {
     } catch (error) {
       campaignLogger.error(`Erro ao enviar mensagem ${messageId}`, error);
 
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      
-      // Determine if error is temporary or permanent
-      const isPermanentError = this.isPermanentError(errorMessage);
-      const currentMessage = await prisma.campaignMessage.findUnique({
-        where: { id: messageId },
-        select: { retryCount: true, maxRetries: true }
-      });
-
-      const shouldRetry = !isPermanentError && 
-                         currentMessage && 
-                         currentMessage.retryCount < currentMessage.maxRetries;
-
-      if (shouldRetry) {
-        // Calculate backoff delay (exponential: 2^retryCount minutes)
-        const backoffMinutes = Math.pow(2, currentMessage.retryCount);
-        const nextRetryAt = new Date(Date.now() + backoffMinutes * 60 * 1000);
-
-        campaignLogger.log(`🔄 [CAMPAIGN] Agendando retry para mensagem ${messageId}`, {
-          retryCount: currentMessage.retryCount + 1,
-          maxRetries: currentMessage.maxRetries,
-          nextRetryAt: nextRetryAt.toISOString(),
-          backoffMinutes
-        });
-
-        // Update message status to pending with retry info
-        await prisma.campaignMessage.update({
-          where: { id: messageId },
-          data: {
-            status: 'PENDING', // Keep as pending for retry
-            error: errorMessage,
-            retryCount: { increment: 1 },
-            lastRetryAt: new Date()
-          }
-        });
-
-        // Don't increment failed count, it will be retried
+      try {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         
-      } else {
-        // Permanent failure or max retries exceeded
-        const failReason = isPermanentError 
-          ? `Erro permanente: ${errorMessage}`
-          : `Máximo de tentativas excedido (${currentMessage?.maxRetries}): ${errorMessage}`;
-
-        campaignLogger.error(`❌ [CAMPAIGN] Falha permanente para mensagem ${messageId}`, {
-          reason: failReason,
-          isPermanentError,
-          retryCount: currentMessage?.retryCount
-        });
-
-        await prisma.campaignMessage.update({
+        // Determine if error is temporary or permanent
+        const isPermanentError = this.isPermanentError(errorMessage);
+        const currentMessage = await prisma.campaignMessage.findUnique({
           where: { id: messageId },
-          data: {
-            status: 'FAILED',
-            failedAt: new Date(),
-            error: failReason,
-            retryCount: { increment: 1 }
-          }
+          select: { retryCount: true, maxRetries: true }
         });
 
-        // Update campaign counters
-        await prisma.campaign.update({
-          where: { id: campaign.id },
-          data: {
-            failedCount: { increment: 1 },
-            pendingCount: { decrement: 1 }
-          }
-        });
+        const shouldRetry = !isPermanentError && 
+                           currentMessage && 
+                           currentMessage.retryCount < currentMessage.maxRetries;
 
-        this.emit('message:failed', { messageId, campaignId: campaign.id, error });
+        if (shouldRetry) {
+          // Calculate backoff delay (exponential: 2^retryCount minutes)
+          const backoffMinutes = Math.pow(2, currentMessage.retryCount);
+          const nextRetryAt = new Date(Date.now() + backoffMinutes * 60 * 1000);
+
+          campaignLogger.log(`🔄 [CAMPAIGN] Agendando retry para mensagem ${messageId}`, {
+            retryCount: currentMessage.retryCount + 1,
+            maxRetries: currentMessage.maxRetries,
+            nextRetryAt: nextRetryAt.toISOString(),
+            backoffMinutes
+          });
+
+          // Update message status to pending with retry info
+          await prisma.campaignMessage.update({
+            where: { id: messageId },
+            data: {
+              status: 'PENDING', // Keep as pending for retry
+              error: errorMessage,
+              retryCount: { increment: 1 },
+              lastRetryAt: new Date()
+            }
+          });
+
+          // Don't increment failed count, it will be retried
+          
+        } else {
+          // Permanent failure or max retries exceeded
+          const failReason = isPermanentError 
+            ? `Erro permanente: ${errorMessage}`
+            : `Máximo de tentativas excedido (${currentMessage?.maxRetries}): ${errorMessage}`;
+
+          campaignLogger.error(`❌ [CAMPAIGN] Falha permanente para mensagem ${messageId}`, {
+            reason: failReason,
+            isPermanentError,
+            retryCount: currentMessage?.retryCount
+          });
+
+          await prisma.campaignMessage.update({
+            where: { id: messageId },
+            data: {
+              status: 'FAILED',
+              failedAt: new Date(),
+              error: failReason,
+              retryCount: { increment: 1 }
+            }
+          });
+
+          // Update campaign counters
+          await prisma.campaign.update({
+            where: { id: campaign.id },
+            data: {
+              failedCount: { increment: 1 },
+              pendingCount: { decrement: 1 }
+            }
+          });
+
+          this.emit('message:failed', { messageId, campaignId: campaign.id, error });
+        }
+      } catch (dbError) {
+        campaignLogger.error(`❌ [CAMPAIGN] Erro ao atualizar status da mensagem ${messageId} no banco`, dbError);
+        // Continue processing other messages even if this one failed to update
       }
     }
   }
