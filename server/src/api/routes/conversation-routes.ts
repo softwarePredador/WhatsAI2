@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { ConversationController } from '../controllers/conversation-controller';
 import { authMiddleware } from '../middlewares/auth-middleware';
+import { checkMessageLimit, incrementMessageCount } from '../../middleware/check-limits';
 import multer from 'multer';
 
 const router = Router();
@@ -52,26 +53,44 @@ router.get('/:conversationId/messages', (req, res) => {
 });
 
 // Send message in a conversation
-router.post('/:conversationId/messages', (req, res) => {
-  conversationController.sendMessage(req, res);
+router.post('/:conversationId/messages', checkMessageLimit, (req, res, next) => {
+  conversationController.sendMessage(req, res).then(() => {
+    incrementMessageCount(req, res, next);
+  }).catch((error) => {
+    // Error já foi tratado no controller, não incrementar contador
+    console.error('[CONVERSATION] Message send failed, not incrementing counter:', error);
+  });
 });
 
 // Send media message in a conversation
-router.post('/:conversationId/media', (req, res) => {
-  conversationController.sendMediaMessage(req, res);
+router.post('/:conversationId/media', checkMessageLimit, (req, res, next) => {
+  conversationController.sendMediaMessage(req, res).then(() => {
+    incrementMessageCount(req, res, next);
+  }).catch((error) => {
+    console.error('[CONVERSATION] Media message send failed, not incrementing counter:', error);
+  });
 });
 
 // Upload and send media file in a conversation
 router.post('/:conversationId/upload-media',
+  checkMessageLimit,
   upload.single('file'),
-  (req, res) => {
-    conversationController.uploadAndSendMediaMessage(req, res);
+  (req, res, next) => {
+    conversationController.uploadAndSendMediaMessage(req, res).then(() => {
+      incrementMessageCount(req, res, next);
+    }).catch((error) => {
+      console.error('[CONVERSATION] Upload media send failed, not incrementing counter:', error);
+    });
   }
 );
 
 // Send message in a conversation (alternative route for instance)
-router.post('/instance/:instanceId/send', (req, res) => {
-  conversationController.sendMessage(req, res);
+router.post('/instance/:instanceId/send', checkMessageLimit, (req, res, next) => {
+  conversationController.sendMessage(req, res).then(() => {
+    incrementMessageCount(req, res, next);
+  }).catch((error) => {
+    console.error('[CONVERSATION] Instance message send failed, not incrementing counter:', error);
+  });
 });
 
 // Mark conversation as read

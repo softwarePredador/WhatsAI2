@@ -13,6 +13,7 @@ import {
 } from '../schemas/campaign-schemas';
 import { templateService } from './template-service';
 import { EvolutionApiService } from './evolution-api';
+import { PlansService } from './plans-service';
 import { EventEmitter } from 'events';
 import { campaignLogger } from '../utils/campaign-logger';
 
@@ -430,7 +431,10 @@ export class CampaignService extends EventEmitter {
   private async processCampaign(campaignId: string): Promise<void> {
     const campaign = await prisma.campaign.findUnique({
       where: { id: campaignId },
-      include: { instance: true }
+      include: { 
+        instance: true,
+        user: true // Include user to check limits
+      }
     });
 
     if (!campaign || campaign.status !== 'RUNNING') {
@@ -498,6 +502,52 @@ export class CampaignService extends EventEmitter {
 
     campaignLogger.log(`📤 [CAMPAIGN] Enviando mensagem para ${message.recipient}`, { messageId });
 
+    // 🔐 Verificar limite de mensagens do usuário antes de enviar
+    try {
+      const canSend = await PlansService.canPerformAction(campaign.userId, 'send_message');
+      
+      if (!canSend.allowed) {
+        campaignLogger.log(`⚠️ [CAMPAIGN] Message limit exceeded, pausing campaign`, {
+          campaignId: campaign.id,
+          reason: canSend.reason
+        });
+
+        // Pausar campanha automaticamente quando limite é atingido
+        await prisma.campaign.update({
+          where: { id: campaign.id },
+          data: { 
+            status: 'PAUSED',
+            pausedAt: new Date()
+          }
+        });
+
+        // Marcar mensagem como falhada com motivo específico
+        await prisma.campaignMessage.update({
+          where: { id: messageId },
+          data: {
+            status: 'FAILED',
+            failedAt: new Date(),
+            error: `Limite de mensagens atingido: ${canSend.reason}`
+          }
+        });
+
+        this.emit('campaign:paused', { campaignId: campaign.id, reason: canSend.reason });
+        return;
+      }
+    } catch (error) {
+      campaignLogger.error(`Erro ao verificar limites para mensagem ${messageId}`, error);
+      // Em caso de erro ao verificar limites, não enviar mensagem por segurança
+      await prisma.campaignMessage.update({
+        where: { id: messageId },
+        data: {
+          status: 'FAILED',
+          failedAt: new Date(),
+          error: 'Erro ao verificar limites de mensagens'
+        }
+      });
+      return;
+    }
+
     try {
       // Render message with variables
       let finalMessage = message.message;
@@ -551,6 +601,17 @@ export class CampaignService extends EventEmitter {
           pendingCount: { decrement: 1 }
         }
       });
+
+      // 📊 Incrementar contador de mensagens do usuário
+      try {
+        await PlansService.incrementMessageCount(campaign.userId, 1);
+        campaignLogger.log(`📊 [CAMPAIGN] Message count incremented for user`, { 
+          userId: campaign.userId 
+        });
+      } catch (error) {
+        campaignLogger.error(`Erro ao incrementar contador de mensagens`, error);
+        // Não falhar se não conseguir incrementar contador (mensagem já foi enviada)
+      }
 
       this.emit('message:sent', { messageId, campaignId: campaign.id });
 
