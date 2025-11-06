@@ -17,9 +17,9 @@ const WelcomeModal: React.FC<WelcomeModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="modal modal-open">
+    <div className="modal modal-open" onClick={onClose}>
       {/* Modal */}
-      <div className="modal-box max-w-2xl w-full p-8">
+      <div className="modal-box w-11/12 max-w-2xl p-8" onClick={(e) => e.stopPropagation()}>
         {/* Close Button */}
         <button
           onClick={onClose}
@@ -109,7 +109,6 @@ const WelcomeModal: React.FC<WelcomeModalProps> = ({
           Você pode retomar o tour a qualquer momento nas configurações
         </p>
       </div>
-      <div className="modal-backdrop" onClick={onClose}></div>
     </div>
   );
 };

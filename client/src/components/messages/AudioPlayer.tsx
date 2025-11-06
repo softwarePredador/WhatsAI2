@@ -157,7 +157,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ mediaUrl, fromMe }) =>
                   height: `${height}%`,
                   backgroundColor: fromMe 
                     ? (isPassed ? '#ffffff' : '#ffffff80')
-                    : (isPassed ? 'hsl(var(--p))' : 'hsl(var(--bc) / 0.3)'),
+                    : (isPassed ? 'hsl(var(--p))' : 'rgba(0, 0, 0, 0.3)'),
                 }}
               />
             );

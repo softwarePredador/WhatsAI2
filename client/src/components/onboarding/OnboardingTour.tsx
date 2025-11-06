@@ -158,11 +158,13 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ run, onComplete, onSkip
           padding: '8px 16px',
         },
         buttonBack: {
-          color: 'hsl(var(--bc) / 0.6)', // base-content with opacity
+          color: 'hsl(var(--bc))',
+          opacity: 0.6,
           marginRight: 8,
         },
         buttonSkip: {
-          color: 'hsl(var(--bc) / 0.5)', // base-content with more opacity
+          color: 'hsl(var(--bc))',
+          opacity: 0.5,
         },
       }}
       locale={{
