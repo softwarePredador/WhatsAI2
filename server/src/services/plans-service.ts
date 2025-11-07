@@ -150,7 +150,22 @@ export class PlansService {
       }
 
       // Check if usage needs to be reset
-      await this.checkAndResetDailyUsage(userId, usageStats);
+      const shouldReset = await this.shouldResetUsage(usageStats);
+      if (shouldReset) {
+        // Reset usage stats
+        usageStats = {
+          messages_today: 0,
+          last_reset: new Date().toISOString(),
+          campaigns_this_month: usageStats.campaigns_this_month || 0,
+          storage_used_gb: usageStats.storage_used_gb || 0,
+        };
+        
+        // Save to database
+        await prisma.user.update({
+          where: { id: userId },
+          data: { usageStats: usageStats as any },
+        });
+      }
 
       // Count campaigns this month
       const startOfMonth = new Date();

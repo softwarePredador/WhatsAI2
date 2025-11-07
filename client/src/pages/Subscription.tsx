@@ -20,13 +20,17 @@ import {
 } from 'lucide-react';
 import { billingService, Subscription as SubscriptionType, Invoice, PLANS } from '../services/billing';
 import { userAuthStore } from '../features/auth/store/authStore';
+import { plansService } from '../features/plans/services/plansService';
+import { UsageResponse } from '../features/plans/types/plans';
 
 export default function Subscription() {
   const navigate = useNavigate();
   const user = userAuthStore((state) => state.user);
+  const token = userAuthStore((state) => state.token);
   const checkAuth = userAuthStore((state) => state.checkAuth);
   const [subscription, setSubscription] = useState<SubscriptionType | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [usage, setUsage] = useState<UsageResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,23 +47,28 @@ export default function Subscription() {
   }, [checkAuth]);
 
   const loadSubscriptionData = async () => {
+    if (!token) return;
+    
     try {
       setLoading(true);
       setError(null);
 
-      const [subData, invoiceData] = await Promise.all([
+      const [subData, invoiceData, usageData] = await Promise.all([
         billingService.getSubscription(),
         billingService.getInvoices(),
+        plansService.getUsage(token),
       ]);
 
       console.log('🔍 [SUBSCRIPTION PAGE] Dados recebidos:', {
         subscription: subData,
         cancelAtPeriodEnd: subData?.cancelAtPeriodEnd,
-        status: subData?.status
+        status: subData?.status,
+        usage: usageData
       });
 
       setSubscription(subData);
       setInvoices(invoiceData || []);
+      setUsage(usageData);
     } catch (err) {
       console.error('Erro ao carregar dados:', err);
       setError('Não foi possível carregar os dados da assinatura');
@@ -347,27 +356,18 @@ export default function Subscription() {
                   <div className="flex justify-between items-center mb-1">
                     <span className="text-xs text-gray-600 dark:text-gray-300">Mensagens Hoje</span>
                     <span className="text-xs font-medium text-gray-900 dark:text-white">
-                      {(() => {
-                        const stats = typeof user.usageStats === 'string' 
-                          ? JSON.parse(user.usageStats) 
-                          : user.usageStats;
-                        const limits = typeof user.planLimits === 'string'
-                          ? JSON.parse(user.planLimits)
-                          : user.planLimits;
-                        return `${stats?.messages_today || 0} / ${limits?.messages_per_day || 0}`;
-                      })()}
+                      {usage ? (
+                        usage.limits.messages_per_day === -1 
+                          ? `${usage.usage.messages_today.current} / ∞`
+                          : `${usage.usage.messages_today.current} / ${usage.limits.messages_per_day}`
+                      ) : '0 / 0'}
                     </span>
                   </div>
                   <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                     <div 
                       className={`h-2 rounded-full transition-all ${(() => {
-                        const stats = typeof user.usageStats === 'string' 
-                          ? JSON.parse(user.usageStats) 
-                          : user.usageStats;
-                        const limits = typeof user.planLimits === 'string'
-                          ? JSON.parse(user.planLimits)
-                          : user.planLimits;
-                        const percentage = ((stats?.messages_today || 0) / (limits?.messages_per_day || 1)) * 100;
+                        if (!usage || usage.limits.messages_per_day === -1) return 'bg-green-600';
+                        const percentage = (usage.usage.messages_today.current / usage.limits.messages_per_day) * 100;
                         return percentage > 90 
                           ? 'bg-red-600' 
                           : percentage > 70
@@ -376,25 +376,15 @@ export default function Subscription() {
                       })()}`}
                       style={{ 
                         width: `${(() => {
-                          const stats = typeof user.usageStats === 'string' 
-                            ? JSON.parse(user.usageStats) 
-                            : user.usageStats;
-                          const limits = typeof user.planLimits === 'string'
-                            ? JSON.parse(user.planLimits)
-                            : user.planLimits;
-                          return Math.min(100, ((stats?.messages_today || 0) / (limits?.messages_per_day || 1)) * 100);
+                          if (!usage || usage.limits.messages_per_day === -1) return 0;
+                          return Math.min(100, (usage.usage.messages_today.current / usage.limits.messages_per_day) * 100);
                         })()}%` 
                       }}
                     ></div>
                   </div>
                   {(() => {
-                    const stats = typeof user.usageStats === 'string' 
-                      ? JSON.parse(user.usageStats) 
-                      : user.usageStats;
-                    const limits = typeof user.planLimits === 'string'
-                      ? JSON.parse(user.planLimits)
-                      : user.planLimits;
-                    const percentage = ((stats?.messages_today || 0) / (limits?.messages_per_day || 1)) * 100;
+                    if (!usage || usage.limits.messages_per_day === -1) return null;
+                    const percentage = (usage.usage.messages_today.current / usage.limits.messages_per_day) * 100;
                     if (percentage > 80) {
                       return (
                         <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">

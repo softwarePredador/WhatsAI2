@@ -1,16 +1,20 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { userAuthStore } from '../features/auth/store/authStore';
+import { plansService } from '../features/plans/services/plansService';
+import { UsageResponse } from '../features/plans/types/plans';
 import ChangePasswordModal from '../components/ChangePasswordModal';
 import toast from 'react-hot-toast';
 
 export default function ProfilePage() {
   const navigate = useNavigate();
   const user = userAuthStore((state) => state.user);
+  const token = userAuthStore((state) => state.token);
   const setUser = userAuthStore((state) => state.setUser);
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isChangePasswordModalOpen, setIsChangePasswordModalOpen] = useState(false);
+  const [usage, setUsage] = useState<UsageResponse | null>(null);
   const [formData, setFormData] = useState({
     name: user?.name || '',
     email: user?.email || '',
@@ -26,20 +30,26 @@ export default function ProfilePage() {
     'PRO': 'Pro',
     'pro': 'Pro',
     'BUSINESS': 'Business',
-    'business': 'Business'
+    'business': 'Business',
+    'ENTERPRISE': 'Enterprise',
+    'enterprise': 'Enterprise'
   };
-  
-  // Parse usage stats
-  const usageStats = typeof user?.usageStats === 'string' 
-    ? JSON.parse(user.usageStats) 
-    : user?.usageStats || { messages_today: 0 };
-  
-  // Parse plan limits
-  const planLimits = typeof user?.planLimits === 'string'
-    ? JSON.parse(user.planLimits)
-    : user?.planLimits || { instances: 1, messages_per_day: 100 };
 
   console.log('ProfilePage render - isEditing:', isEditing, 'isLoading:', isLoading);
+
+  // Load usage data
+  useEffect(() => {
+    const loadUsage = async () => {
+      if (!token) return;
+      try {
+        const usageData = await plansService.getUsage(token);
+        setUsage(usageData);
+      } catch (error) {
+        console.error('Error loading usage:', error);
+      }
+    };
+    loadUsage();
+  }, [token]);
 
   // Sync formData with user data when user changes (with immediate update)
   useEffect(() => {
@@ -204,7 +214,7 @@ export default function ProfilePage() {
                   <div>
                     <p className="text-sm text-base-content/50 mb-1">Membro desde</p>
                     <p className="text-sm font-medium text-base-content">
-                      {user?.createdAt ? new Date(user.createdAt).toLocaleDateString('pt-BR', {
+                      {(user as any)?.createdAt ? new Date((user as any).createdAt).toLocaleDateString('pt-BR', {
                         day: '2-digit',
                         month: 'long',
                         year: 'numeric'
@@ -241,39 +251,59 @@ export default function ProfilePage() {
                     <div className="flex justify-between items-center mb-2">
                       <span className="text-sm text-base-content/70">Mensagens Hoje</span>
                       <span className="text-sm font-medium text-base-content">
-                        {usageStats.messages_today || 0} / {planLimits.messages_per_day || 0}
+                        {usage ? (
+                          usage.limits.messages_per_day === -1 
+                            ? `${usage.usage.messages_today.current} / ∞`
+                            : `${usage.usage.messages_today.current} / ${usage.limits.messages_per_day}`
+                        ) : '0 / 0'}
                       </span>
                     </div>
                     <div className="w-full bg-base-300 rounded-full h-2">
                       <div 
-                        className={`h-2 rounded-full transition-all ${
-                          ((usageStats.messages_today || 0) / (planLimits.messages_per_day || 1)) > 0.9 
+                        className={`h-2 rounded-full transition-all ${(() => {
+                          if (!usage || usage.limits.messages_per_day === -1) return 'bg-success';
+                          const percentage = (usage.usage.messages_today.current / usage.limits.messages_per_day);
+                          return percentage > 0.9 
                             ? 'bg-error' 
-                            : ((usageStats.messages_today || 0) / (planLimits.messages_per_day || 1)) > 0.7
+                            : percentage > 0.7
                             ? 'bg-warning'
-                            : 'bg-success'
-                        }`}
+                            : 'bg-success';
+                        })()}`}
                         style={{ 
-                          width: `${Math.min(100, ((usageStats.messages_today || 0) / (planLimits.messages_per_day || 1)) * 100)}%` 
+                          width: `${(() => {
+                            if (!usage || usage.limits.messages_per_day === -1) return 0;
+                            return Math.min(100, (usage.usage.messages_today.current / usage.limits.messages_per_day) * 100);
+                          })()}%` 
                         }}
                       ></div>
                     </div>
-                    {((usageStats.messages_today || 0) / (planLimits.messages_per_day || 1)) > 0.8 && (
-                      <p className="text-xs text-warning mt-1">
-                        ⚠️ Você está próximo do limite diário
-                      </p>
-                    )}
+                    {(() => {
+                      if (!usage || usage.limits.messages_per_day === -1) return null;
+                      const percentage = (usage.usage.messages_today.current / usage.limits.messages_per_day);
+                      if (percentage > 0.8) {
+                        return (
+                          <p className="text-xs text-warning mt-1">
+                            ⚠️ Você está próximo do limite diário
+                          </p>
+                        );
+                      }
+                      return null;
+                    })()}
                   </div>
                   
                   {/* Instances Limit */}
                   <div className="grid grid-cols-2 gap-4">
                     <div className="bg-base-200 rounded-lg p-3">
                       <p className="text-xs text-base-content/50 mb-1">Instâncias Permitidas</p>
-                      <p className="text-lg font-bold text-base-content">{planLimits.instances || 0}</p>
+                      <p className="text-lg font-bold text-base-content">
+                        {usage ? (usage.limits.instances === -1 ? '∞' : usage.limits.instances) : 0}
+                      </p>
                     </div>
                     <div className="bg-base-200 rounded-lg p-3">
                       <p className="text-xs text-base-content/50 mb-1">Mensagens/Dia</p>
-                      <p className="text-lg font-bold text-base-content">{planLimits.messages_per_day || 0}</p>
+                      <p className="text-lg font-bold text-base-content">
+                        {usage ? (usage.limits.messages_per_day === -1 ? '∞' : usage.limits.messages_per_day) : 0}
+                      </p>
                     </div>
                   </div>
                   
