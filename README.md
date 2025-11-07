@@ -249,7 +249,16 @@ JWT_EXPIRES_IN=7d
 # Default Admin User
 DEFAULT_ADMIN_EMAIL=admin@whatsai.com
 DEFAULT_ADMIN_PASSWORD=admin123
+
+# OpenAI/GPT Configuration (for AI Chatbot)
+# Get your API key from https://platform.openai.com/api-keys
+OPENAI_API_KEY=sk-your-openai-api-key-here
+OPENAI_MODEL=gpt-4o-mini
+OPENAI_MAX_TOKENS=500
+OPENAI_TEMPERATURE=0.7
 ```
+
+📖 **See [GPT-INTEGRATION-GUIDE.md](GPT-INTEGRATION-GUIDE.md) for detailed GPT/AI configuration**
 
 ### Evolution API Setup
 
