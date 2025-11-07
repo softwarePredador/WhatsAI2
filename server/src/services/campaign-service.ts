@@ -516,8 +516,7 @@ export class CampaignService extends EventEmitter {
         await prisma.campaign.update({
           where: { id: campaign.id },
           data: { 
-            status: 'PAUSED',
-            pausedAt: new Date()
+            status: 'PAUSED'
           }
         });
 

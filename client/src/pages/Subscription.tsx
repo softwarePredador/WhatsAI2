@@ -548,11 +548,13 @@ export default function Subscription() {
                                 Downgrade
                               </>
                             )}
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         )}
@@ -611,8 +613,9 @@ export default function Subscription() {
                   ))}
                 </tbody>
               </table>
-            </div>
-          )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
