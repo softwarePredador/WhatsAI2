@@ -486,7 +486,12 @@ function HomePage() {
                 </tr>
                 <tr>
                   <td className="font-semibold">Chatbot IA</td>
-                  <td className="text-center font-bold text-primary">GPT-4</td>
+                  <td className="text-center">
+                    <div className="flex flex-col items-center">
+                      <span className="font-bold text-primary">GPT-4o</span>
+                      <span className="text-xs text-base-content/60">(configurável)</span>
+                    </div>
+                  </td>
                   <td className="text-center text-error">✗</td>
                   <td className="text-center"><Check className="w-5 h-5 text-success mx-auto" /></td>
                   <td className="text-center text-error">✗</td>
