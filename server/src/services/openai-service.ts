@@ -6,9 +6,9 @@
 import OpenAI from 'openai';
 
 // Initialize OpenAI client
-const openai = process.env['OPENAI_API_KEY'] 
+const openai = process.env.OPENAI_API_KEY 
   ? new OpenAI({
-      apiKey: process.env['OPENAI_API_KEY'],
+      apiKey: process.env.OPENAI_API_KEY,
     })
   : null;
 
@@ -32,9 +32,9 @@ export class OpenAIService {
 
   constructor() {
     this.isConfigured = !!openai;
-    this.defaultModel = process.env['OPENAI_MODEL'] || 'gpt-4o-mini';
-    this.defaultMaxTokens = parseInt(process.env['OPENAI_MAX_TOKENS'] || '500', 10);
-    this.defaultTemperature = parseFloat(process.env['OPENAI_TEMPERATURE'] || '0.7');
+    this.defaultModel = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+    this.defaultMaxTokens = parseInt(process.env.OPENAI_MAX_TOKENS || '500', 10);
+    this.defaultTemperature = parseFloat(process.env.OPENAI_TEMPERATURE || '0.7');
 
     if (!this.isConfigured) {
       console.warn('⚠️ OpenAI API key not configured. AI chatbot features will be disabled.');
@@ -73,9 +73,10 @@ export class OpenAIService {
       }
 
       return content;
-    } catch (error: any) {
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       console.error('Error generating chat completion:', error);
-      throw new Error(`OpenAI API error: ${error.message}`);
+      throw new Error(`OpenAI API error: ${errorMessage}`);
     }
   }
 
@@ -153,9 +154,13 @@ export class OpenAIService {
     }
 
     try {
+      // Sanitize inputs to prevent prompt injection
+      const sanitizedKeyword = keyword.replace(/['"]/g, '').substring(0, 100);
+      const sanitizedBaseResponse = baseResponse.substring(0, 500);
+      
       const systemPrompt = `You are helping to generate a personalized auto-response for a WhatsApp business.
-The user mentioned: "${keyword}"
-The business has configured this base response: "${baseResponse}"
+The user mentioned: "${sanitizedKeyword}"
+The business has configured this base response: "${sanitizedBaseResponse}"
 
 Your task is to enhance this response by:
 1. Keeping the core message from the base response

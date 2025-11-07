@@ -370,7 +370,11 @@ class AutoResponseService {
     // Enhance with AI if enabled and OpenAI is available
     if (autoResponse.useAI && openAIService.isAvailable()) {
       try {
-        const matchedKeyword = autoResponse.keywords[0] || 'general inquiry';
+        // Safely get first keyword or use default
+        const matchedKeyword = Array.isArray(autoResponse.keywords) && autoResponse.keywords.length > 0
+          ? autoResponse.keywords[0]
+          : 'general inquiry';
+        
         response = await openAIService.generateSmartAutoResponse(
           userMessage,
           matchedKeyword,
