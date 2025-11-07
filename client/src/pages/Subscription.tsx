@@ -217,18 +217,18 @@ export default function Subscription() {
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
-      active: { icon: CheckCircle, color: 'text-green-600 bg-green-100 dark:bg-green-900 dark:text-green-300', label: 'Ativo' },
-      trialing: { icon: Calendar, color: 'text-blue-600 bg-blue-100 dark:bg-blue-900 dark:text-blue-300', label: 'Período de Teste' },
-      canceled: { icon: XCircle, color: 'text-red-600 bg-red-100 dark:bg-red-900 dark:text-red-300', label: 'Cancelado' },
-      past_due: { icon: AlertCircle, color: 'text-yellow-600 bg-yellow-100 dark:bg-yellow-900 dark:text-yellow-300', label: 'Pagamento Pendente' },
+      active: { icon: CheckCircle, color: 'badge-success', label: 'Ativo' },
+      trialing: { icon: Calendar, color: 'badge-info', label: 'Período de Teste' },
+      canceled: { icon: XCircle, color: 'badge-error', label: 'Cancelado' },
+      past_due: { icon: AlertCircle, color: 'badge-warning', label: 'Pagamento Pendente' },
     };
 
     const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.active;
     const Icon = config.icon;
 
     return (
-      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${config.color}`}>
-        <Icon className="w-4 h-4 mr-1" />
+      <span className={`badge ${config.color} gap-1`}>
+        <Icon className="w-4 h-4" />
         {config.label}
       </span>
     );
@@ -364,16 +364,16 @@ export default function Subscription() {
                       ) : '0 / 0'}
                     </span>
                   </div>
-                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                  <div className="w-full bg-base-300 rounded-full h-2">
                     <div 
                       className={`h-2 rounded-full transition-all ${(() => {
-                        if (!usage || usage.limits.messages_per_day === -1) return 'bg-green-600';
+                        if (!usage || usage.limits.messages_per_day === -1) return 'bg-success';
                         const percentage = (usage.usage.messages_today.current / usage.limits.messages_per_day) * 100;
                         return percentage > 90 
-                          ? 'bg-red-600' 
+                          ? 'bg-error' 
                           : percentage > 70
-                          ? 'bg-yellow-600'
-                          : 'bg-green-600';
+                          ? 'bg-warning'
+                          : 'bg-success';
                       })()}`}
                       style={{ 
                         width: `${(() => {
@@ -388,7 +388,7 @@ export default function Subscription() {
                     const percentage = (usage.usage.messages_today.current / usage.limits.messages_per_day) * 100;
                     if (percentage > 80) {
                       return (
-                        <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
+                        <p className="text-xs text-warning mt-1">
                           ⚠️ Você está próximo do limite diário
                         </p>
                       );
