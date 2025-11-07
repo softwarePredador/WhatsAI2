@@ -491,8 +491,8 @@ export default function Subscription() {
             <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
               Mudar de Plano
             </h2>
-            <div className="grid md:grid-cols-3 gap-4">
-              {PLANS.filter(p => p.id !== 'free').map((plan) => {
+            <div className="grid md:grid-cols-4 gap-4">
+              {PLANS.map((plan) => {
                 const isUpgrade = plan.price > currentPlan.price;
                 return (
                   <div
