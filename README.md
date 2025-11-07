@@ -951,4 +951,28 @@ See [MVP-ROADMAP.md](MVP-ROADMAP.md) for detailed implementation plan.
 
 ---
 
+## 📚 Documentation
+
+### Active Documentation
+- [MVP Roadmap](MVP-ROADMAP.md) - Product roadmap and planning
+- [MVP Validation Checklist](MVP-VALIDATION-CHECKLIST.md) - Launch readiness checklist
+- [Configuration Guide](CONFIGURATION.md) - Production configuration
+- [Deployment Guide](DEPLOY-PRODUCAO.md) - Deployment instructions
+- [CI/CD Setup](CI-CD-SETUP.md) - Continuous integration setup
+- [Ngrok Setup](NGROK-SETUP.md) - Local development tunneling
+- [Tested Commands](COMANDOS-TESTADOS.md) - Verified command reference
+- [GPT Integration](GPT-INTEGRATION-GUIDE.md) - AI/OpenAI integration
+- [STARTER Plan Guide](STARTER-PLAN-GUIDE.md) - STARTER plan details
+- [Plans & Pricing](PLANOS-E-PRECOS.md) - Pricing information
+
+### Technical Documentation
+- [Code Review & Recommendations](docs/CODE-REVIEW-RECOMMENDATIONS.md) - Comprehensive code analysis
+- [Architecture Documentation](docs/architecture/) - System architecture and flows
+- [Feature Documentation](docs/features/) - Feature-specific guides
+
+### Historical Documentation
+See [docs/archive/](docs/archive/) for historical analysis, validation, and implementation documents.
+
+---
+
 Built with ❤️ for efficient WhatsApp management
