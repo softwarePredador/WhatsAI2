@@ -445,7 +445,7 @@ export const LandingPage: React.FC = () => {
                 Começar Grátis Agora
                 <ArrowRight className="w-5 h-5" />
               </a>
-              <a href="#pricing" className="btn btn-outline btn-lg text-white border-white hover:bg-white hover:text-primary">
+              <a href="#pricing" className="btn btn-outline btn-lg border-primary-content text-primary-content hover:bg-primary-content hover:text-primary">
                 Ver Planos
               </a>
             </div>

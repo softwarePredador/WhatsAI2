@@ -355,8 +355,8 @@ export default function Subscription() {
                 {/* Messages Usage */}
                 <div>
                   <div className="flex justify-between items-center mb-1">
-                    <span className="text-xs text-gray-600 dark:text-gray-300">Mensagens Hoje</span>
-                    <span className="text-xs font-medium text-gray-900 dark:text-white">
+                    <span className="text-xs text-base-content/70">Mensagens Hoje</span>
+                    <span className="text-xs font-medium text-base-content">
                       {usage ? (
                         usage.limits.messages_per_day === -1 
                           ? `${usage.usage.messages_today.current} / ∞`
