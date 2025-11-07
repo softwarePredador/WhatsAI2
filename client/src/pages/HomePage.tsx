@@ -286,7 +286,7 @@ function HomePage() {
               </button>
             </motion.div>
 
-            {/* Plano ENTERPRISE */}
+            {/* Plano BUSINESS */}
             <motion.div
               className="bg-gradient-to-br from-secondary/10 to-accent/10 rounded-2xl p-8 border-2 border-secondary hover:border-secondary/70 transition-all"
               whileHover={{ y: -5 }}
@@ -296,14 +296,14 @@ function HomePage() {
                   <Crown className="w-6 h-6 text-secondary" />
                 </div>
                 <div>
-                  <h3 className="text-2xl font-bold">Enterprise</h3>
+                  <h3 className="text-2xl font-bold">Business</h3>
                   <p className="text-sm text-base-content/70">Solução completa</p>
                 </div>
               </div>
               
               <div className="mb-6">
                 <div className="flex items-baseline gap-1">
-                  <span className="text-4xl font-bold">R$ 497</span>
+                  <span className="text-4xl font-bold">R$ 297</span>
                   <span className="text-base-content/70">/mês</span>
                 </div>
               </div>
@@ -590,7 +590,7 @@ function HomePage() {
               <div className="collapse-content">
                 <p className="text-base-content/70">
                   Planos gratuitos têm suporte por email. Planos pagos têm suporte prioritário 
-                  com SLA de 12h (PRO) ou suporte dedicado 24/7 (ENTERPRISE).
+                  com SLA de 12h (PRO) ou suporte dedicado 24/7 (BUSINESS).
                 </p>
               </div>
             </div>
@@ -628,7 +628,7 @@ function HomePage() {
               </div>
               <div className="collapse-content">
                 <p className="text-base-content/70">
-                  Depende do plano: FREE (100/dia), PRO (5.000/dia), ENTERPRISE (ilimitado). 
+                  Depende do plano: FREE (100/dia), STARTER (1.000/dia), PRO (5.000/dia), BUSINESS (ilimitado). 
                   As campanhas respeitam rate limiting para evitar bloqueios.
                 </p>
               </div>
@@ -654,7 +654,7 @@ function HomePage() {
               </div>
               <div className="collapse-content">
                 <p className="text-base-content/70">
-                  Sim! Planos PRO e ENTERPRISE incluem acesso completo à nossa API REST 
+                  Sim! Planos PRO e BUSINESS incluem acesso completo à nossa API REST 
                   para integrar com seus sistemas e automações.
                 </p>
               </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Check, X, Zap, Crown, Star, ArrowRight } from 'lucide-react';
+import { Check, X, Zap, Crown, Star, ArrowRight, Rocket } from 'lucide-react';
 import { plansService } from '../services/plansService';
 import { PlanConfig, PlanType, UsageResponse } from '../types/plans';
 import { userAuthStore } from '../../auth/store/authStore';
@@ -67,15 +67,16 @@ export const PlansPage: React.FC = () => {
   };
 
   const getPlanOrder = (plan: PlanType): number => {
-    const order = { FREE: 1, PRO: 2, ENTERPRISE: 3 };
+    const order = { FREE: 1, STARTER: 2, PRO: 3, BUSINESS: 4 };
     return order[plan];
   };
 
   const getPlanIcon = (planType: PlanType) => {
     const icons = {
       FREE: Star,
+      STARTER: Rocket,
       PRO: Zap,
-      ENTERPRISE: Crown
+      BUSINESS: Crown
     };
     return icons[planType];
   };
@@ -158,11 +159,11 @@ export const PlansPage: React.FC = () => {
                   border-2 transition-all flex flex-col
                   ${isCurrent ? 'border-primary' : 'border-transparent'}
                   ${plan.popular ? 'ring-2 ring-warning' : ''}
-                  ${plan.name === 'ENTERPRISE' ? 'ring-4 ring-secondary shadow-2xl' : ''}
+                  ${plan.name === 'BUSINESS' ? 'ring-4 ring-secondary shadow-2xl' : ''}
                 `}
               >
                 {/* Plan Header */}
-                <div className={`p-6 text-center ${plan.name === 'ENTERPRISE' ? 'bg-gradient-to-br from-secondary to-accent text-secondary-content' : plan.color}`}>
+                <div className={`p-6 text-center ${plan.name === 'BUSINESS' ? 'bg-gradient-to-br from-secondary to-accent text-secondary-content' : plan.color}`}>
                   <Icon className="w-12 h-12 mx-auto mb-3" />
                   <h3 className="text-2xl font-bold mb-2">{plan.displayName}</h3>
                   <div className="flex items-baseline justify-center gap-1">
@@ -177,7 +178,7 @@ export const PlansPage: React.FC = () => {
                       <span className="badge badge-warning">Mais Popular</span>
                     </div>
                   )}
-                  {plan.name === 'ENTERPRISE' && (
+                  {plan.name === 'BUSINESS' && (
                     <div className="mt-3">
                       <span className="badge badge-accent">Premium ✨</span>
                     </div>

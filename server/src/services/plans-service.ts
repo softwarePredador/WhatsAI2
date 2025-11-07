@@ -253,7 +253,7 @@ export class PlansService {
         if (!usage.limits.broadcasts) {
           return {
             allowed: false,
-            reason: 'Envio em massa não disponível no seu plano. Faça upgrade para PRO ou ENTERPRISE.',
+            reason: 'Envio em massa não disponível no seu plano. Faça upgrade para STARTER, PRO ou BUSINESS.',
           };
         }
         if (!usage.canCreateCampaign && usage.usage.campaigns_this_month) {
