@@ -1,4 +1,4 @@
-export type PlanType = 'FREE' | 'PRO' | 'ENTERPRISE';
+export type PlanType = 'FREE' | 'STARTER' | 'PRO' | 'BUSINESS';
 
 export interface PlanLimits {
   instances: number; // -1 = unlimited
