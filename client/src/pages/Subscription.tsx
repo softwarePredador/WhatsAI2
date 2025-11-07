@@ -514,6 +514,15 @@ export default function Subscription() {
                       <div className="text-center py-2 text-sm font-medium text-blue-600">
                         Plano Atual
                       </div>
+                    ) : plan.id === 'free' ? (
+                      <button
+                        onClick={handleCancelSubscription}
+                        disabled={actionLoading}
+                        className="w-full py-2 rounded-lg font-medium transition-colors bg-red-600 hover:bg-red-700 text-white flex items-center justify-center"
+                      >
+                        <XCircle className="w-4 h-4 mr-1" />
+                        Cancelar Assinatura
+                      </button>
                     ) : (
                       <button
                         onClick={() => handleChangePlan(plan.priceId)}
