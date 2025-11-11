@@ -12,42 +12,43 @@ All charts use DaisyUI CSS variables to support both light and dark themes:
 - `hsl(var(--p))` - Primary color (accents)
 
 ### 2. Opacity for Visual Hierarchy
-- Grid lines: 10% opacity (`hsl(var(--bc) / 0.1)`)
-- Axis labels/ticks: 70% opacity (`hsl(var(--bc) / 0.7)`)
+- Grid lines: 15% opacity (`hsl(var(--bc) / 0.15)`) - improved visibility in dark mode
+- Axis labels/ticks: 80% opacity (`hsl(var(--bc) / 0.8)`) - better readability in dark mode
 - Body text: 100% opacity (`hsl(var(--bc))`)
 - Secondary text: 50-60% opacity (`hsl(var(--bc) / 0.5)`)
 
-### 3. Consistent Chart Colors
+### 3. Consistent Chart Colors (Dark Mode Optimized)
 ```typescript
 colors: {
-  primary: '#3b82f6',   // Blue - Main data, total messages
-  success: '#10b981',   // Green - Positive metrics, delivered, totals
-  error: '#ef4444',     // Red - Errors, failures
-  warning: '#f59e0b',   // Orange - Warnings
-  secondary: '#8b5cf6', // Purple - Secondary data (Evolution API costs)
-  info: '#06b6d4',      // Cyan - Informational data (Storage costs)
+  primary: '#60a5fa',   // Lighter Blue - Better visibility in dark mode
+  success: '#34d399',   // Lighter Green - Better visibility in dark mode
+  error: '#f87171',     // Lighter Red - Better visibility in dark mode
+  warning: '#fbbf24',   // Lighter Orange - Better visibility in dark mode
+  secondary: '#a78bfa', // Lighter Purple - Better visibility in dark mode
+  info: '#22d3ee',      // Lighter Cyan - Better visibility in dark mode
 }
 ```
+Note: These lighter shades work well in both light and dark modes, providing good contrast and visibility.
 
 ## Color Usage by Chart
 
 ### PeakHoursChart (Bar Chart)
-- **Bar color**: Primary blue (`#3b82f6`)
-- **Grid**: 10% opacity base-content
-- **Axes**: 70% opacity base-content
-- **Tooltip**: Base-100 background with primary label
+- **Bar color**: Primary blue (`#60a5fa`)
+- **Grid**: 15% opacity base-content
+- **Axes**: 80% opacity base-content
+- **Tooltip**: Base-200 background with base-content label
 
 ### MessagesChart (Line Chart)
-- **Total messages**: Primary blue (`#3b82f6`)
-- **Delivered**: Success green (`#10b981`)
-- **Failed**: Error red (`#ef4444`)
+- **Total messages**: Primary blue (`#60a5fa`)
+- **Delivered**: Success green (`#34d399`)
+- **Failed**: Error red (`#f87171`)
 - **Grid/Axes**: Same as PeakHoursChart
 - **Legend**: Auto-generated from line names
 
 ### CostsChart (Line Chart)
-- **Evolution API**: Secondary purple (`#8b5cf6`)
-- **Storage**: Info cyan (`#06b6d4`)
-- **Total**: Success green (`#10b981`) with thicker line (3px)
+- **Evolution API**: Secondary purple (`#a78bfa`)
+- **Storage**: Info cyan (`#22d3ee`)
+- **Total**: Success green (`#34d399`) with thicker line (3px)
 - **Grid/Axes**: Same as other charts
 - **Currency formatting**: BRL (R$)
 
@@ -60,12 +61,12 @@ colors: {
 
 ### Text Contrast
 All text must meet WCAG AA contrast requirements:
-- Axis labels: 70% opacity ensures readability on both light/dark backgrounds
+- Axis labels: 80% opacity ensures better readability in dark mode
 - Chart values: Use full opacity colors for maximum contrast
-- Tooltips: High contrast background with colored labels
+- Tooltips: High contrast background (base-200) with full opacity text for readability in both themes
 
 ### Grid Lines
-- Subtle grid lines (10% opacity) provide guidance without distraction
+- Subtle grid lines (15% opacity) provide guidance without distraction, with improved visibility in dark mode
 - Dashed pattern (3-3) improves visual clarity
 - Grid color adapts to theme automatically
 
@@ -77,10 +78,10 @@ All text must meet WCAG AA contrast requirements:
 ## Accessibility Features
 
 1. **Color Independence**: Charts work without color (patterns, labels, legends)
-2. **High Contrast**: 70% opacity minimum for all text
-3. **Theme Support**: Automatic adaptation to light/dark themes
+2. **High Contrast**: 80% opacity minimum for all text to ensure readability in dark mode
+3. **Theme Support**: Automatic adaptation to light/dark themes with optimized colors
 4. **Clear Labels**: All axes and data points properly labeled
-5. **Tooltips**: Contextual information on hover with high contrast
+5. **Tooltips**: Contextual information on hover with high contrast background (base-200) and full opacity text
 
 ## Implementation
 
