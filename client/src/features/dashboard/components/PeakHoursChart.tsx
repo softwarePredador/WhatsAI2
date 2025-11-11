@@ -48,26 +48,29 @@ export const PeakHoursChart: React.FC<PeakHoursChartProps> = ({ data, loading })
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" />
+            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
             <XAxis 
               dataKey="hourLabel" 
-              tick={{ fontSize: 12 }}
+              tick={{ fontSize: 12, fill: '#EAEAEAFF' }}
             />
             <YAxis 
-              tick={{ fontSize: 12 }}
-              label={{ value: 'Mensagens', angle: -90, position: 'insideLeft' }}
+              tick={{ fontSize: 12, fill: '#EAEAEAFF' }}
+              label={{ value: 'Mensagens', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: '#EAEAEAFF' } }}
             />
             <Tooltip 
               contentStyle={{ 
-                backgroundColor: 'hsl(var(--b1))',
-                border: '1px solid hsl(var(--b3))',
-                borderRadius: '0.5rem'
+                backgroundColor: '#ffffff',
+                border: '1px solid #e5e7eb',
+                borderRadius: '0.5rem',
+                color: '#374151',
+                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
               }}
+              labelStyle={{ color: '#3b82f6', fontWeight: 'bold' }}
               formatter={(value: number) => [`${value} mensagens`, 'Total']}
             />
             <Bar 
               dataKey="count" 
-              fill="#8b5cf6" 
+              fill="#3b82f6" 
               radius={[8, 8, 0, 0]}
             />
           </BarChart>
@@ -82,7 +85,7 @@ export const PeakHoursChart: React.FC<PeakHoursChartProps> = ({ data, loading })
             <div key={item.hour} className="badge badge-outline gap-2">
               <span className="font-semibold">#{index + 1}</span>
               <span>{formatHour(item.hour)}</span>
-              <span className="text-primary">({item.count})</span>
+              <span className="text-base-content font-medium">({item.count})</span>
             </div>
           ))}
         </div>
