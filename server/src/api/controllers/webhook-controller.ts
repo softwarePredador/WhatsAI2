@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
-import { WebhookEvent } from '../../types';
 import { SocketService } from '../../services/socket-service';
 import { ConversationService } from '../../services/conversation-service';
 import { EvolutionApiService } from '../../services/evolution-api';

@@ -1,7 +1,7 @@
 import { prisma } from '../../database/prisma';
 import { SocketService } from '../socket-service';
 import { EvolutionApiService } from '../evolution-api';
-import { MessageType, MessageTypeService } from './MessageTypeService';
+import { MessageType } from './MessageTypeService';
 import { Message } from '@prisma/client';
 
 export interface SendMediaOptions {

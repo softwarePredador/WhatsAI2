@@ -1,11 +1,9 @@
-import { prisma } from '../database/prisma';
 import { MediaStorageService } from './media-storage';
 import { SpacesConfig } from './digitalocean-spaces';
 import { EvolutionApiService } from './evolution-api';
 import axios from 'axios';
 import * as fs from 'fs';
 import * as path from 'path';
-import { promisify } from 'util';
 import { mediaLogger } from '../utils/media-logger';
 import sharp from 'sharp';
 import { downloadMediaMessage } from '@whiskeysockets/baileys';
