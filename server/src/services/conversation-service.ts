@@ -562,6 +562,54 @@ export class ConversationService {
     }
   }
 
+  /**
+   * Update conversation status (archive/pinned) from webhook (chats.upsert event)
+   */
+  async updateConversationStatus(
+    instanceId: string, 
+    remoteJid: string, 
+    updates: { archived?: boolean; pinned?: boolean }
+  ): Promise<void> {
+    try {
+      const normalizedJid = this.normalizeWhatsAppNumber(remoteJid, null, remoteJid.includes('@g.us'));
+
+      // Find conversation by remoteJid
+      const conversations = await this.conversationRepository.findByInstanceId(instanceId);
+      const conversation = conversations.find(c => c.remoteJid === normalizedJid);
+
+      if (conversation) {
+        const updateData: any = {};
+        
+        if (updates.archived !== undefined) {
+          updateData.isArchived = updates.archived;
+          console.log(`📦 [CONVERSATION_STATUS] ${updates.archived ? 'Archiving' : 'Unarchiving'} conversation: ${remoteJid}`);
+        }
+        
+        if (updates.pinned !== undefined) {
+          updateData.isPinned = updates.pinned;
+          console.log(`📌 [CONVERSATION_STATUS] ${updates.pinned ? 'Pinning' : 'Unpinning'} conversation: ${remoteJid}`);
+        }
+
+        if (Object.keys(updateData).length > 0) {
+          await this.conversationRepository.update(conversation.id, updateData);
+
+          // Notify frontend
+          this.socketService.emitToInstance(instanceId, 'conversation:updated', {
+            ...conversation,
+            ...updateData
+          });
+
+          console.log(`✅ [CONVERSATION_STATUS] Updated conversation status for ${remoteJid}`);
+        }
+      } else {
+        console.log(`⚠️ [CONVERSATION_STATUS] Conversation not found for ${remoteJid}`);
+      }
+    } catch (error) {
+      console.error(`❌ [CONVERSATION_STATUS] Error updating conversation status:`, error);
+      throw error;
+    }
+  }
+
   async handleIncomingMessage(instanceId: string, messageData: any): Promise<void> {
     try {
       console.log(`📨 [handleIncomingMessage] RAW messageData.key:`, JSON.stringify(messageData.key, null, 2));
