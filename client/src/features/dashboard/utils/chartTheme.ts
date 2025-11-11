@@ -6,45 +6,45 @@
 export const chartTheme = {
   // Grid styling
   grid: {
-    stroke: 'hsl(var(--bc) / 0.1)', // base-content with 10% opacity
+    stroke: 'hsl(var(--bc) / 0.15)', // base-content with 15% opacity for better visibility
     strokeDasharray: '3 3',
   },
   
-  // Axis styling
+  // Axis styling - increased opacity for better readability in dark mode
   axis: {
     tick: {
       fontSize: 12,
-      fill: 'hsl(var(--bc) / 0.7)', // base-content with 70% opacity
+      fill: 'hsl(var(--bc) / 0.8)', // base-content with 80% opacity for better contrast
     },
     label: {
-      fill: 'hsl(var(--bc) / 0.7)',
+      fill: 'hsl(var(--bc) / 0.8)', // base-content with 80% opacity for better contrast
       fontSize: 12,
     },
   },
   
-  // Tooltip styling
+  // Tooltip styling - with proper opacity for dark mode readability
   tooltip: {
     contentStyle: {
-      backgroundColor: 'hsl(var(--b1))', // base-100
-      border: '1px solid hsl(var(--bc) / 0.2)',
+      backgroundColor: 'hsl(var(--b2))', // base-200 for better contrast
+      border: '1px solid hsl(var(--bc) / 0.3)',
       borderRadius: '0.5rem',
-      color: 'hsl(var(--bc))',
-      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+      color: 'hsl(var(--bc))', // full opacity for text
+      boxShadow: '0 4px 12px -2px rgba(0, 0, 0, 0.25)', // stronger shadow
     },
     labelStyle: {
-      color: 'hsl(var(--p))', // primary
+      color: 'hsl(var(--bc))', // Use base-content for better readability
       fontWeight: 'bold',
     },
   },
   
-  // Chart colors - using DaisyUI theme colors
+  // Chart colors - using vibrant colors that work well in both light and dark modes
   colors: {
-    primary: '#3b82f6', // Blue - for main data
-    success: '#10b981', // Green - for positive/delivered data
-    error: '#ef4444', // Red - for errors/failed data
-    warning: '#f59e0b', // Orange - for warnings
-    secondary: '#8b5cf6', // Purple - for secondary data
-    info: '#06b6d4', // Cyan - for informational data
+    primary: '#60a5fa', // Lighter blue - better visibility in dark mode
+    success: '#34d399', // Lighter green - better visibility in dark mode
+    error: '#f87171', // Lighter red - better visibility in dark mode
+    warning: '#fbbf24', // Lighter orange - better visibility in dark mode
+    secondary: '#a78bfa', // Lighter purple - better visibility in dark mode
+    info: '#22d3ee', // Lighter cyan - better visibility in dark mode
   },
 };
 
