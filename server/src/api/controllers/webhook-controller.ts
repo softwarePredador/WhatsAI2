@@ -460,7 +460,23 @@ Message: ${webhookData.data?.message ? JSON.stringify(webhookData.data.message).
                   const unreadMessages = chat.unreadMessages || 0;
 
                   if (remoteJid) {
+                    // Update unread count
                     await this.conversationService.updateUnreadCount(data.instanceId, remoteJid, unreadMessages);
+                    
+                    // Update archive/pinned status if provided
+                    const statusUpdates: { archived?: boolean; pinned?: boolean } = {};
+                    
+                    if (chat.archived !== undefined) {
+                      statusUpdates.archived = chat.archived;
+                    }
+                    
+                    if (chat.pinned !== undefined) {
+                      statusUpdates.pinned = chat.pinned;
+                    }
+                    
+                    if (Object.keys(statusUpdates).length > 0) {
+                      await this.conversationService.updateConversationStatus(data.instanceId, remoteJid, statusUpdates);
+                    }
                   }
                 }
               },
