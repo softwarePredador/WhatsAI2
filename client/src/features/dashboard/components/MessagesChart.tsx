@@ -1,7 +1,6 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { MessageChartData } from '../types/dashboard';
-import { chartTheme, formatDateShort } from '../utils/chartTheme';
 
 interface MessagesChartProps {
   data: MessageChartData[];
@@ -9,6 +8,39 @@ interface MessagesChartProps {
 }
 
 export const MessagesChart: React.FC<MessagesChartProps> = ({ data, loading = false }) => {
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  useEffect(() => {
+    // Detectar se está em dark mode
+    const checkDarkMode = () => {
+      const html = document.documentElement;
+      const isDark = html.getAttribute('data-theme')?.includes('dark') || 
+                    html.classList.contains('dark') ||
+                    window.matchMedia('(prefers-color-scheme: dark)').matches;
+      setIsDarkMode(isDark);
+    };
+
+    checkDarkMode();
+    
+    // Observer para mudanças de tema
+    const observer = new MutationObserver(checkDarkMode);
+    observer.observe(document.documentElement, { 
+      attributes: true, 
+      attributeFilter: ['data-theme', 'class'] 
+    });
+
+    return () => observer.disconnect();
+  }, []);
+
+  // Cores baseadas no tema
+  const textColor = isDarkMode ? '#d1d5db' : '#374151';
+  const gridColor = isDarkMode ? '#4b5563' : '#e5e7eb';
+
+  const formatDateShort = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+  };
+
   if (loading) {
     return (
       <div className="card bg-base-100 shadow-xl rounded-2xl border border-base-300 p-6">
@@ -48,18 +80,23 @@ export const MessagesChart: React.FC<MessagesChartProps> = ({ data, loading = fa
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
             <CartesianGrid 
-              strokeDasharray={chartTheme.grid.strokeDasharray} 
-              stroke={chartTheme.grid.stroke}
+              strokeDasharray="3 3" 
+              stroke={gridColor}
             />
             <XAxis
               dataKey="date"
               tickFormatter={formatDateShort}
-              tick={chartTheme.axis.tick}
+              tick={{ fill: textColor, fontSize: 12 }}
             />
-            <YAxis tick={chartTheme.axis.tick} />
+            <YAxis tick={{ fill: textColor, fontSize: 12 }} />
             <Tooltip
-              contentStyle={chartTheme.tooltip.contentStyle}
-              labelStyle={chartTheme.tooltip.labelStyle}
+              contentStyle={{
+                backgroundColor: isDarkMode ? '#1f2937' : '#ffffff',
+                border: `1px solid ${isDarkMode ? '#374151' : '#e5e7eb'}`,
+                borderRadius: '6px',
+                color: textColor
+              }}
+              labelStyle={{ color: textColor }}
               labelFormatter={(value) => `Data: ${formatDateShort(value)}`}
               formatter={(value: number, name: string) => {
                 const labels = {
@@ -70,32 +107,32 @@ export const MessagesChart: React.FC<MessagesChartProps> = ({ data, loading = fa
                 return [value, labels[name as keyof typeof labels] || name];
               }}
             />
-            <Legend />
+            <Legend wrapperStyle={{ color: textColor }} />
             <Line
               type="monotone"
               dataKey="messages"
-              stroke={chartTheme.colors.primary}
+              stroke="#3b82f6"
               strokeWidth={2}
-              dot={{ fill: chartTheme.colors.primary, strokeWidth: 2, r: 4 }}
-              activeDot={{ r: 6, stroke: chartTheme.colors.primary, strokeWidth: 2 }}
+              dot={{ fill: "#3b82f6", strokeWidth: 2, r: 4 }}
+              activeDot={{ r: 6, stroke: "#3b82f6", strokeWidth: 2 }}
               name="Total"
             />
             <Line
               type="monotone"
               dataKey="delivered"
-              stroke={chartTheme.colors.success}
+              stroke="#10b981"
               strokeWidth={2}
-              dot={{ fill: chartTheme.colors.success, strokeWidth: 2, r: 4 }}
-              activeDot={{ r: 6, stroke: chartTheme.colors.success, strokeWidth: 2 }}
+              dot={{ fill: "#10b981", strokeWidth: 2, r: 4 }}
+              activeDot={{ r: 6, stroke: "#10b981", strokeWidth: 2 }}
               name="Entregues"
             />
             <Line
               type="monotone"
               dataKey="failed"
-              stroke={chartTheme.colors.error}
+              stroke="#ef4444"
               strokeWidth={2}
-              dot={{ fill: chartTheme.colors.error, strokeWidth: 2, r: 4 }}
-              activeDot={{ r: 6, stroke: chartTheme.colors.error, strokeWidth: 2 }}
+              dot={{ fill: "#ef4444", strokeWidth: 2, r: 4 }}
+              activeDot={{ r: 6, stroke: "#ef4444", strokeWidth: 2 }}
               name="Falhas"
             />
           </LineChart>
