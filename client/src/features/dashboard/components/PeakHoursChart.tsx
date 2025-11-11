@@ -1,5 +1,6 @@
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { chartTheme, formatHour } from '../utils/chartTheme';
 
 interface PeakHoursChartProps {
   data: { hour: number; count: number }[];
@@ -29,10 +30,6 @@ export const PeakHoursChart: React.FC<PeakHoursChartProps> = ({ data, loading })
     );
   }
 
-  const formatHour = (hour: number) => {
-    return `${hour.toString().padStart(2, '0')}:00`;
-  };
-
   const chartData = data.map(item => ({
     ...item,
     hourLabel: formatHour(item.hour)
@@ -48,29 +45,34 @@ export const PeakHoursChart: React.FC<PeakHoursChartProps> = ({ data, loading })
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+            <CartesianGrid 
+              strokeDasharray={chartTheme.grid.strokeDasharray} 
+              stroke={chartTheme.grid.stroke} 
+            />
             <XAxis 
               dataKey="hourLabel" 
-              tick={{ fontSize: 12, fill: '#EAEAEAFF' }}
+              tick={chartTheme.axis.tick}
             />
             <YAxis 
-              tick={{ fontSize: 12, fill: '#EAEAEAFF' }}
-              label={{ value: 'Mensagens', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: '#EAEAEAFF' } }}
+              tick={chartTheme.axis.tick}
+              label={{ 
+                value: 'Mensagens', 
+                angle: -90, 
+                position: 'insideLeft', 
+                style: { 
+                  textAnchor: 'middle', 
+                  fill: chartTheme.axis.label.fill 
+                } 
+              }}
             />
             <Tooltip 
-              contentStyle={{ 
-                backgroundColor: '#ffffff',
-                border: '1px solid #e5e7eb',
-                borderRadius: '0.5rem',
-                color: '#374151',
-                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-              }}
-              labelStyle={{ color: '#3b82f6', fontWeight: 'bold' }}
+              contentStyle={chartTheme.tooltip.contentStyle}
+              labelStyle={chartTheme.tooltip.labelStyle}
               formatter={(value: number) => [`${value} mensagens`, 'Total']}
             />
             <Bar 
               dataKey="count" 
-              fill="#3b82f6" 
+              fill={chartTheme.colors.primary}
               radius={[8, 8, 0, 0]}
             />
           </BarChart>

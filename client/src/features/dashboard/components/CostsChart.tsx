@@ -1,6 +1,7 @@
 import React from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { CostData } from '../types/dashboard';
+import { chartTheme, formatMonth, formatCurrency } from '../utils/chartTheme';
 
 interface CostsChartProps {
   data: CostData[];
@@ -30,19 +31,6 @@ export const CostsChart: React.FC<CostsChartProps> = ({ data, loading }) => {
     );
   }
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value);
-  };
-
-  const formatMonth = (monthStr: string) => {
-    const [year, month] = monthStr.split('-');
-    const date = new Date(parseInt(year), parseInt(month) - 1);
-    return date.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' });
-  };
-
   const chartData = data.map(item => ({
     ...item,
     monthLabel: formatMonth(item.month)
@@ -55,47 +43,47 @@ export const CostsChart: React.FC<CostsChartProps> = ({ data, loading }) => {
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" />
+            <CartesianGrid 
+              strokeDasharray={chartTheme.grid.strokeDasharray} 
+              stroke={chartTheme.grid.stroke}
+            />
             <XAxis 
               dataKey="monthLabel" 
-              tick={{ fontSize: 12 }}
+              tick={chartTheme.axis.tick}
             />
             <YAxis 
-              tick={{ fontSize: 12 }}
+              tick={chartTheme.axis.tick}
               tickFormatter={(value) => `R$ ${value}`}
             />
             <Tooltip 
+              contentStyle={chartTheme.tooltip.contentStyle}
+              labelStyle={chartTheme.tooltip.labelStyle}
               formatter={(value: number) => formatCurrency(value)}
-              contentStyle={{ 
-                backgroundColor: 'hsl(var(--b1))',
-                border: '1px solid hsl(var(--b3))',
-                borderRadius: '0.5rem'
-              }}
             />
             <Legend />
             <Line 
               type="monotone" 
               dataKey="evolutionApi" 
               name="Evolution API"
-              stroke="#8b5cf6" 
+              stroke={chartTheme.colors.secondary}
               strokeWidth={2}
-              dot={{ r: 4 }}
+              dot={{ fill: chartTheme.colors.secondary, r: 4 }}
             />
             <Line 
               type="monotone" 
               dataKey="storage" 
               name="Armazenamento"
-              stroke="#06b6d4" 
+              stroke={chartTheme.colors.info}
               strokeWidth={2}
-              dot={{ r: 4 }}
+              dot={{ fill: chartTheme.colors.info, r: 4 }}
             />
             <Line 
               type="monotone" 
               dataKey="total" 
               name="Total"
-              stroke="#10b981" 
+              stroke={chartTheme.colors.success}
               strokeWidth={3}
-              dot={{ r: 5 }}
+              dot={{ fill: chartTheme.colors.success, r: 5 }}
             />
           </LineChart>
         </ResponsiveContainer>
