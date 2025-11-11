@@ -386,7 +386,12 @@ export class ConversationService {
         }
       }
     } catch (error) {
-      // Não fazer nada, apenas log silencioso
+      // Log error silently without throwing - this is a background update
+      console.error('[ConversationService] Error updating contact info from webhook:', {
+        instanceId,
+        conversationId,
+        error: error instanceof Error ? error.message : error
+      });
     }
   }
 

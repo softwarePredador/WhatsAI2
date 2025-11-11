@@ -3,7 +3,6 @@ import { ConversationService } from '../../services/conversation-service';
 import { z } from 'zod';
 import { prisma } from '../../database/prisma';
 import { MediaStorageService } from '../../services/media-storage';
-import multer from 'multer';
 
 const sendMessageSchema = z.object({
   remoteJid: z.string().min(1, 'Número do destinatário é obrigatório'),

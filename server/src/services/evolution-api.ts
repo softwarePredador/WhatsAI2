@@ -1,5 +1,5 @@
 import axios, { AxiosInstance } from 'axios';
-import { WhatsAppInstance, InstanceStatus, QRCodeData } from '../types';
+import { WhatsAppInstance, InstanceStatus } from '../types';
 import { env } from '../config/env';
 
 interface EvolutionApiConfig {
