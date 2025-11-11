@@ -507,8 +507,6 @@ export class IncomingMediaService {
 
       // Validação adicional para imagens
       if (mediaType === 'image' && buffer.length > 0) {
-        const firstBytes = buffer.subarray(0, 8).toString('hex');
-
         // Verificar se parece uma imagem válida
         if (buffer.length < 100) {
           console.warn(`⚠️ [UPLOAD_VALIDATION] Buffer muito pequeno para imagem: ${buffer.length} bytes`);
