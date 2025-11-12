@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Send, Phone, Video, MoreVertical, ArrowLeft, Search, Paperclip } from 'lucide-react';
+import { Send, Phone, Video, MoreVertical, ArrowLeft, Search, Paperclip, Sparkles, Wand2, CheckCircle2 } from 'lucide-react';
 import { userAuthStore } from '../features/auth/store/authStore';
 import { conversationService } from '../services/conversationService';
 import { socketService } from '../services/socketService';
@@ -8,6 +8,7 @@ import { getDisplayName, formatPhoneNumber } from '../utils/contact-display';
 import { MediaMessage } from '../components/messages';
 import { FileUploadService } from '../services/fileUploadService';
 import { usePresence } from '../hooks/usePresence';
+import { aiFeaturesService } from '../services/aiFeaturesService';
 
 interface Message {
   id: string;
@@ -55,6 +56,15 @@ export const ChatPage: React.FC = () => {
   const [showChatMenu, setShowChatMenu] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // AI Features state
+  const [showToneAdjuster, setShowToneAdjuster] = useState(false);
+  const [adjustingTone, setAdjustingTone] = useState(false);
+  const [smartReplies, setSmartReplies] = useState<string[]>([]);
+  const [loadingReplies, setLoadingReplies] = useState(false);
+  const [grammarErrors, setGrammarErrors] = useState<any[]>([]);
+  const [checkingGrammar, setCheckingGrammar] = useState(false);
+  const [aiAvailable, setAiAvailable] = useState(false);
 
   // Hook para gerenciar status de presença
   const { getPresence } = usePresence(instanceId || '');
@@ -515,6 +525,94 @@ export const ChatPage: React.FC = () => {
     }
   };
 
+  // AI Features handlers
+  const handleToneAdjust = async (tone: 'professional' | 'friendly' | 'formal' | 'casual' | 'concise') => {
+    if (!newMessage.trim() || !token) return;
+
+    setAdjustingTone(true);
+    try {
+      const result = await aiFeaturesService.adjustTone(newMessage, tone, token);
+      setNewMessage(result.adjusted);
+      setShowToneAdjuster(false);
+    } catch (error) {
+      console.error('Error adjusting tone:', error);
+      alert('Erro ao ajustar o tom da mensagem. Tente novamente.');
+    } finally {
+      setAdjustingTone(false);
+    }
+  };
+
+  const handleSmartReply = (reply: string) => {
+    setNewMessage(reply);
+    setSmartReplies([]);
+  };
+
+  const handleGrammarCheck = useCallback(async () => {
+    if (!newMessage.trim() || newMessage.length < 3 || !token) {
+      setGrammarErrors([]);
+      return;
+    }
+
+    setCheckingGrammar(true);
+    try {
+      const result = await aiFeaturesService.checkGrammar(newMessage, token);
+      if (result.hasErrors) {
+        setGrammarErrors(result.errors);
+      } else {
+        setGrammarErrors([]);
+      }
+    } catch (error) {
+      console.error('Error checking grammar:', error);
+      setGrammarErrors([]);
+    } finally {
+      setCheckingGrammar(false);
+    }
+  }, [newMessage, token]);
+
+  const applyGrammarFix = async () => {
+    if (!token || !newMessage.trim()) return;
+
+    try {
+      const result = await aiFeaturesService.checkGrammar(newMessage, token);
+      if (result.hasErrors) {
+        setNewMessage(result.correctedText);
+        setGrammarErrors([]);
+      }
+    } catch (error) {
+      console.error('Error applying grammar fix:', error);
+    }
+  };
+
+  // Check AI availability on mount
+  useEffect(() => {
+    if (token) {
+      aiFeaturesService.getStatus(token)
+        .then((status) => setAiAvailable(status.available))
+        .catch(() => setAiAvailable(false));
+    }
+  }, [token]);
+
+  // Generate smart replies when last message is not from user
+  useEffect(() => {
+    if (!aiAvailable || !token || messages.length === 0) return;
+
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage && !lastMessage.fromMe && lastMessage.content) {
+      setLoadingReplies(true);
+      aiFeaturesService.generateSmartReplies(lastMessage.content, undefined, token)
+        .then((result) => {
+          setSmartReplies(result.replies);
+        })
+        .catch((error) => {
+          console.error('Error generating smart replies:', error);
+          setSmartReplies([]);
+        })
+        .finally(() => {
+          setLoadingReplies(false);
+        });
+    }
+  }, [messages, aiAvailable, token]);
+
   const handleVoiceCall = () => {
     alert('Chamadas de voz não estão disponíveis na versão web. Use o aplicativo WhatsApp no seu dispositivo móvel.');
   };
@@ -881,6 +979,25 @@ export const ChatPage: React.FC = () => {
 
       {/* Message Input */}
       <div className="p-4 border-t bg-base-100 border-base-300">
+        {/* Smart Reply Suggestions */}
+        {aiAvailable && smartReplies.length > 0 && (
+          <div className="mb-3 flex flex-wrap gap-2">
+            <div className="w-full text-xs text-base-content/60 mb-1 flex items-center gap-1">
+              <Sparkles className="h-3 w-3" />
+              Sugestões rápidas:
+            </div>
+            {smartReplies.map((reply, index) => (
+              <button
+                key={index}
+                onClick={() => handleSmartReply(reply)}
+                className="px-3 py-1.5 text-sm bg-base-200 hover:bg-base-300 rounded-full transition-colors text-base-content"
+              >
+                {reply}
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className="flex items-end space-x-3">
           {/* Input file oculto */}
           <input
@@ -924,17 +1041,120 @@ export const ChatPage: React.FC = () => {
             )}
           </div>
 
-          <div className="flex-1">
+          <div className="flex-1 relative">
             <textarea
               value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
+              onChange={(e) => {
+                setNewMessage(e.target.value);
+                setGrammarErrors([]);
+              }}
               onKeyPress={handleKeyPress}
+              onBlur={aiAvailable ? handleGrammarCheck : undefined}
               placeholder="Digite uma mensagem..."
-              className="w-full p-3 border border-base-300 rounded-lg resize-none focus:ring-2 focus:ring-primary focus:border-primary bg-base-100 text-base-content placeholder-base-content/60"
+              className={`w-full p-3 border rounded-lg resize-none focus:ring-2 focus:ring-primary focus:border-primary bg-base-100 text-base-content placeholder-base-content/60 ${
+                grammarErrors.length > 0 ? 'border-warning' : 'border-base-300'
+              }`}
               rows={1}
               style={{ minHeight: '44px', maxHeight: '120px' }}
             />
+            
+            {/* Grammar check indicator */}
+            {aiAvailable && grammarErrors.length > 0 && (
+              <button
+                onClick={applyGrammarFix}
+                className="absolute top-2 right-2 text-xs text-warning hover:text-warning-focus flex items-center gap-1 bg-base-100 px-2 py-1 rounded"
+                title="Clique para corrigir"
+              >
+                <Wand2 className="h-3 w-3" />
+                {grammarErrors.length} erro(s) - Corrigir
+              </button>
+            )}
           </div>
+
+          {/* Tone Adjuster Button */}
+          {aiAvailable && newMessage.trim() && (
+            <div className="relative">
+              <button
+                onClick={() => setShowToneAdjuster(!showToneAdjuster)}
+                className="p-3 rounded-lg hover:bg-base-200 transition-colors text-base-content/60 hover:text-base-content"
+                title="Ajustar tom da mensagem"
+              >
+                {adjustingTone ? (
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-base-content/60"></div>
+                ) : (
+                  <Sparkles className="h-5 w-5" />
+                )}
+              </button>
+
+              {/* Tone Adjuster Dropdown */}
+              {showToneAdjuster && !adjustingTone && (
+                <>
+                  <div 
+                    className="fixed inset-0 z-10"
+                    onClick={() => setShowToneAdjuster(false)}
+                  />
+                  <div className="absolute bottom-full right-0 mb-2 w-56 rounded-md shadow-lg z-20 border bg-base-100 border-base-300">
+                    <div className="p-2">
+                      <div className="text-xs font-semibold text-base-content/70 mb-2 px-2">
+                        Ajustar Tom
+                      </div>
+                      <button
+                        onClick={() => handleToneAdjust('professional')}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-base-200 rounded text-base-content flex items-center gap-2"
+                      >
+                        <span>💼</span>
+                        <div>
+                          <div className="font-medium">Profissional</div>
+                          <div className="text-xs text-base-content/60">Para comunicação empresarial</div>
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => handleToneAdjust('friendly')}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-base-200 rounded text-base-content flex items-center gap-2"
+                      >
+                        <span>😊</span>
+                        <div>
+                          <div className="font-medium">Amigável</div>
+                          <div className="text-xs text-base-content/60">Caloroso e acolhedor</div>
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => handleToneAdjust('formal')}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-base-200 rounded text-base-content flex items-center gap-2"
+                      >
+                        <span>🎩</span>
+                        <div>
+                          <div className="font-medium">Formal</div>
+                          <div className="text-xs text-base-content/60">Respeitoso e educado</div>
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => handleToneAdjust('casual')}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-base-200 rounded text-base-content flex items-center gap-2"
+                      >
+                        <span>👋</span>
+                        <div>
+                          <div className="font-medium">Casual</div>
+                          <div className="text-xs text-base-content/60">Descontraído e natural</div>
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => handleToneAdjust('concise')}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-base-200 rounded text-base-content flex items-center gap-2"
+                      >
+                        <span>⚡</span>
+                        <div>
+                          <div className="font-medium">Conciso</div>
+                          <div className="text-xs text-base-content/60">Breve e direto</div>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
           <button
             onClick={sendMessage}
             disabled={!newMessage.trim() || sending}
