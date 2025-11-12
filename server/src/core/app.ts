@@ -99,6 +99,10 @@ export class App {
   private setupRoutes(): void {
     // Serve static files (for test client)
     this.app.use('/static', express.static('public'));
+    
+    // Serve uploaded media files (profile pictures, etc.)
+    this.app.use('/uploads', express.static('uploads'));
+    
     this.app.get('/test', (req, res) => {
       res.sendFile('test-client.html', { root: '.' });
     });

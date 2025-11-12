@@ -13,6 +13,10 @@ import {
   isLidJid
 } from '../utils/baileys-helpers';
 import { normalizeWhatsAppJid, isGroupJid } from '../utils/phone-helper';
+import axios from 'axios';
+import * as path from 'path';
+import { promises as fs } from 'fs';
+import { v4 as uuidv4 } from 'uuid';
 
 
 type Conversation = {
@@ -102,6 +106,91 @@ export class ConversationService {
     return await prisma.whatsAppInstance.findUnique({
       where: { evolutionInstanceName }
     });
+  }
+
+  /**
+   * Download and store profile picture permanently
+   * This fixes the "URL signature expired" error by downloading the temporary WhatsApp URL
+   * and saving it to permanent storage instead of storing the temporary URL in the database
+   */
+  private async downloadAndStoreProfilePicture(profilePicUrl: string, remoteJid: string): Promise<string | null> {
+    try {
+      console.log(`🖼️ [PROFILE_PIC_DOWNLOAD] Starting download for ${remoteJid}`);
+      console.log(`   URL: ${profilePicUrl.substring(0, 100)}...`);
+
+      // Download the image using axios
+      const response = await axios.get(profilePicUrl, {
+        responseType: 'arraybuffer',
+        timeout: 30000, // 30 seconds timeout
+        headers: {
+          'User-Agent': 'WhatsAI/1.0'
+        },
+        maxContentLength: 10 * 1024 * 1024, // 10MB max for profile pictures
+        validateStatus: (status) => status < 400
+      });
+
+      console.log(`✅ [PROFILE_PIC_DOWNLOAD] Downloaded successfully (${response.data.byteLength} bytes)`);
+
+      // Convert to Buffer
+      const buffer = Buffer.from(response.data);
+
+      // Get content type from response headers
+      const contentType = response.headers['content-type'] || 'image/jpeg';
+      
+      // Generate unique filename
+      const fileId = uuidv4();
+      const extension = this.getExtensionFromContentType(contentType);
+      const fileName = `${fileId}.${extension}`;
+
+      // Determine storage path - save to profile_pictures subdirectory
+      const uploadsDir = path.join(process.cwd(), 'uploads', 'media', 'profile_pictures');
+      
+      // Ensure directory exists
+      await fs.mkdir(uploadsDir, { recursive: true });
+
+      // Full path for the file
+      const filePath = path.join(uploadsDir, fileName);
+
+      // Save file to disk
+      await fs.writeFile(filePath, buffer);
+
+      console.log(`💾 [PROFILE_PIC_DOWNLOAD] Saved to: ${filePath}`);
+
+      // Return the permanent URL (relative path that can be served via Express static)
+      const permanentUrl = `/uploads/media/profile_pictures/${fileName}`;
+      
+      console.log(`✅ [PROFILE_PIC_DOWNLOAD] Permanent URL: ${permanentUrl}`);
+
+      return permanentUrl;
+
+    } catch (error: any) {
+      console.error(`❌ [PROFILE_PIC_DOWNLOAD] Failed to download profile picture for ${remoteJid}:`, error.message);
+      
+      // Log more details for debugging
+      if (error.response) {
+        console.error(`   Status: ${error.response.status}`);
+        console.error(`   Status Text: ${error.response.statusText}`);
+      }
+
+      // Return null on error - don't update the picture if download fails
+      return null;
+    }
+  }
+
+  /**
+   * Get file extension from content type
+   */
+  private getExtensionFromContentType(contentType: string): string {
+    const extensions: { [key: string]: string } = {
+      'image/jpeg': 'jpg',
+      'image/jpg': 'jpg',
+      'image/png': 'png',
+      'image/gif': 'gif',
+      'image/webp': 'webp',
+      'image/bmp': 'bmp'
+    };
+
+    return extensions[contentType] || 'jpg'; // Default to jpg if unknown
   }
 
   /**
@@ -507,9 +596,41 @@ export class ConversationService {
           updateData.contactName = data.contactName;
         }
         
-        // Para foto de perfil, podemos atualizar normalmente (tanto individual quanto grupo)
+        // 🖼️ FIX: Download and store profile picture permanently instead of saving temporary URL
+        // This prevents "URL signature expired" errors
         if (data.contactPicture) {
-          updateData.contactPicture = data.contactPicture;
+          // Check if this is a temporary WhatsApp URL (pps.whatsapp.net or mmg.whatsapp.net)
+          // Use URL parsing to avoid substring sanitization issues
+          let isTemporaryUrl = false;
+          try {
+            const url = new URL(data.contactPicture);
+            isTemporaryUrl = url.hostname === 'pps.whatsapp.net' || 
+                            url.hostname === 'mmg.whatsapp.net' ||
+                            url.hostname.endsWith('.pps.whatsapp.net') ||
+                            url.hostname.endsWith('.mmg.whatsapp.net');
+          } catch {
+            // If URL parsing fails, assume it's not a valid URL
+            isTemporaryUrl = false;
+          }
+          
+          if (isTemporaryUrl) {
+            console.log(`🖼️ [CONTACT_UPDATE] Detected temporary WhatsApp URL, downloading...`);
+            
+            // Download and store the image permanently
+            const permanentUrl = await this.downloadAndStoreProfilePicture(data.contactPicture, remoteJid);
+            
+            if (permanentUrl) {
+              updateData.contactPicture = permanentUrl;
+              console.log(`✅ [CONTACT_UPDATE] Profile picture saved permanently: ${permanentUrl}`);
+            } else {
+              console.warn(`⚠️ [CONTACT_UPDATE] Failed to download profile picture, skipping update`);
+              // Don't update contactPicture if download failed
+            }
+          } else {
+            // If it's already a permanent URL (e.g., from our CDN), use it directly
+            updateData.contactPicture = data.contactPicture;
+            console.log(`✅ [CONTACT_UPDATE] Using existing permanent URL`);
+          }
         }
 
         if (Object.keys(updateData).length > 0) {
