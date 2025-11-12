@@ -253,9 +253,13 @@ export class EvolutionApiService {
 
   async checkIsWhatsApp(instanceName: string, numbers: string[]): Promise<any> {
     try {
+      // Limpar números (remover sufixos WhatsApp)
+      const cleanNumbers = numbers.map(num => 
+        num.replace(/@s\.whatsapp\.net/g, '').replace(/@g\.us/g, '').replace(/@c\.us/g, '').trim()
+      );
       
       const payload = {
-        numbers: numbers
+        numbers: cleanNumbers
       };
       
       const response = await this.client.post(`/chat/whatsappNumbers/${instanceName}`, payload);
@@ -318,6 +322,9 @@ export class EvolutionApiService {
 
   async sendMediaMessage(instanceName: string, number: string, mediaUrl: string, caption?: string, mediaType?: string): Promise<any> {
     try {
+      // Garantir que o número esteja no formato correto do WhatsApp (sem @s.whatsapp.net para Evolution API)
+      const cleanNumber = number.includes('@') ? number.replace('@s.whatsapp.net', '').replace('@g.us', '') : number;
+      
       // Download the file from the URL and convert to base64
       const mediaResponse = await this.client.get(mediaUrl, { responseType: 'arraybuffer' });
       const base64Data = Buffer.from(mediaResponse.data).toString('base64');
@@ -333,7 +340,7 @@ export class EvolutionApiService {
       console.log(`✅ [sendMediaMessage] Media downloaded and converted to base64 (${base64Data.length} chars)`);
 
       const response = await this.client.post(`/message/sendMedia/${instanceName}`, {
-        number: number,
+        number: cleanNumber,
         mediatype: mediaType || this.getMediaTypeFromMimeType(mimetype),
         mimetype: mimetype,
         caption: caption || '',
