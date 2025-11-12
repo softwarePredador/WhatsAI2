@@ -455,10 +455,20 @@ export class EvolutionApiService {
         this.profilePictureFailCache.delete(cacheKey);
       }
       
+      // Limpar e validar o número (remover qualquer sufixo WhatsApp que possa ter sido esquecido)
+      const cleanNumber = number.replace(/@s\.whatsapp\.net/g, '').replace(/@g\.us/g, '').replace(/@c\.us/g, '').trim();
+      
+      // Validar formato do número (apenas dígitos)
+      if (!cleanNumber || !/^\d+$/.test(cleanNumber)) {
+        console.error(`❌ [fetchProfilePictureUrl] Número inválido: "${number}" (limpo: "${cleanNumber}")`);
+        return { profilePictureUrl: null };
+      }
+      
+      console.log(`🔍 [fetchProfilePictureUrl] Buscando foto para: ${cleanNumber} (instância: ${instanceName})`);
       
       // Endpoint correto segundo documentação: fetchProfilePictureUrl (com 'u' minúsculo)
       const response = await this.client.post(`/chat/fetchProfilePictureUrl/${instanceName}`, {
-        number: number
+        number: cleanNumber
       });
 
       
@@ -467,11 +477,24 @@ export class EvolutionApiService {
         this.profilePictureFailCache.delete(cacheKey);
       }
       
+      console.log(`✅ [fetchProfilePictureUrl] Foto obtida com sucesso para ${cleanNumber}`);
+      
       return {
         profilePictureUrl: response.data?.profilePictureUrl || null
       };
     } catch (error: any) {
-      console.error('❌ Error fetching profile picture:', error.response?.data || error.message);
+      // Enhanced error logging para debug de Bad Request
+      console.error(`❌ [fetchProfilePictureUrl] Erro ao buscar foto de perfil:`);
+      console.error(`   Instância: ${instanceName}`);
+      console.error(`   Número: ${number}`);
+      console.error(`   Status: ${error.response?.status || 'N/A'}`);
+      console.error(`   Status Text: ${error.response?.statusText || 'N/A'}`);
+      console.error(`   Dados do erro: ${JSON.stringify(error.response?.data || {}, null, 2)}`);
+      console.error(`   Mensagem: ${error.message}`);
+      
+      // Log do payload enviado para debug
+      const cleanNumber = number.replace(/@s\.whatsapp\.net/g, '').replace(/@g\.us/g, '').replace(/@c\.us/g, '').trim();
+      console.error(`   Payload enviado: ${JSON.stringify({ number: cleanNumber }, null, 2)}`);
       
       // Gerenciar cache de falhas
       const cacheKey = `${instanceName}:${number}`;
