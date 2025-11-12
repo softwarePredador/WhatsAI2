@@ -497,6 +497,10 @@ export class EvolutionApiService {
       console.error(`   Status: ${error.response?.status || 'N/A'}`);
       console.error(`   Status Text: ${error.response?.statusText || 'N/A'}`);
       console.error(`   Dados do erro: ${JSON.stringify(error.response?.data || {}, null, 2)}`);
+      
+      // Tentar acessar a mensagem de erro de diferentes formas
+      const errorMsg = error.response?.data?.response?.message || error.response?.data?.message;
+      console.error(`   Mensagem completa: ${JSON.stringify(errorMsg, null, 2)}`);
       console.error(`   Mensagem: ${error.message}`);
       
       // Log do payload enviado para debug
@@ -544,16 +548,44 @@ export class EvolutionApiService {
   }>> {
     try {
       
-      const payload: any = {};
+      // Testar diferentes formatos de payload
+      let payload: any;
+      
       if (numbers && numbers.length > 0) {
-        payload.where = numbers.map(num => ({ id: num }));
+        // Formato 1: Tentar com array simples de números
+        payload = {
+          numbers: numbers.map(num => {
+            // Garantir que o número esteja limpo (sem sufixos WhatsApp)
+            return num.replace('@s.whatsapp.net', '').replace('@g.us', '').replace('@c.us', '').trim();
+          })
+        };
+      } else {
+        payload = {};
       }
+
+      console.log('🔍 [fetchContacts] Payload:', JSON.stringify(payload, null, 2));
+      console.log('🔍 [fetchContacts] Instance:', instanceName);
+      console.log('🔍 [fetchContacts] Numbers:', numbers);
 
       const response = await this.client.post(`/chat/findContacts/${instanceName}`, payload);
 
       return response.data || [];
     } catch (error: any) {
-      console.error('❌ Error fetching contacts:', error.response?.data || error.message);
+      console.error('❌ Error fetching contacts:', {
+        status: error.response?.status,
+        error: error.response?.statusText,
+        response: error.response?.data
+      });
+      
+      // Tentar acessar a mensagem de erro de diferentes formas
+      const errorMsg = error.response?.data?.response?.message || error.response?.data?.message;
+      console.error('Full error message array:', JSON.stringify(errorMsg, null, 2));
+      
+      const errorPayload: any = {};
+      if (numbers && numbers.length > 0) {
+        errorPayload.numbers = numbers.map(num => num.replace('@s.whatsapp.net', '').replace('@g.us', '').replace('@c.us', '').trim());
+      }
+      console.error('Payload that caused error:', JSON.stringify(errorPayload, null, 2));
       return [];
     }
   }
