@@ -109,72 +109,15 @@ export class ConversationService {
   }
 
   /**
-   * Download and store profile picture permanently
-   * This fixes the "URL signature expired" error by downloading the temporary WhatsApp URL
-   * and saving it to permanent storage instead of storing the temporary URL in the database
+   * ⚠️ DEPRECATED: This method is no longer used
+   * Profile pictures are now fetched dynamically via GET /api/conversations/picture/:instanceId/:jid
+   * Keeping for reference only
    */
-  private async downloadAndStoreProfilePicture(profilePicUrl: string, remoteJid: string): Promise<string | null> {
-    try {
-      console.log(`🖼️ [PROFILE_PIC_DOWNLOAD] Starting download for ${remoteJid}`);
-      console.log(`   URL: ${profilePicUrl.substring(0, 100)}...`);
-
-      // Download the image using axios
-      const response = await axios.get(profilePicUrl, {
-        responseType: 'arraybuffer',
-        timeout: 30000, // 30 seconds timeout
-        headers: {
-          'User-Agent': 'WhatsAI/1.0'
-        },
-        maxContentLength: 10 * 1024 * 1024, // 10MB max for profile pictures
-        validateStatus: (status) => status < 400
-      });
-
-      console.log(`✅ [PROFILE_PIC_DOWNLOAD] Downloaded successfully (${response.data.byteLength} bytes)`);
-
-      // Convert to Buffer
-      const buffer = Buffer.from(response.data);
-
-      // Get content type from response headers
-      const contentType = response.headers['content-type'] || 'image/jpeg';
-      
-      // Generate unique filename
-      const fileId = uuidv4();
-      const extension = this.getExtensionFromContentType(contentType);
-      const fileName = `${fileId}.${extension}`;
-
-      // Determine storage path - save to profile_pictures subdirectory
-      const uploadsDir = path.join(process.cwd(), 'uploads', 'media', 'profile_pictures');
-      
-      // Ensure directory exists
-      await fs.mkdir(uploadsDir, { recursive: true });
-
-      // Full path for the file
-      const filePath = path.join(uploadsDir, fileName);
-
-      // Save file to disk
-      await fs.writeFile(filePath, buffer);
-
-      console.log(`💾 [PROFILE_PIC_DOWNLOAD] Saved to: ${filePath}`);
-
-      // Return the permanent URL (relative path that can be served via Express static)
-      const permanentUrl = `/uploads/media/profile_pictures/${fileName}`;
-      
-      console.log(`✅ [PROFILE_PIC_DOWNLOAD] Permanent URL: ${permanentUrl}`);
-
-      return permanentUrl;
-
-    } catch (error: any) {
-      console.error(`❌ [PROFILE_PIC_DOWNLOAD] Failed to download profile picture for ${remoteJid}:`, error.message);
-      
-      // Log more details for debugging
-      if (error.response) {
-        console.error(`   Status: ${error.response.status}`);
-        console.error(`   Status Text: ${error.response.statusText}`);
-      }
-
-      // Return null on error - don't update the picture if download fails
-      return null;
-    }
+  private async downloadAndStoreProfilePicture_DEPRECATED(profilePicUrl: string, remoteJid: string): Promise<string | null> {
+    // This method is deprecated and should not be used
+    // Profile pictures should be fetched dynamically instead of stored
+    console.warn(`⚠️ [DEPRECATED] downloadAndStoreProfilePicture called for ${remoteJid} - this method should not be used`);
+    return null;
   }
 
   /**
@@ -326,17 +269,9 @@ export class ConversationService {
 
     const conversations = await this.conversationRepository.findByInstanceId(instanceId);
     
-    // 📸 Buscar fotos em background para conversas sem foto
-    const conversationsWithoutPicture = conversations.filter(c => !c.contactPicture);
-    if (conversationsWithoutPicture.length > 0) {
-      
-      // Buscar todas em paralelo (não esperar)
-      Promise.all(
-        conversationsWithoutPicture.map(conv => 
-          this.fetchContactInfoInBackground(conv.id, instanceId, conv.remoteJid)
-        )
-      ).catch(err => console.log('⚠️  Erro ao buscar fotos:', err.message));
-    }
+    // 🔄 REMOVED: Background fetching of profile pictures
+    // Profile pictures are no longer stored in database
+    // They should be fetched dynamically via GET /api/conversations/picture/:instanceId/:jid
     
     return conversations.map(conversation => {
       // Obter a última mensagem do relacionamento messages (primeira posição, ordenada por timestamp desc)
@@ -346,7 +281,7 @@ export class ConversationService {
         id: conversation.id,
         remoteJid: conversation.remoteJid,
         contactName: conversation.contactName,
-        contactPicture: conversation.contactPicture || '',
+        contactPicture: conversation.contactPicture || '', // Will be empty, frontend should fetch dynamically
         isGroup: conversation.isGroup,
         lastMessage: conversation.lastMessage,
         lastMessageAt: conversation.lastMessageAt,
@@ -393,11 +328,9 @@ export class ConversationService {
       remoteJid
     });
 
-    // 📸 Buscar foto de perfil em background se ainda não tiver
-    if (!conversation.contactPicture) {
-      this.fetchContactInfoInBackground(conversation.id, instanceId, remoteJid).catch(err => {
-      });
-    }
+    // 🔄 REMOVED: Background fetching of profile pictures
+    // Profile pictures should be fetched dynamically via GET /api/conversations/picture/:instanceId/:jid
+    // This prevents storing expired WhatsApp CDN URLs
 
     // Emit conversation update to frontend
     console.log(`📡 [WebSocket] Emitindo conversation:updated para instância ${instanceId}:`, {
@@ -430,58 +363,13 @@ export class ConversationService {
   }
 
   /**
-   * Busca informações do contato em background (não bloqueia)
+   * ⚠️ DEPRECATED: Busca informações do contato em background
+   * This method should no longer be used
+   * Profile pictures should be fetched dynamically via GET /api/conversations/picture/:instanceId/:jid
    */
-  private async fetchContactInfoInBackground(conversationId: string, instanceId: string, remoteJid: string): Promise<void> {
-    try {
-      const instance = await prisma.whatsAppInstance.findUnique({
-        where: { id: instanceId }
-      });
-
-      if (!instance) return;
-
-      const evolutionService = new EvolutionApiService(instance.evolutionApiUrl, instance.evolutionApiKey);
-      const number = remoteJid.replace('@s.whatsapp.net', '').replace('@g.us', '');
-      
-      // Buscar informações do contato (pushName + foto)
-      const contacts = await evolutionService.fetchContacts(instance.evolutionInstanceName, [number]);
-      const contactInfo = contacts.find(c => c.id === remoteJid || c.id === number);
-
-      let updateData: any = {};
-
-      // Atualizar pushName se encontrado
-      if (contactInfo?.pushName) {
-        updateData.contactName = contactInfo.pushName;
-      }
-
-      // Buscar foto de perfil
-      const profilePicture = await evolutionService.fetchProfilePictureUrl(
-        instance.evolutionInstanceName,
-        number
-      );
-
-      if (profilePicture.profilePictureUrl) {
-        updateData.contactPicture = profilePicture.profilePictureUrl;
-      }
-
-      // Atualizar conversa se houver dados novos
-      if (Object.keys(updateData).length > 0) {
-        await this.conversationRepository.update(conversationId, updateData);
-
-        // Notificar frontend
-        const updatedConv = await this.conversationRepository.findById(conversationId);
-        if (updatedConv) {
-          this.socketService.emitToInstance(instanceId, 'conversation:updated', updatedConv);
-        }
-      }
-    } catch (error) {
-      // Log error silently without throwing - this is a background update
-      console.error('[ConversationService] Error updating contact info from webhook:', {
-        instanceId,
-        conversationId,
-        error: error instanceof Error ? error.message : error
-      });
-    }
+  private async fetchContactInfoInBackground_DEPRECATED(conversationId: string, instanceId: string, remoteJid: string): Promise<void> {
+    console.warn(`⚠️ [DEPRECATED] fetchContactInfoInBackground called - this method should not be used`);
+    return;
   }
 
   /**
@@ -520,9 +408,10 @@ export class ConversationService {
 
   /**
    * Update contact info from webhook (contacts.update event)
-   * Avoids unnecessary API calls for profile pictures and names
+   * NOTE: This method now only updates contact NAME, not pictures
+   * Profile pictures should be fetched dynamically via GET /api/conversations/picture/:instanceId/:jid
    */
-  async updateContactFromWebhook(instanceId: string, remoteJid: string, data: { contactName?: string; contactPicture?: string }): Promise<void> {
+  async updateContactFromWebhook(instanceId: string, remoteJid: string, data: { contactName?: string }): Promise<void> {
     try {
 
       // Estratégia 1: Tentar normalização padrão (detectar automaticamente se é grupo)
@@ -596,42 +485,10 @@ export class ConversationService {
           updateData.contactName = data.contactName;
         }
         
-        // 🖼️ FIX: Download and store profile picture permanently instead of saving temporary URL
-        // This prevents "URL signature expired" errors
-        if (data.contactPicture) {
-          // Check if this is a temporary WhatsApp URL (pps.whatsapp.net or mmg.whatsapp.net)
-          // Use URL parsing to avoid substring sanitization issues
-          let isTemporaryUrl = false;
-          try {
-            const url = new URL(data.contactPicture);
-            isTemporaryUrl = url.hostname === 'pps.whatsapp.net' || 
-                            url.hostname === 'mmg.whatsapp.net' ||
-                            url.hostname.endsWith('.pps.whatsapp.net') ||
-                            url.hostname.endsWith('.mmg.whatsapp.net');
-          } catch {
-            // If URL parsing fails, assume it's not a valid URL
-            isTemporaryUrl = false;
-          }
-          
-          if (isTemporaryUrl) {
-            console.log(`🖼️ [CONTACT_UPDATE] Detected temporary WhatsApp URL, downloading...`);
-            
-            // Download and store the image permanently
-            const permanentUrl = await this.downloadAndStoreProfilePicture(data.contactPicture, remoteJid);
-            
-            if (permanentUrl) {
-              updateData.contactPicture = permanentUrl;
-              console.log(`✅ [CONTACT_UPDATE] Profile picture saved permanently: ${permanentUrl}`);
-            } else {
-              console.warn(`⚠️ [CONTACT_UPDATE] Failed to download profile picture, skipping update`);
-              // Don't update contactPicture if download failed
-            }
-          } else {
-            // If it's already a permanent URL (e.g., from our CDN), use it directly
-            updateData.contactPicture = data.contactPicture;
-            console.log(`✅ [CONTACT_UPDATE] Using existing permanent URL`);
-          }
-        }
+        // 🔄 REMOVED: Profile picture handling
+        // Profile pictures are NO LONGER stored in the database
+        // They should be fetched dynamically via GET /api/conversations/picture/:instanceId/:jid
+        // This prevents storing expired WhatsApp CDN URLs
 
         if (Object.keys(updateData).length > 0) {
           await this.conversationRepository.update(conversation.id, updateData);
@@ -643,7 +500,6 @@ export class ConversationService {
               id: updated.id,
               remoteJid: updated.remoteJid,
               contactName: updated.contactName,
-              contactPicture: updated.contactPicture ? '✅ TEM FOTO' : '❌ SEM FOTO',
               isGroup: isGroupContact ? '✅ GROUP' : '❌ INDIVIDUAL'
             });
             this.socketService.emitToInstance(instanceId, 'conversation:updated', updated);
