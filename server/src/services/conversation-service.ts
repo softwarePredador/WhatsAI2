@@ -599,9 +599,19 @@ export class ConversationService {
         // 🖼️ FIX: Download and store profile picture permanently instead of saving temporary URL
         // This prevents "URL signature expired" errors
         if (data.contactPicture) {
-          // Check if this is a temporary WhatsApp URL (pps.whatsapp.net)
-          const isTemporaryUrl = data.contactPicture.includes('pps.whatsapp.net') || 
-                                  data.contactPicture.includes('mmg.whatsapp.net');
+          // Check if this is a temporary WhatsApp URL (pps.whatsapp.net or mmg.whatsapp.net)
+          // Use URL parsing to avoid substring sanitization issues
+          let isTemporaryUrl = false;
+          try {
+            const url = new URL(data.contactPicture);
+            isTemporaryUrl = url.hostname === 'pps.whatsapp.net' || 
+                            url.hostname === 'mmg.whatsapp.net' ||
+                            url.hostname.endsWith('.pps.whatsapp.net') ||
+                            url.hostname.endsWith('.mmg.whatsapp.net');
+          } catch {
+            // If URL parsing fails, assume it's not a valid URL
+            isTemporaryUrl = false;
+          }
           
           if (isTemporaryUrl) {
             console.log(`🖼️ [CONTACT_UPDATE] Detected temporary WhatsApp URL, downloading...`);
