@@ -53,15 +53,19 @@ export class MediaMessageService {
 
 
       // Enviar via Messaging Service (anti-ban queue system)
-      const result = await this.messagingService.sendMediaMessage({
+      const sendOptions: any = {
         instanceId,
         remoteJid: normalizedRemoteJid,
         mediaUrl,
         mediaType,
-        caption,
-        fileName,
         priority: 'normal'
-      });
+      };
+      
+      // Only add optional properties if they have values
+      if (caption !== undefined) sendOptions.caption = caption;
+      if (fileName !== undefined) sendOptions.fileName = fileName;
+      
+      const result = await this.messagingService.sendMediaMessage(sendOptions);
 
 
       // Criar/atualizar conversa
