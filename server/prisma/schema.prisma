@@ -71,6 +71,12 @@ model WhatsAppInstance {
   businessHoursEnd    String? // HH:MM format (ex: "18:00")
   businessDays        String? @default("[1,2,3,4,5]") // JSON array: 0=Sunday, 6=Saturday
 
+  // Anti-Ban / Warm-up Configuration
+  warmupState      String   @default("nova") // nova, aquecendo, ativa
+  messagesCount    Int      @default(0)
+  firstMessageAt   DateTime?
+  lastMessageAt    DateTime?
+
   // User ownership
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
