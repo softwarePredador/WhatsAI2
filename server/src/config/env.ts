@@ -27,6 +27,11 @@ const envSchema = z.object({
   
   // WebSocket configuration
   WEBSOCKET_PORT: z.string().transform(Number).optional(),
+  
+  // Redis configuration (for BullMQ message queue)
+  REDIS_HOST: z.string().default('localhost'),
+  REDIS_PORT: z.string().transform(Number).default('6379'),
+  REDIS_PASSWORD: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
