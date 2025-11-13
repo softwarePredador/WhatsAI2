@@ -2,6 +2,7 @@ import { ConversationRepository, CreateConversationData, UpdateConversationData,
 import { MessageRepository } from '../database/repositories/message-repository';
 import { prisma } from '../database/prisma';
 import { EvolutionApiService } from './evolution-api';
+import { MessagingService } from './messaging-service';
 import { SocketService } from './socket-service';
 import { MediaMessageService } from './messages';
 import { IncomingMediaService } from './incoming-media-service';
@@ -77,6 +78,7 @@ export class ConversationService {
   private conversationRepository: ConversationRepository;
   private messageRepository: MessageRepository;
   private evolutionApiService: EvolutionApiService;
+  private messagingService: MessagingService;
   private socketService: SocketService;
   private incomingMediaService: IncomingMediaService;
   
@@ -89,6 +91,7 @@ export class ConversationService {
     this.conversationRepository = new ConversationRepository(prisma);
     this.messageRepository = new MessageRepository(prisma);
     this.evolutionApiService = new EvolutionApiService();
+    this.messagingService = MessagingService.getInstance();
     this.socketService = SocketService.getInstance();
     this.incomingMediaService = new IncomingMediaService();
     
@@ -833,15 +836,19 @@ export class ConversationService {
       }
 
 
-      // ⚡ Criar/atualizar conversa em paralelo com envio da mensagem
-      const [evolutionResponse, conversation] = await Promise.all([
-        this.evolutionApiService.sendTextMessage(
-          instance.evolutionInstanceName, 
-          normalizedRemoteJid,
-          content
-        ),
-        this.createOrUpdateConversation(instanceId, normalizedRemoteJid)
-      ]);
+      // ⚡ Criar conversa primeiro, depois enviar mensagem via messaging service
+      const conversation = await this.createOrUpdateConversation(instanceId, normalizedRemoteJid);
+
+      // 🔒 Send via Messaging Service (anti-ban queue system)
+      const result = await this.messagingService.sendTextMessage({
+        instanceId,
+        remoteJid: normalizedRemoteJid,
+        content,
+        priority: 'normal',
+        metadata: {
+          conversationId: conversation.id
+        }
+      });
 
 
       // Save message to database
@@ -851,7 +858,7 @@ export class ConversationService {
         fromMe: true,
         messageType: 'TEXT',
         content,
-        messageId: evolutionResponse.key?.id || `msg_${Date.now()}`,
+        messageId: result.messageId || `msg_${Date.now()}`,
         timestamp: new Date(),
         status: 'SENT',
         conversationId: conversation.id
@@ -1721,13 +1728,15 @@ export class ConversationService {
       }
 
 
-      // 🚨 Send to Evolution API FIRST (before transaction)
+      // 🔒 Send via Messaging Service FIRST (before transaction)
       // If this fails, we don't want to save anything to database
-      const evolutionResponse = await this.evolutionApiService.sendTextMessage(
-        instance.evolutionInstanceName,
-        normalizedRemoteJid,
-        content
-      );
+      const result = await this.messagingService.sendTextMessage({
+        instanceId,
+        remoteJid: normalizedRemoteJid,
+        content,
+        priority: 'normal',
+        metadata: {}
+      });
 
 
       // 🚨 ATOMIC TRANSACTION: All database operations in one transaction
@@ -1809,7 +1818,7 @@ export class ConversationService {
 
         // 2. Create message within transaction
         // Generate unique messageId to avoid duplicates
-        let messageId = evolutionResponse.key?.id || `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        let messageId = result.messageId || `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         
         // Check if messageId already exists and generate a new one if needed
         let existingMessage = await tx.message.findUnique({

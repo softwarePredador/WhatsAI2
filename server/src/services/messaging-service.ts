@@ -104,17 +104,23 @@ export class MessagingService {
       }
 
       // Add to queue
+      const metadata: any = {
+        priority: options.priority || 'normal'
+      };
+      if (options.metadata?.conversationId !== undefined) {
+        metadata.conversationId = options.metadata.conversationId;
+      }
+      if (options.metadata?.userId !== undefined) {
+        metadata.userId = options.metadata.userId;
+      }
+
       await this.queueService.addMessage({
         instanceId: options.instanceId,
         instanceName: instance.evolutionInstanceName,
         remoteJid: options.remoteJid,
         messageType: 'text',
         content: options.content,
-        metadata: {
-          conversationId: options.metadata?.conversationId,
-          userId: options.metadata?.userId,
-          priority: options.priority || 'normal'
-        }
+        metadata
       });
 
       console.log(`✅ [MessagingService] Message added to queue for instance ${options.instanceId}`);
@@ -142,21 +148,31 @@ export class MessagingService {
       }
 
       // Add to queue
-      await this.queueService.addMessage({
+      const metadata: any = {
+        priority: options.priority || 'normal'
+      };
+      if (options.metadata?.conversationId !== undefined) {
+        metadata.conversationId = options.metadata.conversationId;
+      }
+      if (options.metadata?.userId !== undefined) {
+        metadata.userId = options.metadata.userId;
+      }
+
+      const queueJob: any = {
         instanceId: options.instanceId,
         instanceName: instance.evolutionInstanceName,
         remoteJid: options.remoteJid,
         messageType: 'media',
         mediaUrl: options.mediaUrl,
         mediaType: options.mediaType,
-        caption: options.caption,
-        fileName: options.fileName,
-        metadata: {
-          conversationId: options.metadata?.conversationId,
-          userId: options.metadata?.userId,
-          priority: options.priority || 'normal'
-        }
-      });
+        metadata
+      };
+      
+      // Only add optional properties if they have values
+      if (options.caption !== undefined) queueJob.caption = options.caption;
+      if (options.fileName !== undefined) queueJob.fileName = options.fileName;
+
+      await this.queueService.addMessage(queueJob);
 
       console.log(`✅ [MessagingService] Media message added to queue for instance ${options.instanceId}`);
 
